@@ -3,6 +3,9 @@
 //! This module provides functionality for interacting with the SSH agent,
 //! including starting the agent, managing keys, and parsing agent output.
 
+#[cfg(unix)]
+mod wire;
+
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -564,6 +567,31 @@ impl SshAgentManager {
         self.get_status_inner(None)
     }
 
+    /// The agent's identities over the native wire protocol, or `None` to make
+    /// the caller fall back to `ssh-add -l`.
+    ///
+    /// `Some(status)` is a complete answer with `running: true`; `None` means
+    /// the native client could not talk to this agent (an unexpected socket, a
+    /// non-standard implementation, an I/O timeout) and the shell-out path
+    /// should be tried instead, so behaviour is never worse than before (A1).
+    #[cfg(unix)]
+    fn native_status(socket_path: &str) -> Option<AgentStatus> {
+        match wire::request_identities(socket_path) {
+            Ok(keys) => Some(AgentStatus {
+                running: true,
+                socket_path: Some(socket_path.to_string()),
+                keys,
+            }),
+            Err(e) => {
+                tracing::debug!(
+                    error = %e,
+                    "native ssh-agent query failed; falling back to ssh-add -l"
+                );
+                None
+            }
+        }
+    }
+
     /// Gets the current agent status with a timeout.
     ///
     /// Spawns `ssh-add -l` as a child process and waits up to `timeout` for it
@@ -593,6 +621,15 @@ impl SshAgentManager {
                 });
             }
         };
+
+        // Native fast path (A1): one Unix-socket round trip, no process and no
+        // per-key `ssh-keygen`, computing each fingerprint with `ring`. On any
+        // failure it falls through to the `ssh-add -l` spawn below, so an agent
+        // the native client cannot talk to behaves exactly as before.
+        #[cfg(unix)]
+        if let Some(status) = Self::native_status(&socket_path) {
+            return Ok(status);
+        }
 
         // Spawn the child process so we can apply a timeout.
         let child_result = Command::new("ssh-add")
