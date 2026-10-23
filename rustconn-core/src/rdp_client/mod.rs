@@ -1,7 +1,7 @@
 //! RDP client boundary for domain types and optional embedded sessions
 //!
-//! This module always exposes RDP configuration, events, command types, backend
-//! detection, and argument helpers that are useful to headless callers. The
+//! This module always exposes RDP configuration, events, command types, and
+//! argument helpers that are useful to headless callers. The
 //! actual embedded RDP runtime is compiled only with the `rdp-embedded` feature,
 //! so a minimal `rustconn-core` build does not pull IronRDP or client runtime
 //! dependencies.
@@ -48,7 +48,6 @@
 
 #[cfg(feature = "rdp-embedded")]
 pub mod audio;
-pub mod backend;
 #[cfg(feature = "rdp-embedded")]
 mod client;
 #[cfg(feature = "rdp-embedded")]
@@ -82,7 +81,6 @@ pub mod quick_actions;
 #[cfg(feature = "rdp-embedded")]
 pub mod tofu;
 
-pub use backend::{BackendDetectionResult, RdpBackend, RdpBackendSelector};
 #[cfg(feature = "rdp-embedded")]
 pub use client::{RdpClient, RdpClientState, RdpCommandSender, RdpEventReceiver};
 pub use config::{

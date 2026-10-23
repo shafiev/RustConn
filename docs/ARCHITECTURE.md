@@ -1576,7 +1576,6 @@ rustconn-core/src/
 ├── search/                # Search engine, command palette
 ├── rdp_client/            # RDP client implementation
 │   ├── mod.rs             # Module exports
-│   ├── backend.rs         # RdpBackendSelector
 │   ├── quick_actions.rs   # Windows admin quick actions (key sequences)
 │   └── ...
 ├── cli_download/          # Flatpak CLI download manager
@@ -1710,7 +1709,6 @@ proptest! {
 - `session_restore_tests.rs` — Session persistence
 - `health_check_tests.rs` — Session health monitoring
 - `log_sanitization_tests.rs` — Sensitive data removal
-- `rdp_backend_tests.rs` — RDP backend selection
 - `vnc_client_tests.rs` — VNC client configuration
 - `bulk_credential_tests.rs` — Bulk credential operations
 - And 60+ more modules...

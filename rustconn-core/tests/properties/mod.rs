@@ -56,7 +56,6 @@ mod port_check_tests;
 mod progress_tests;
 mod protocol_tests;
 mod quick_connect_tests;
-mod rdp_backend_tests;
 mod rdp_client_tests;
 mod recording_tests;
 mod retry_tests;
