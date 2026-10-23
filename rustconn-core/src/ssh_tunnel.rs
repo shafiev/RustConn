@@ -172,6 +172,46 @@ pub(crate) const TUNNEL_ASKPASS_ENV_VAR: &str = "_RC_TUN_PW_FILE";
 ///
 /// Returns a human-readable error string on failure.
 pub(crate) fn create_tunnel_askpass_script() -> Result<std::path::PathBuf, String> {
+    // Read the secret from the owner-only file whose path the env var carries,
+    // rather than echoing the env value directly — the env is visible in
+    // `/proc/<pid>/environ`, the file is not. Mirrors the target/jump-host
+    // helper in `rustconn/src/window/protocols_ssh.rs::askpass_script_contents`.
+    write_askpass_script(&format!(
+        "#!/bin/sh\n\
+         secret_file=\"${{{TUNNEL_ASKPASS_ENV_VAR}}}\"\n\
+         [ -n \"$secret_file\" ] || exit 1\n\
+         exec 3<\"$secret_file\" || exit 1\n\
+         cat <&3\n"
+    ))
+}
+
+/// Like [`create_tunnel_askpass_script`], but the helper answers once.
+///
+/// It prints the secret file and then empties it, so a second invocation finds
+/// an empty file and exits 1 without printing anything. For `ssh-add`, which
+/// re-asks after a wrong passphrase until askpass gives it an empty answer: the
+/// tunnel helper prints the same file every time, so with it a wrong passphrase
+/// made `ssh-add` loop forever. Emptying the file also takes the plaintext off
+/// it as soon as it has been read; the caller still removes the file.
+///
+/// # Errors
+///
+/// Returns a human-readable error string on failure.
+pub(crate) fn create_one_shot_askpass_script() -> Result<std::path::PathBuf, String> {
+    write_askpass_script(&format!(
+        "#!/bin/sh\n\
+         secret_file=\"${{{TUNNEL_ASKPASS_ENV_VAR}}}\"\n\
+         [ -n \"$secret_file\" ] || exit 1\n\
+         [ -s \"$secret_file\" ] || exit 1\n\
+         exec 3<\"$secret_file\" || exit 1\n\
+         cat <&3\n\
+         : > \"$secret_file\"\n"
+    ))
+}
+
+/// Writes `script` to a fresh mode-0700 file in the temp dir and returns its
+/// path. The script holds no secret, only the name of the env var to read.
+fn write_askpass_script(script: &str) -> Result<std::path::PathBuf, String> {
     use std::io::Write;
 
     let dir = std::env::temp_dir();
@@ -179,18 +219,6 @@ pub(crate) fn create_tunnel_askpass_script() -> Result<std::path::PathBuf, Strin
         "rc-tun-askpass-{}",
         uuid::Uuid::new_v4().as_hyphenated()
     ));
-
-    // Read the secret from the owner-only file whose path the env var carries,
-    // rather than echoing the env value directly — the env is visible in
-    // `/proc/<pid>/environ`, the file is not. Mirrors the target/jump-host
-    // helper in `rustconn/src/window/protocols_ssh.rs::askpass_script_contents`.
-    let script = format!(
-        "#!/bin/sh\n\
-         secret_file=\"${{{TUNNEL_ASKPASS_ENV_VAR}}}\"\n\
-         [ -n \"$secret_file\" ] || exit 1\n\
-         exec 3<\"$secret_file\" || exit 1\n\
-         cat <&3\n"
-    );
 
     let mut file = std::fs::File::create(&path)
         .map_err(|e| format!("Failed to create tunnel askpass script: {e}"))?;
