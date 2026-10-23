@@ -504,6 +504,10 @@ fn build_ssh_command_args(
     state: &SharedAppState,
     groups: &[rustconn_core::ConnectionGroup],
     has_cached_target_password: bool,
+    // `ssh -G`'s answer when it was run off the main thread (P3). `Some(v)` is
+    // used as-is; `None` means it was not precomputed (the reconnect path, or
+    // port check disabled) and this falls back to spawning `ssh -G` here.
+    precomputed_declares_proxy: Option<bool>,
 ) -> (
     Option<String>,
     Vec<String>,
@@ -589,13 +593,25 @@ fn build_ssh_command_args(
     // on the bastion. Declining delivery leaves the connection to prompt, which is the documented
     // fallback; the alternative shipped in 0.21.2 was to append `ProxyJump=none`, which protected
     // the credential by discarding the user's routing.
+    //
+    // P3: when the caller ran `ssh -G` off the main thread (the initial connect,
+    // in the same background phase as the port check) the answer is passed in
+    // and no process is spawned here. `None` — the reconnect path, or port check
+    // disabled — falls back to spawning it synchronously, as before. The `&&`
+    // short-circuit means this is only evaluated once the two cheap conditions
+    // hold, so a `None` fallback spawn still runs only when it mattered before.
+    let declares_proxy = || -> bool {
+        precomputed_declares_proxy.unwrap_or_else(|| {
+            rustconn_core::ssh_tunnel::ssh_config_declares_proxy(
+                &conn.host,
+                conn.port,
+                conn.username.as_deref(),
+            )
+        })
+    };
     let target_askpass_allowed = has_cached_target_password
         && rustconn_core::ssh_tunnel::target_password_askpass_allowed(ssh_config, key.is_some())
-        && !rustconn_core::ssh_tunnel::ssh_config_declares_proxy(
-            &conn.host,
-            conn.port,
-            conn.username.as_deref(),
-        );
+        && !declares_proxy();
     if target_askpass_allowed {
         // Two options, both about the *shape* of the launch rather than about
         // which method authenticates.
@@ -1415,10 +1431,28 @@ pub fn start_ssh_connection_observed(
         let monitoring_clone = Rc::clone(monitoring);
         let conn_clone = conn.clone();
 
-        // Run port check in background thread
+        // `ssh -G` inputs, cloned for the background closure. Computing whether
+        // OpenSSH's own config routes this host through a proxy is a process
+        // spawn (~4 ms); it used to run on the GTK main thread inside
+        // `build_ssh_command_args`. Here it runs in the same background phase as
+        // the port check, so neither blocks the UI, and the answer is handed to
+        // the internal start below (P3). It lives only for this connect cycle.
+        let gss_host = conn.host.clone();
+        let gss_port = conn.port;
+        let gss_user = conn.username.clone();
+
+        // Run port check and `ssh -G` in the background thread, together.
         spawn_blocking_with_callback(
-            move || check_port(&host, port, timeout),
-            move |result| {
+            move || {
+                let port_ok = check_port(&host, port, timeout);
+                let declares_proxy = rustconn_core::ssh_tunnel::ssh_config_declares_proxy(
+                    &gss_host,
+                    gss_port,
+                    gss_user.as_deref(),
+                );
+                (port_ok, declares_proxy)
+            },
+            move |(result, declares_proxy)| {
                 match result {
                     Ok(_) => {
                         // Port is open, proceed with connection
@@ -1431,6 +1465,7 @@ pub fn start_ssh_connection_observed(
                             &conn_clone,
                             logging_enabled,
                             observer,
+                            Some(declares_proxy),
                         );
                     }
                     Err(e) => {
@@ -1479,6 +1514,9 @@ pub fn start_ssh_connection_observed(
             conn,
             logging_enabled,
             observer,
+            // Port check disabled, so there is no background phase to run
+            // `ssh -G` in; fall back to a synchronous spawn in build.
+            None,
         )
     }
 }
@@ -1499,6 +1537,10 @@ fn start_ssh_connection_internal(
     conn: &rustconn_core::Connection,
     logging_enabled: bool,
     observer: Option<super::types::SessionStartObserver>,
+    // `ssh -G`'s answer, computed off the main thread alongside the port check
+    // (P3). `None` when it was not precomputed, and `build_ssh_command_args`
+    // then falls back to a synchronous spawn.
+    precomputed_declares_proxy: Option<bool>,
 ) -> Option<Uuid> {
     use rustconn_core::protocol::{format_command_message, format_connection_message};
 
@@ -1623,6 +1665,7 @@ fn start_ssh_connection_internal(
         state,
         &groups,
         cached_password.is_some(),
+        precomputed_declares_proxy,
     );
 
     // Extract MPTCP flag from SSH config
@@ -2011,6 +2054,10 @@ pub fn reconnect_ssh_in_place(
         state,
         &groups,
         cached_password.is_some(),
+        // Reconnect runs on the main thread with no prior background phase, so
+        // `ssh -G` is spawned synchronously here (P3 only backgrounds the
+        // initial connect, which has the port-check phase to ride along).
+        None,
     );
 
     // Extract MPTCP flag from SSH config
