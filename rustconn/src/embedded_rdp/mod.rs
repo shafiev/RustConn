@@ -896,6 +896,7 @@ impl EmbeddedRdpWidget {
             let toast_overlay_ref = self.toast_overlay.clone();
             let config = self.config.clone();
             let file_offer_active = self.file_offer_active.clone();
+            let file_transfer_for_dnd = self.file_transfer.clone();
             let toast_for_success = self.toast_overlay.clone();
 
             file_dnd::setup_rdp_file_drop_target(
@@ -979,6 +980,8 @@ impl EmbeddedRdpWidget {
                         // timeout below so a drop cannot mute text sync forever.
                         file_offer_active.set(true);
                         let clear_offer = file_offer_active.clone();
+                        let file_transfer_for_timeout = file_transfer_for_dnd.clone();
+                        let ironrdp_tx_for_timeout = ironrdp_tx.clone();
                         // 30 s comfortably covers a server's request round-trip;
                         // past that, assume the offer went unclaimed and let text
                         // sync resume rather than stay muted for the session.
@@ -990,6 +993,16 @@ impl EmbeddedRdpWidget {
                                         protocol = "rdp",
                                         "File clipboard offer expired unclaimed; \
                                          re-enabling local clipboard text sync"
+                                    );
+                                    // A local change deferred while the offer
+                                    // was outstanding has nothing left to wait
+                                    // for either (issue #390, review finding:
+                                    // DnD-postponed deferral has no trigger of
+                                    // its own).
+                                    polling_handlers::release_announce_hold(
+                                        &file_transfer_for_timeout,
+                                        &clear_offer,
+                                        &ironrdp_tx_for_timeout,
                                     );
                                 }
                             },
@@ -1532,6 +1545,7 @@ impl EmbeddedRdpWidget {
     #[cfg(feature = "rdp-embedded")]
     fn setup_save_files_button(&self, button: &Button) {
         let file_transfer = self.file_transfer.clone();
+        let file_offer_active = self.file_offer_active.clone();
         let ironrdp_tx = self.ironrdp_command_tx.clone();
         let on_progress = self.on_file_progress.clone();
         let on_complete = self.on_file_complete.clone();
@@ -1543,6 +1557,25 @@ impl EmbeddedRdpWidget {
                 return;
             }
 
+            // Held from here, *before* the picker opens: under a portal
+            // (Flatpak, Snap) the picker is a separate Wayland client, and focus
+            // returning to RustConn on close can fire a spurious local
+            // clipboard `changed` signal before the callback below has even
+            // run. Focus can return either side of the callback, so the hold
+            // has to start before `select_folder` is called at all, not inside
+            // it (issue #390).
+            file_transfer.borrow_mut().begin_folder_pick();
+
+            // The dialog below is unparented, so GTK does not block a second
+            // click while it is open. Two open pickers cannot both be
+            // represented by the single `folder_pick_pending` flag: cancelling
+            // one releases the hold while the other is still open, and its own
+            // focus return can then reproduce #390. Disabling the button for
+            // the duration of one picker is simpler than counting them, and
+            // every path below that does not go on to start a batch restores
+            // it (review finding: second Save click re-opens the race).
+            save_btn.set_sensitive(false);
+
             // Show file chooser dialog for target directory
             let dialog = gtk4::FileDialog::builder()
                 .title(i18n("Select folder to save files"))
@@ -1550,6 +1583,7 @@ impl EmbeddedRdpWidget {
                 .build();
 
             let file_transfer_clone = file_transfer.clone();
+            let file_offer_active_clone = file_offer_active.clone();
             let ironrdp_tx_clone = ironrdp_tx.clone();
             let on_progress_clone = on_progress.clone();
             let _on_complete_clone = on_complete.clone();
@@ -1560,60 +1594,130 @@ impl EmbeddedRdpWidget {
                 None::<&gtk4::Window>,
                 None::<&gtk4::gio::Cancellable>,
                 move |result| {
-                    if let Ok(folder) = result
-                        && let Some(path) = folder.path()
-                    {
-                        // Arm the run over the list offered now, not the one
-                        // offered when the button was pressed: the remote
-                        // clipboard can change while the dialog is open, and a
-                        // stale count left the batch unable to settle.
-                        // `begin_batch` also clears the previous run's downloads
-                        // and its save-failure tally, which setting the fields by
-                        // hand did not: a second click on the same file list
-                        // never re-announces it, so the old failures were
-                        // counted again in the new summary.
-                        let first = {
-                            let mut transfer = file_transfer_clone.borrow_mut();
-                            if transfer.begin_batch(path.clone()) == 0 {
-                                None
-                            } else {
-                                transfer.start_next_download()
-                            }
-                        };
-                        let Some((stream_id, file_index)) = first else {
-                            tracing::info!(
-                                protocol = "rdp",
-                                "The remote clipboard no longer offers files; nothing to save"
+                    // Releases the hold `begin_folder_pick` took above, sends on
+                    // whatever local clipboard change the monitor deferred
+                    // while it was up, and re-enables the button this picker
+                    // disabled. Shared by every outcome that does not go on to
+                    // start a batch.
+                    let release_hold = |fts: &Rc<RefCell<ClipboardFileTransfer>>,
+                                        offer_active: &Rc<Cell<bool>>,
+                                        tx: &Rc<
+                        RefCell<Option<tokio::sync::mpsc::UnboundedSender<RdpClientCommand>>>,
+                    >,
+                                        btn: &Button| {
+                        fts.borrow_mut().cancel_folder_pick();
+                        polling_handlers::release_announce_hold(fts, offer_active, tx);
+                        btn.set_sensitive(true);
+                    };
+
+                    let path = match result {
+                        // The only two outcomes that mean the user closed the
+                        // picker without choosing anything — not a failure.
+                        Err(e)
+                            if e.matches(gtk4::DialogError::Dismissed)
+                                || e.matches(gtk4::DialogError::Cancelled) =>
+                        {
+                            tracing::debug!(protocol = "rdp", "Save Files folder picker dismissed");
+                            release_hold(
+                                &file_transfer_clone,
+                                &file_offer_active_clone,
+                                &ironrdp_tx_clone,
+                                &save_btn_clone,
                             );
                             return;
-                        };
-
-                        // Disable button during transfer
-                        save_btn_clone.set_sensitive(false);
-                        save_btn_clone.set_label(&i18n("Downloading…"));
-
-                        // One file at a time. This asks for the first file's
-                        // size; its first data range follows the size reply (see
-                        // handle_clipboard_file_size), each further range the
-                        // previous chunk, and the next file starts when this
-                        // one has settled.
-                        if let Some(ref sender) = *ironrdp_tx_clone.borrow() {
-                            let _ = sender.send(RdpClientCommand::RequestFileContents {
-                                stream_id,
-                                file_index,
-                                request_size: true,
-                                offset: 0,
-                                length: 0,
-                            });
                         }
-
-                        // Show progress
-                        status_label_clone.set_text(&i18n("Downloading files…"));
-                        status_label_clone.set_visible(true);
-
-                        if let Some(ref callback) = *on_progress_clone.borrow() {
-                            callback(0.0, "Starting download…");
+                        Err(e) => {
+                            tracing::warn!(
+                                protocol = "rdp",
+                                error = %e,
+                                "Save Files folder picker failed"
+                            );
+                            release_hold(
+                                &file_transfer_clone,
+                                &file_offer_active_clone,
+                                &ironrdp_tx_clone,
+                                &save_btn_clone,
+                            );
+                            return;
                         }
+                        Ok(folder) => {
+                            let Some(path) = folder.path() else {
+                                tracing::warn!(
+                                    protocol = "rdp",
+                                    "Save Files folder picker returned no local path"
+                                );
+                                release_hold(
+                                    &file_transfer_clone,
+                                    &file_offer_active_clone,
+                                    &ironrdp_tx_clone,
+                                    &save_btn_clone,
+                                );
+                                return;
+                            };
+                            path
+                        }
+                    };
+
+                    // Arm the run over the list offered now, not the one
+                    // offered when the button was pressed: the remote
+                    // clipboard can change while the dialog is open, and a
+                    // stale count left the batch unable to settle.
+                    // `begin_batch` also clears the previous run's downloads
+                    // and its save-failure tally, which setting the fields by
+                    // hand did not: a second click on the same file list
+                    // never re-announces it, so the old failures were
+                    // counted again in the new summary. It also clears the
+                    // folder-pick hold taken above: from here the hold is
+                    // carried by the batch itself.
+                    let first = {
+                        let mut transfer = file_transfer_clone.borrow_mut();
+                        if transfer.begin_batch(path.clone()) == 0 {
+                            None
+                        } else {
+                            transfer.start_next_download()
+                        }
+                    };
+                    let Some((stream_id, file_index)) = first else {
+                        tracing::info!(
+                            protocol = "rdp",
+                            "The remote clipboard no longer offers files; nothing to save"
+                        );
+                        // No batch started, so nothing else holds the announce,
+                        // and the button this picker disabled must come back.
+                        polling_handlers::release_announce_hold(
+                            &file_transfer_clone,
+                            &file_offer_active_clone,
+                            &ironrdp_tx_clone,
+                        );
+                        save_btn_clone.set_sensitive(true);
+                        return;
+                    };
+
+                    // Disable button during transfer
+                    save_btn_clone.set_sensitive(false);
+                    save_btn_clone.set_label(&i18n("Downloading…"));
+
+                    // One file at a time. This asks for the first file's
+                    // size; its first data range follows the size reply (see
+                    // handle_clipboard_file_size), each further range the
+                    // previous chunk, and the next file starts when this
+                    // one has settled.
+                    if let Some(ref sender) = *ironrdp_tx_clone.borrow() {
+                        let _ = sender.send(RdpClientCommand::RequestFileContents {
+                            stream_id,
+                            file_index,
+                            request_size: true,
+                            offset: 0,
+                            length: 0,
+                        });
+                    }
+
+                    // Show progress
+                    status_label_clone.set_text(&i18n("Downloading files…"));
+                    status_label_clone.set_visible(true);
+
+                    if let Some(ref callback) = *on_progress_clone.borrow() {
+                        callback(0.0, "Starting download…");
                     }
                 },
             );
