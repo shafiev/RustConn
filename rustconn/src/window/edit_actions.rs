@@ -713,39 +713,13 @@ impl MainWindow {
                         ));
                     }
                     tracing::info!(?kp, "Adding SSH key to agent for mc");
-                    let mut ssh_add = std::process::Command::new("ssh-add");
-                    ssh_add
-                        .arg(kp)
-                        .stdin(std::process::Stdio::null())
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::piped())
-                        // Strip host SSH_ASKPASS — it may reference a
-                        // program (e.g. ksshaskpass) absent in Flatpak.
-                        .env_remove("SSH_ASKPASS");
-                    rustconn_core::sftp::apply_agent_env(&mut ssh_add);
-                    match ssh_add.output() {
-                        Ok(output) if output.status.success() => {
-                            tracing::info!("SSH key added to agent for mc");
-                        }
-                        Ok(output) => {
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            tracing::warn!(
-                                %stderr,
-                                "ssh-add failed — mc FISH may not authenticate"
-                            );
-                            toast_clone.show_error(&format!(
-                                "{}: {}",
-                                crate::i18n::i18n("SSH key not available"),
-                                stderr.trim()
-                            ));
-                            return;
-                        }
-                        Err(e) => {
-                            tracing::error!(?e, "Failed to run ssh-add");
-                            toast_clone
-                                .show_error(&crate::i18n::i18n("Failed to add SSH key to agent."));
-                            return;
-                        }
+                    if let Err(stderr) = rustconn_core::sftp::ensure_identity_loaded(kp) {
+                        toast_clone.show_error(&format!(
+                            "{}: {}",
+                            crate::i18n::i18n("SSH key not available"),
+                            stderr
+                        ));
+                        return;
                     }
                 }
 
@@ -934,31 +908,11 @@ impl MainWindow {
                                 );
                             }
                             tracing::info!(?kp, "Adding SSH key to agent for SFTP");
-                            let mut ssh_add = std::process::Command::new("ssh-add");
-                            ssh_add
-                                .arg(kp)
-                                .stdin(std::process::Stdio::null())
-                                .stdout(std::process::Stdio::null())
-                                .stderr(std::process::Stdio::piped())
-                                // Strip host SSH_ASKPASS — it may reference a
-                                // program (e.g. ksshaskpass) absent in Flatpak.
-                                .env_remove("SSH_ASKPASS");
-                            rustconn_core::sftp::apply_agent_env(&mut ssh_add);
-                            match ssh_add.output() {
-                                Ok(output) if output.status.success() => {
-                                    tracing::info!("SSH key added to agent");
-                                }
-                                Ok(output) => {
-                                    let stderr = String::from_utf8_lossy(&output.stderr);
-                                    tracing::warn!(
-                                        %stderr,
-                                        "ssh-add failed — file manager \
-                                         may not authenticate"
-                                    );
-                                }
-                                Err(e) => {
-                                    tracing::error!(?e, "Failed to run ssh-add");
-                                }
+                            if let Err(stderr) = rustconn_core::sftp::ensure_identity_loaded(kp) {
+                                tracing::warn!(
+                                    %stderr,
+                                    "ssh-add failed — file manager may not authenticate"
+                                );
                             }
                         }
                         // Resolve the home-directory URI after the key is in
@@ -2139,37 +2093,14 @@ impl MainWindow {
 
             tracing::info!(?mc_args, "SFTP connect: opening mc");
 
-            if let Some(ref kp) = key_path {
-                let mut ssh_add = std::process::Command::new("ssh-add");
-                ssh_add
-                    .arg(kp)
-                    .stdin(std::process::Stdio::null())
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::piped())
-                    // Strip host SSH_ASKPASS — it may reference a
-                    // program (e.g. ksshaskpass) absent in Flatpak.
-                    .env_remove("SSH_ASKPASS");
-                rustconn_core::sftp::apply_agent_env(&mut ssh_add);
-                match ssh_add.output() {
-                    Ok(output) if output.status.success() => {
-                        tracing::info!(?kp, "SSH key added to agent");
-                    }
-                    Ok(output) => {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        tracing::warn!(?kp, %stderr, "ssh-add failed");
-                        if let Some(sb) = sidebar {
-                            sb.update_connection_status(&connection_id.to_string(), "failed");
-                        }
-                        return;
-                    }
-                    Err(e) => {
-                        tracing::error!(?e, "Failed to run ssh-add");
-                        if let Some(sb) = sidebar {
-                            sb.update_connection_status(&connection_id.to_string(), "failed");
-                        }
-                        return;
-                    }
+            if let Some(ref kp) = key_path
+                && let Err(stderr) = rustconn_core::sftp::ensure_identity_loaded(kp)
+            {
+                tracing::warn!(?kp, %stderr, "ssh-add failed");
+                if let Some(sb) = sidebar {
+                    sb.update_connection_status(&connection_id.to_string(), "failed");
                 }
+                return;
             }
 
             // Update sidebar status for SFTP connection
@@ -2355,31 +2286,10 @@ impl MainWindow {
             let key_for_add = key_path.clone();
             crate::utils::spawn_blocking_with_callback(
                 move || {
-                    if let Some(ref kp) = key_for_add {
-                        let mut ssh_add = std::process::Command::new("ssh-add");
-                        ssh_add
-                            .arg(kp)
-                            .stdin(std::process::Stdio::null())
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::piped())
-                            // Strip host SSH_ASKPASS — it may reference a
-                            // program (e.g. ksshaskpass) absent in Flatpak.
-                            .env_remove("SSH_ASKPASS");
-                        rustconn_core::sftp::apply_agent_env(&mut ssh_add);
-                        match ssh_add.output() {
-                            Ok(output) if output.status.success() => {
-                                tracing::info!(?kp, "SSH key added to agent");
-                            }
-                            Ok(output) => {
-                                let stderr = String::from_utf8_lossy(&output.stderr);
-                                tracing::warn!(
-                                    ?kp, %stderr, "ssh-add failed"
-                                );
-                            }
-                            Err(e) => {
-                                tracing::error!(?e, "Failed to run ssh-add");
-                            }
-                        }
+                    if let Some(ref kp) = key_for_add
+                        && let Err(stderr) = rustconn_core::sftp::ensure_identity_loaded(kp)
+                    {
+                        tracing::warn!(?kp, %stderr, "ssh-add failed");
                     }
                     // Resolve the home-directory URI after the key is in the
                     // agent, off the GTK main thread; fall back to server root.
