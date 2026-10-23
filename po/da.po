@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-22 23:33+0300\n"
+"POT-Creation-Date: 2026-10-23 15:25+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Danish\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Generated-By: Babel 2.10.3\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
-#: rustconn/src/app.rs:2034 rustconn/src/script_runner.rs:774
+#: rustconn/src/app.rs:2028 rustconn/src/script_runner.rs:774
 #: rustconn/src/script_runner.rs:806 rustconn/src/toast.rs:246
 msgid "OK"
 msgstr "OK"
@@ -106,7 +106,7 @@ msgstr ""
 msgid "Settings"
 msgstr "Indstillinger"
 
-#: rustconn/src/app.rs:1564
+#: rustconn/src/app.rs:1558
 msgid ""
 "{} is selected, but the system keyring is not accessible. Run: sudo snap "
 "connect rustconn:password-manager-service — or open Settings, then Secrets, "
@@ -116,7 +116,7 @@ msgstr ""
 "connect rustconn:password-manager-service — eller åbn Indstillinger og "
 "derefter Hemmeligheder for at vælge en anden backend."
 
-#: rustconn/src/app.rs:1569
+#: rustconn/src/app.rs:1563
 msgid ""
 "{} is selected, but it cannot store passwords yet: {}. Open Settings, then "
 "Secrets."
@@ -124,7 +124,7 @@ msgstr ""
 "{} er valgt, men kan endnu ikke gemme adgangskoder: {}. Åbn Indstillinger og "
 "derefter Hemmeligheder."
 
-#: rustconn/src/app.rs:1880
+#: rustconn/src/app.rs:1874
 msgid ""
 "Modern connection manager for Linux with a GTK4/Wayland-native interface. "
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
@@ -134,31 +134,31 @@ msgstr ""
 "Administrér SSH-, RDP-, VNC-, SPICE-, Telnet-, Seriel-, Kubernetes- og Zero "
 "Trust-forbindelser fra én applikation."
 
-#: rustconn/src/app.rs:1957
+#: rustconn/src/app.rs:1951
 msgid "User Guide"
 msgstr "Brugervejledning"
 
-#: rustconn/src/app.rs:1961
+#: rustconn/src/app.rs:1955
 msgid "Installation"
 msgstr "Installation"
 
-#: rustconn/src/app.rs:1965
+#: rustconn/src/app.rs:1959
 msgid "Releases"
 msgstr "Udgivelser"
 
-#: rustconn/src/app.rs:1969
+#: rustconn/src/app.rs:1963
 msgid "Changelog"
 msgstr "Ændringslog"
 
-#: rustconn/src/app.rs:1979
+#: rustconn/src/app.rs:1973
 msgid "Special Thanks"
 msgstr "Særlig tak"
 
-#: rustconn/src/app.rs:1994
+#: rustconn/src/app.rs:1988
 msgid "Made in Ukraine"
 msgstr "Lavet i Ukraine"
 
-#: rustconn/src/app.rs:1995
+#: rustconn/src/app.rs:1989
 msgid "All contributors and supporters"
 msgstr "Alle bidragydere og støtter"
 
@@ -1538,72 +1538,72 @@ msgstr "Vært"
 msgid "hostname or IP"
 msgstr "værtsnavn eller IP"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:144
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:394
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:146
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:476
 msgid "Cannot Load Password"
 msgstr "Kan ikke indlæse adgangskode"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:145
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:455
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:147
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:537
 msgid "Enter a connection name or host first."
 msgstr "Indtast først et forbindelsesnavn eller en vært."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:288
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:365
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:373
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:354
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:447
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:455
 msgid "Password Not Found"
 msgstr "Adgangskode ikke fundet"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:289
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:366
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:374
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:355
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:448
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:456
 msgid "No password found in vault for this connection."
 msgstr "Ingen adgangskode fundet i boks for denne forbindelse."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:298
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:381
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:364
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:463
 msgid "Failed to Load Password"
 msgstr "Kunne ikke indlæse adgangskode"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:299
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:382
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:365
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:464
 msgid "Could not load password from vault."
 msgstr "Kunne ikke indlæse adgangskode fra boks."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:310
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:609
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:376
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:691
 msgid "Vault Not Configured"
 msgstr "Boks ikke konfigureret"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:311
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:610
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:377
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:692
 msgid "Configure a secret backend in Settings → Secrets."
 msgstr "Konfigurér en hemmeligheds-backend i Indstillinger → Hemmeligheder."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:395
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:477
 msgid "Password loading is only available for Vault source."
 msgstr "Indlæsning af adgangskode er kun tilgængelig for Boks-kilde."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:435
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:517
 msgid "Test Not Available"
 msgstr "Test ikke tilgængelig"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:436
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:518
 msgid "Credential test is only available when Password Source is set to Vault."
 msgstr ""
 "Legitimationstest er kun tilgængelig, når adgangskodekilde er sat til Vault."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:454
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:536
 msgid "Cannot Test"
 msgstr "Kan ikke teste"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:573
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:640
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:655
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:722
 msgid "Credential Test Passed"
 msgstr "Legitimationstest bestået"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:575
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:642
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:657
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:724
 msgid ""
 "Password found in vault.\n"
 "Lookup key: {}"
@@ -1611,15 +1611,15 @@ msgstr ""
 "Adgangskode fundet i boks.\n"
 "Opslagnøgle: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:583
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:594
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:649
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:660
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:671
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:665
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:676
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:731
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:742
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:753
 msgid "Credential Test Failed"
 msgstr "Legitimationstest mislykkedes"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:585
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:667
 msgid ""
 "No password found in vault.\n"
 "Lookup key: {}"
@@ -1627,7 +1627,7 @@ msgstr ""
 "Ingen adgangskode fundet i boks.\n"
 "Opslagnøgle: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:596
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:678
 msgid ""
 "Vault error. Check your KeePass configuration.\n"
 "Lookup key: {}"
@@ -1635,7 +1635,7 @@ msgstr ""
 "Boksfejl. Kontrollér din KeePass-konfiguration.\n"
 "Opslagnøgle: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:651
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:733
 msgid ""
 "Entry found but contains no password.\n"
 "Lookup key: {}"
@@ -1643,7 +1643,7 @@ msgstr ""
 "Post fundet, men indeholder ingen adgangskode.\n"
 "Opslagnøgle: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:662
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:744
 msgid ""
 "No entry found in vault.\n"
 "Lookup key: {}"
@@ -1651,7 +1651,7 @@ msgstr ""
 "Ingen post fundet i boks.\n"
 "Opslagnøgle: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:673
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:755
 msgid ""
 "Backend error. Check your vault configuration.\n"
 "Lookup key: {}"
@@ -2368,7 +2368,7 @@ msgstr "Containerbillede til midlertidig pod"
 
 #: rustconn/src/dialogs/connection/kubernetes.rs:135
 #: rustconn/src/dialogs/connection/rdp.rs:889
-#: rustconn/src/dialogs/connection/serial.rs:101
+#: rustconn/src/dialogs/connection/serial.rs:99
 #: rustconn/src/dialogs/connection/telnet.rs:42
 #: rustconn/src/dialogs/connection/vnc.rs:328
 #: rustconn/src/dialogs/connection/zerotrust.rs:199
@@ -3190,75 +3190,75 @@ msgid "Detect Devices"
 msgstr "Registrer enheder"
 
 #: rustconn/src/dialogs/connection/serial.rs:66
-msgid "Scan /dev for serial devices"
-msgstr "Scan /dev for serielle enheder"
+msgid "Scan /dev for serial devices, USB adapters first"
+msgstr "Scan /dev for serielle enheder, USB-adaptere først"
 
 #: rustconn/src/dialogs/connection/serial.rs:70
 msgid "Auto-Detect"
 msgstr "Automatisk registrering"
 
-#: rustconn/src/dialogs/connection/serial.rs:71
-msgid "Scan for ttyUSB, ttyACM, and ttyS devices"
-msgstr "Søg efter ttyUSB-, ttyACM- og ttyS-enheder"
+#: rustconn/src/dialogs/connection/serial.rs:72
+msgid "Scan for ttyUSB, ttyACM, cu.* (macOS), and ttyS devices"
+msgstr "Søg efter enheder af typen ttyUSB, ttyACM, cu.* (macOS) og ttyS"
 
-#: rustconn/src/dialogs/connection/serial.rs:95
+#: rustconn/src/dialogs/connection/serial.rs:93
 msgid "Found: {}"
 msgstr "Fundet: {}"
 
-#: rustconn/src/dialogs/connection/serial.rs:97
+#: rustconn/src/dialogs/connection/serial.rs:95
 msgid "No serial devices found"
 msgstr "Ingen serielle enheder fundet"
 
-#: rustconn/src/dialogs/connection/serial.rs:102
+#: rustconn/src/dialogs/connection/serial.rs:100
 msgid "Additional picocom command-line arguments"
 msgstr "Yderligere kommandolinjeargumenter til picocom"
 
-#: rustconn/src/dialogs/connection/serial.rs:111
+#: rustconn/src/dialogs/connection/serial.rs:109
 msgid "Line Parameters"
 msgstr "Linjeparametre"
 
-#: rustconn/src/dialogs/connection/serial.rs:113
+#: rustconn/src/dialogs/connection/serial.rs:111
 msgid "Standard serial line configuration (default: 115200 8N1)"
 msgstr "Standard seriel linjekonfiguration (standard: 115200 8N1)"
 
-#: rustconn/src/dialogs/connection/serial.rs:129
+#: rustconn/src/dialogs/connection/serial.rs:127
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:172
 msgid "Baud Rate"
 msgstr "Baudrate"
 
-#: rustconn/src/dialogs/connection/serial.rs:130
+#: rustconn/src/dialogs/connection/serial.rs:128
 msgid "Communication speed in bits per second"
 msgstr "Kommunikationshastighed i bit per sekund"
 
-#: rustconn/src/dialogs/connection/serial.rs:148
+#: rustconn/src/dialogs/connection/serial.rs:146
 msgid "Data Bits"
 msgstr "Databits"
 
-#: rustconn/src/dialogs/connection/serial.rs:149
+#: rustconn/src/dialogs/connection/serial.rs:147
 msgid "Number of data bits per character"
 msgstr "Antal databits per tegn"
 
-#: rustconn/src/dialogs/connection/serial.rs:167
+#: rustconn/src/dialogs/connection/serial.rs:165
 msgid "Stop Bits"
 msgstr "Stopbits"
 
-#: rustconn/src/dialogs/connection/serial.rs:168
+#: rustconn/src/dialogs/connection/serial.rs:166
 msgid "Number of stop bits"
 msgstr "Antal stopbits"
 
-#: rustconn/src/dialogs/connection/serial.rs:189
+#: rustconn/src/dialogs/connection/serial.rs:187
 msgid "Parity"
 msgstr "Paritet"
 
-#: rustconn/src/dialogs/connection/serial.rs:190
+#: rustconn/src/dialogs/connection/serial.rs:188
 msgid "Error detection scheme"
 msgstr "Fejldetekteringsmetode"
 
-#: rustconn/src/dialogs/connection/serial.rs:211
+#: rustconn/src/dialogs/connection/serial.rs:209
 msgid "Flow Control"
 msgstr "Flowkontrol"
 
-#: rustconn/src/dialogs/connection/serial.rs:212
+#: rustconn/src/dialogs/connection/serial.rs:210
 msgid "Data flow management method"
 msgstr "Metode til styring af dataflow"
 
@@ -5966,7 +5966,7 @@ msgid "{} bits"
 msgstr "{} bits"
 
 #: rustconn/src/dialogs/password_generator.rs:396
-#: rustconn/src/window/copy_field_actions.rs:277
+#: rustconn/src/window/copy_field_actions.rs:274
 msgid "Password copied (auto-clears in 30s)"
 msgstr "Adgangskode kopieret (ryddes automatisk efter 30 s)"
 
@@ -7192,40 +7192,40 @@ msgid "Status: {}"
 msgstr "Status: {}"
 
 #: rustconn/src/dialogs/settings/secrets_tab/detection.rs:716
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:822
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:845
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:834
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:857
 msgid "Error checking status"
 msgstr "Fejl ved statuskontrol"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:808
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:820
 msgid "Signed in: {}"
 msgstr "Logget ind: {}"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:810
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:822
 msgid "Signed in"
 msgstr "Logget ind"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:815
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:819
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:827
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:831
 msgid "Not signed in"
 msgstr "Ikke logget ind"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:817
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:829
 msgid "Session expired"
 msgstr "Session udløbet"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:834
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:846
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:3311
 msgid "Configured"
 msgstr "Konfigureret"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:838
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:842
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:850
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:854
 #: rustconn/src/embedded_vnc/ui.rs:322
 msgid "Not configured"
 msgstr "Ikke konfigureret"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:840
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:852
 msgid "Authentication failed"
 msgstr "Godkendelse mislykkedes"
 
@@ -7280,7 +7280,7 @@ msgid "The pass password store, encrypted with your GPG key"
 msgstr "Adgangskodelageret pass, krypteret med din GPG-nøgle"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:515
-#: rustconn/src/window/credentials.rs:366
+#: rustconn/src/window/credentials.rs:367
 msgid "Encrypted file"
 msgstr "Krypteret fil"
 
@@ -7290,7 +7290,7 @@ msgstr ""
 "En fil på denne computer, krypteret med en nøgle bundet til denne maskine"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:520
-#: rustconn/src/window/credentials.rs:370
+#: rustconn/src/window/credentials.rs:371
 msgid "Portable encrypted file"
 msgstr "Portabel krypteret fil"
 
@@ -12490,41 +12490,41 @@ msgstr "Port ({})"
 msgid "Copied (auto-clears in {}s)"
 msgstr "Kopieret (ryddes automatisk efter {} s)"
 
-#: rustconn/src/window/copy_field_actions.rs:251
+#: rustconn/src/window/copy_field_actions.rs:248
 msgid "No username configured"
 msgstr "Intet brugernavn konfigureret"
 
-#: rustconn/src/window/copy_field_actions.rs:265
+#: rustconn/src/window/copy_field_actions.rs:262
 msgid "Username copied"
 msgstr "Brugernavn kopieret"
 
-#: rustconn/src/window/copy_field_actions.rs:288
+#: rustconn/src/window/copy_field_actions.rs:285
 msgid "Cached password is empty"
 msgstr "Gemt adgangskode er tom"
 
-#: rustconn/src/window/copy_field_actions.rs:322
+#: rustconn/src/window/copy_field_actions.rs:316
 msgid "Password is empty"
 msgstr "Adgangskoden er tom"
 
-#: rustconn/src/window/copy_field_actions.rs:323
-#: rustconn/src/window/copy_field_actions.rs:325
+#: rustconn/src/window/copy_field_actions.rs:317
+#: rustconn/src/window/copy_field_actions.rs:319
 msgid "No password configured for this connection"
 msgstr "Ingen adgangskode konfigureret for denne forbindelse"
 
-#: rustconn/src/window/copy_field_actions.rs:328
+#: rustconn/src/window/copy_field_actions.rs:322
 msgid "Could not retrieve password from secret backend"
 msgstr "Kunne ikke hente adgangskode fra hemmelighedsbackend"
 
-#: rustconn/src/window/credentials.rs:428
+#: rustconn/src/window/credentials.rs:441
 msgid "Failed to save variable to vault: {}"
 msgstr "Kunne ikke gemme variabel i boks: {}"
 
-#: rustconn/src/window/credentials.rs:546
+#: rustconn/src/window/credentials.rs:565
 msgid "Vault entry not found for '{}'. You will be prompted for a password."
 msgstr "Bokspost ikke fundet for '{}'. Du vil blive bedt om en adgangskode."
 
-#: rustconn/src/window/credentials.rs:989
-#: rustconn/src/window/credentials.rs:1225
+#: rustconn/src/window/credentials.rs:1021
+#: rustconn/src/window/credentials.rs:1257
 #: rustconn/src/window/edit_actions.rs:2096
 msgid "Connection failed. Host unreachable."
 msgstr "Forbindelse mislykkedes. Vært utilgængelig."

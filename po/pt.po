@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-22 23:33+0300\n"
+"POT-Creation-Date: 2026-10-23 15:25+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Portuguese\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Generated-By: Babel 2.10.3\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
-#: rustconn/src/app.rs:2034 rustconn/src/script_runner.rs:774
+#: rustconn/src/app.rs:2028 rustconn/src/script_runner.rs:774
 #: rustconn/src/script_runner.rs:806 rustconn/src/toast.rs:246
 msgid "OK"
 msgstr "OK"
@@ -106,7 +106,7 @@ msgstr ""
 msgid "Settings"
 msgstr "Configurações"
 
-#: rustconn/src/app.rs:1564
+#: rustconn/src/app.rs:1558
 msgid ""
 "{} is selected, but the system keyring is not accessible. Run: sudo snap "
 "connect rustconn:password-manager-service — or open Settings, then Secrets, "
@@ -116,7 +116,7 @@ msgstr ""
 "sudo snap connect rustconn:password-manager-service — ou abra Definições e "
 "depois Segredos para escolher outro backend."
 
-#: rustconn/src/app.rs:1569
+#: rustconn/src/app.rs:1563
 msgid ""
 "{} is selected, but it cannot store passwords yet: {}. Open Settings, then "
 "Secrets."
@@ -124,7 +124,7 @@ msgstr ""
 "{} está selecionado, mas ainda não pode armazenar palavras-passe: {}. Abra "
 "as Definições e depois Segredos."
 
-#: rustconn/src/app.rs:1880
+#: rustconn/src/app.rs:1874
 msgid ""
 "Modern connection manager for Linux with a GTK4/Wayland-native interface. "
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
@@ -134,31 +134,31 @@ msgstr ""
 "Gerir ligações SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes e Zero Trust "
 "a partir de uma única aplicação."
 
-#: rustconn/src/app.rs:1957
+#: rustconn/src/app.rs:1951
 msgid "User Guide"
 msgstr "Guia do Utilizador"
 
-#: rustconn/src/app.rs:1961
+#: rustconn/src/app.rs:1955
 msgid "Installation"
 msgstr "Instalação"
 
-#: rustconn/src/app.rs:1965
+#: rustconn/src/app.rs:1959
 msgid "Releases"
 msgstr "Versões"
 
-#: rustconn/src/app.rs:1969
+#: rustconn/src/app.rs:1963
 msgid "Changelog"
 msgstr "Registo de Alterações"
 
-#: rustconn/src/app.rs:1979
+#: rustconn/src/app.rs:1973
 msgid "Special Thanks"
 msgstr "Agradecimentos Especiais"
 
-#: rustconn/src/app.rs:1994
+#: rustconn/src/app.rs:1988
 msgid "Made in Ukraine"
 msgstr "Feito na Ucrânia"
 
-#: rustconn/src/app.rs:1995
+#: rustconn/src/app.rs:1989
 msgid "All contributors and supporters"
 msgstr "Todos os contribuidores e apoiantes"
 
@@ -1543,75 +1543,75 @@ msgstr "Anfitrião"
 msgid "hostname or IP"
 msgstr "nome do anfitrião ou IP"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:144
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:394
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:146
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:476
 msgid "Cannot Load Password"
 msgstr "Não é possível carregar a palavra-passe"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:145
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:455
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:147
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:537
 msgid "Enter a connection name or host first."
 msgstr "Introduza primeiro um nome de ligação ou anfitrião."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:288
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:365
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:373
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:354
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:447
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:455
 msgid "Password Not Found"
 msgstr "Palavra-passe não encontrada"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:289
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:366
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:374
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:355
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:448
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:456
 msgid "No password found in vault for this connection."
 msgstr "Nenhuma palavra-passe encontrada no cofre para esta ligação."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:298
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:381
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:364
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:463
 msgid "Failed to Load Password"
 msgstr "Falha ao carregar a palavra-passe"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:299
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:382
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:365
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:464
 msgid "Could not load password from vault."
 msgstr "Não foi possível carregar a palavra-passe do cofre."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:310
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:609
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:376
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:691
 msgid "Vault Not Configured"
 msgstr "Cofre não configurado"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:311
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:610
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:377
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:692
 msgid "Configure a secret backend in Settings → Secrets."
 msgstr "Configure um backend de segredos em Definições → Segredos."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:395
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:477
 msgid "Password loading is only available for Vault source."
 msgstr ""
 "O carregamento de palavra-passe só está disponível para a fonte Cofre.O "
 "carregamento de palavra-passe está disponível apenas para a fonte Cofre."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:435
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:517
 msgid "Test Not Available"
 msgstr "Teste não disponível"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:436
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:518
 msgid "Credential test is only available when Password Source is set to Vault."
 msgstr ""
 "O teste de credenciais só está disponível quando a origem da palavra-passe "
 "está definida como Vault."
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:454
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:536
 msgid "Cannot Test"
 msgstr "Impossível testar"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:573
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:640
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:655
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:722
 msgid "Credential Test Passed"
 msgstr "Teste de credenciais aprovado"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:575
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:642
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:657
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:724
 msgid ""
 "Password found in vault.\n"
 "Lookup key: {}"
@@ -1619,15 +1619,15 @@ msgstr ""
 "Palavra-passe encontrada no vault.\n"
 "Chave de pesquisa: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:583
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:594
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:649
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:660
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:671
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:665
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:676
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:731
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:742
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:753
 msgid "Credential Test Failed"
 msgstr "Teste de credenciais falhado"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:585
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:667
 msgid ""
 "No password found in vault.\n"
 "Lookup key: {}"
@@ -1635,7 +1635,7 @@ msgstr ""
 "Nenhuma palavra-passe encontrada no vault.\n"
 "Chave de pesquisa: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:596
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:678
 msgid ""
 "Vault error. Check your KeePass configuration.\n"
 "Lookup key: {}"
@@ -1643,7 +1643,7 @@ msgstr ""
 "Erro do vault. Verifique a configuração do KeePass.\n"
 "Chave de pesquisa: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:651
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:733
 msgid ""
 "Entry found but contains no password.\n"
 "Lookup key: {}"
@@ -1651,7 +1651,7 @@ msgstr ""
 "Entrada encontrada mas não contém palavra-passe.\n"
 "Chave de pesquisa: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:662
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:744
 msgid ""
 "No entry found in vault.\n"
 "Lookup key: {}"
@@ -1659,7 +1659,7 @@ msgstr ""
 "Nenhuma entrada encontrada no vault.\n"
 "Chave de pesquisa: {}"
 
-#: rustconn/src/dialogs/connection/dialog/passwords.rs:673
+#: rustconn/src/dialogs/connection/dialog/passwords.rs:755
 msgid ""
 "Backend error. Check your vault configuration.\n"
 "Lookup key: {}"
@@ -2377,7 +2377,7 @@ msgstr "Imagem do contentor para pod temporário"
 
 #: rustconn/src/dialogs/connection/kubernetes.rs:135
 #: rustconn/src/dialogs/connection/rdp.rs:889
-#: rustconn/src/dialogs/connection/serial.rs:101
+#: rustconn/src/dialogs/connection/serial.rs:99
 #: rustconn/src/dialogs/connection/telnet.rs:42
 #: rustconn/src/dialogs/connection/vnc.rs:328
 #: rustconn/src/dialogs/connection/zerotrust.rs:199
@@ -3203,75 +3203,75 @@ msgid "Detect Devices"
 msgstr "Detetar dispositivos"
 
 #: rustconn/src/dialogs/connection/serial.rs:66
-msgid "Scan /dev for serial devices"
-msgstr "Analisar /dev para dispositivos série"
+msgid "Scan /dev for serial devices, USB adapters first"
+msgstr "Analisar /dev para dispositivos série, primeiro os adaptadores USB"
 
 #: rustconn/src/dialogs/connection/serial.rs:70
 msgid "Auto-Detect"
 msgstr "Deteção automática"
 
-#: rustconn/src/dialogs/connection/serial.rs:71
-msgid "Scan for ttyUSB, ttyACM, and ttyS devices"
-msgstr "Procurar dispositivos ttyUSB, ttyACM e ttyS"
+#: rustconn/src/dialogs/connection/serial.rs:72
+msgid "Scan for ttyUSB, ttyACM, cu.* (macOS), and ttyS devices"
+msgstr "Procurar dispositivos ttyUSB, ttyACM, cu.* (macOS) e ttyS"
 
-#: rustconn/src/dialogs/connection/serial.rs:95
+#: rustconn/src/dialogs/connection/serial.rs:93
 msgid "Found: {}"
 msgstr "Encontrado: {}"
 
-#: rustconn/src/dialogs/connection/serial.rs:97
+#: rustconn/src/dialogs/connection/serial.rs:95
 msgid "No serial devices found"
 msgstr "Nenhum dispositivo série encontrado"
 
-#: rustconn/src/dialogs/connection/serial.rs:102
+#: rustconn/src/dialogs/connection/serial.rs:100
 msgid "Additional picocom command-line arguments"
 msgstr "Argumentos adicionais de linha de comando do picocom"
 
-#: rustconn/src/dialogs/connection/serial.rs:111
+#: rustconn/src/dialogs/connection/serial.rs:109
 msgid "Line Parameters"
 msgstr "Parâmetros de linha"
 
-#: rustconn/src/dialogs/connection/serial.rs:113
+#: rustconn/src/dialogs/connection/serial.rs:111
 msgid "Standard serial line configuration (default: 115200 8N1)"
 msgstr "Configuração padrão da linha série (predefinição: 115200 8N1)"
 
-#: rustconn/src/dialogs/connection/serial.rs:129
+#: rustconn/src/dialogs/connection/serial.rs:127
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:172
 msgid "Baud Rate"
 msgstr "Taxa de transmissão"
 
-#: rustconn/src/dialogs/connection/serial.rs:130
+#: rustconn/src/dialogs/connection/serial.rs:128
 msgid "Communication speed in bits per second"
 msgstr "Velocidade de comunicação em bits por segundo"
 
-#: rustconn/src/dialogs/connection/serial.rs:148
+#: rustconn/src/dialogs/connection/serial.rs:146
 msgid "Data Bits"
 msgstr "Bits de dados"
 
-#: rustconn/src/dialogs/connection/serial.rs:149
+#: rustconn/src/dialogs/connection/serial.rs:147
 msgid "Number of data bits per character"
 msgstr "Número de bits de dados por carácter"
 
-#: rustconn/src/dialogs/connection/serial.rs:167
+#: rustconn/src/dialogs/connection/serial.rs:165
 msgid "Stop Bits"
 msgstr "Bits de paragem"
 
-#: rustconn/src/dialogs/connection/serial.rs:168
+#: rustconn/src/dialogs/connection/serial.rs:166
 msgid "Number of stop bits"
 msgstr "Número de bits de paragem"
 
-#: rustconn/src/dialogs/connection/serial.rs:189
+#: rustconn/src/dialogs/connection/serial.rs:187
 msgid "Parity"
 msgstr "Paridade"
 
-#: rustconn/src/dialogs/connection/serial.rs:190
+#: rustconn/src/dialogs/connection/serial.rs:188
 msgid "Error detection scheme"
 msgstr "Esquema de deteção de erros"
 
-#: rustconn/src/dialogs/connection/serial.rs:211
+#: rustconn/src/dialogs/connection/serial.rs:209
 msgid "Flow Control"
 msgstr "Controlo de fluxo"
 
-#: rustconn/src/dialogs/connection/serial.rs:212
+#: rustconn/src/dialogs/connection/serial.rs:210
 msgid "Data flow management method"
 msgstr "Método de gestão do fluxo de dados"
 
@@ -5987,7 +5987,7 @@ msgid "{} bits"
 msgstr "{} bits"
 
 #: rustconn/src/dialogs/password_generator.rs:396
-#: rustconn/src/window/copy_field_actions.rs:277
+#: rustconn/src/window/copy_field_actions.rs:274
 msgid "Password copied (auto-clears in 30s)"
 msgstr "Palavra-passe copiada (limpeza automática em 30 s)"
 
@@ -7230,40 +7230,40 @@ msgid "Status: {}"
 msgstr "Estado: {}"
 
 #: rustconn/src/dialogs/settings/secrets_tab/detection.rs:716
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:822
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:845
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:834
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:857
 msgid "Error checking status"
 msgstr "Erro ao verificar estado"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:808
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:820
 msgid "Signed in: {}"
 msgstr "Autenticado: {}"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:810
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:822
 msgid "Signed in"
 msgstr "Autenticado"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:815
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:819
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:827
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:831
 msgid "Not signed in"
 msgstr "Não autenticado"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:817
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:829
 msgid "Session expired"
 msgstr "Sessão expirada"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:834
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:846
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:3311
 msgid "Configured"
 msgstr "Configurado"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:838
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:842
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:850
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:854
 #: rustconn/src/embedded_vnc/ui.rs:322
 msgid "Not configured"
 msgstr "Não configurado"
 
-#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:840
+#: rustconn/src/dialogs/settings/secrets_tab/detection.rs:852
 msgid "Authentication failed"
 msgstr "Autenticação falhou"
 
@@ -7319,7 +7319,7 @@ msgid "The pass password store, encrypted with your GPG key"
 msgstr "O cofre de palavras-passe pass, cifrado com a tua chave GPG"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:515
-#: rustconn/src/window/credentials.rs:366
+#: rustconn/src/window/credentials.rs:367
 msgid "Encrypted file"
 msgstr "Ficheiro cifrado"
 
@@ -7329,7 +7329,7 @@ msgstr ""
 "Um ficheiro neste computador, cifrado com uma chave ligada a esta máquina"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:520
-#: rustconn/src/window/credentials.rs:370
+#: rustconn/src/window/credentials.rs:371
 msgid "Portable encrypted file"
 msgstr "Ficheiro cifrado portátil"
 
@@ -12555,43 +12555,43 @@ msgstr "Porta ({})"
 msgid "Copied (auto-clears in {}s)"
 msgstr "Copiado (limpeza automática em {} s)"
 
-#: rustconn/src/window/copy_field_actions.rs:251
+#: rustconn/src/window/copy_field_actions.rs:248
 msgid "No username configured"
 msgstr "Nome de utilizador não configurado"
 
-#: rustconn/src/window/copy_field_actions.rs:265
+#: rustconn/src/window/copy_field_actions.rs:262
 msgid "Username copied"
 msgstr "Nome de utilizador copiado"
 
-#: rustconn/src/window/copy_field_actions.rs:288
+#: rustconn/src/window/copy_field_actions.rs:285
 msgid "Cached password is empty"
 msgstr "A palavra-passe em cache está vazia"
 
-#: rustconn/src/window/copy_field_actions.rs:322
+#: rustconn/src/window/copy_field_actions.rs:316
 msgid "Password is empty"
 msgstr "A palavra-passe está vazia"
 
-#: rustconn/src/window/copy_field_actions.rs:323
-#: rustconn/src/window/copy_field_actions.rs:325
+#: rustconn/src/window/copy_field_actions.rs:317
+#: rustconn/src/window/copy_field_actions.rs:319
 msgid "No password configured for this connection"
 msgstr "Nenhuma palavra-passe configurada para esta conexão"
 
-#: rustconn/src/window/copy_field_actions.rs:328
+#: rustconn/src/window/copy_field_actions.rs:322
 msgid "Could not retrieve password from secret backend"
 msgstr "Não foi possível obter a palavra-passe do backend de segredos"
 
-#: rustconn/src/window/credentials.rs:428
+#: rustconn/src/window/credentials.rs:441
 msgid "Failed to save variable to vault: {}"
 msgstr "Falha ao salvar variável no cofre: {}"
 
-#: rustconn/src/window/credentials.rs:546
+#: rustconn/src/window/credentials.rs:565
 msgid "Vault entry not found for '{}'. You will be prompted for a password."
 msgstr ""
 "Entrada do vault não encontrada para '{}'. Ser-lhe-á pedida uma palavra-"
 "passe."
 
-#: rustconn/src/window/credentials.rs:989
-#: rustconn/src/window/credentials.rs:1225
+#: rustconn/src/window/credentials.rs:1021
+#: rustconn/src/window/credentials.rs:1257
 #: rustconn/src/window/edit_actions.rs:2096
 msgid "Connection failed. Host unreachable."
 msgstr "Ligação falhada. Anfitrião inacessível."
