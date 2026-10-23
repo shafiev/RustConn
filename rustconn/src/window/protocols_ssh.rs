@@ -83,6 +83,48 @@ fn insert_opaque_jump_host(
     hop_ids.insert(index, None);
 }
 
+/// Builds the per-hop password vector aligned with the jump-host chain (P2a).
+///
+/// One place for the multi-bastion password logic that was inline in
+/// [`build_ssh_command_args`]: the first reference hop's password is already
+/// resolved (through the chain loop, with its #191/#241/PKCS#11 handling) and
+/// is placed at the first `Some` entry of `hop_ids`; every other reference hop
+/// has its own password resolved through `resolve_hop` (issue #203). A `None`
+/// entry in `hop_ids` is a string proxy with no credential and is left `None`.
+///
+/// `resolve_hop` is the only side-effecting part — it reads the cache, falls
+/// back to the vault and warms the cache — so it is injected, which keeps this
+/// function pure and testable with a fake resolver. The result is the same
+/// length as `hop_ids`, so it stays index-aligned with `jump_hosts`
+/// (SHALL CONTINUE TO: host↔password alignment).
+///
+/// `len` is the jump-host count; `hop_ids` must be exactly that long.
+fn assemble_hop_passwords(
+    len: usize,
+    hop_ids: &[Option<Uuid>],
+    first_hop_password: Option<SecretString>,
+    mut resolve_hop: impl FnMut(Uuid) -> Option<SecretString>,
+) -> Vec<Option<SecretString>> {
+    debug_assert_eq!(hop_ids.len(), len);
+    let mut hop_passwords: Vec<Option<SecretString>> = vec![None; len];
+
+    // The first reference hop (first Some in hop_ids) is already resolved.
+    if let Some(first_ref_idx) = hop_ids.iter().position(Option::is_some) {
+        hop_passwords[first_ref_idx] = first_hop_password;
+    }
+
+    for (idx, hop_id) in hop_ids.iter().enumerate() {
+        if hop_passwords[idx].is_some() {
+            continue; // already resolved (first hop, or a prior pass)
+        }
+        if let Some(hid) = hop_id {
+            hop_passwords[idx] = resolve_hop(*hid);
+        }
+    }
+
+    hop_passwords
+}
+
 /// Parses a jump-host string (`[user@]host[:port]`) and returns `(host, port)`
 /// for `ssh_control_path()`. Handles IPv6 in brackets.
 fn parse_jump_host_for_control(jump_host: &str) -> (String, u16) {
@@ -899,26 +941,19 @@ fn build_ssh_command_args(
     }
 
     // Resolve passwords for deeper hops (issue #203: multi-bastion password
-    // chains). `first_hop_password` already covers `hop_ids[first_ref_index]`;
-    // deeper hops need their own password resolved from cache or vault.
-    // Build a parallel vec `hop_passwords` aligned with `jump_hosts`.
-    let mut hop_passwords: Vec<Option<SecretString>> = vec![None; jump_hosts.len()];
-    // Place first_hop_password at its correct index (first reference hop).
-    // The first reference hop is the first entry with a Some(id) in hop_ids.
-    if let Some(first_ref_idx) = hop_ids.iter().position(Option::is_some) {
-        hop_passwords[first_ref_idx] = first_hop_password;
-    }
-    // Resolve passwords for remaining reference hops.
-    for (idx, hop_id) in hop_ids.iter().enumerate() {
-        if hop_passwords[idx].is_some() {
-            continue; // already resolved (first hop)
-        }
-        if let Some(hid) = hop_id {
-            // Try cache first (fast path).
+    // chains). `first_hop_password` already covers the first reference hop; the
+    // alignment and per-hop resolution live in `assemble_hop_passwords`, which
+    // is given a resolver that reads the cache, falls back to the vault and
+    // warms the cache. The vault read stays synchronous here (P2a scope: the
+    // logic is extracted and deduplicated; moving it off the main thread is a
+    // separate change).
+    let hop_passwords: Vec<Option<SecretString>> =
+        assemble_hop_passwords(jump_hosts.len(), &hop_ids, first_hop_password, |hid| {
+            // Cache first (fast path).
             let cached = state
                 .try_borrow()
                 .ok()
-                .and_then(|s| s.get_cached_credentials(*hid).cloned())
+                .and_then(|s| s.get_cached_credentials(hid).cloned())
                 .and_then(|c| {
                     use secrecy::ExposeSecret;
                     if c.password.expose_secret().is_empty() {
@@ -928,34 +963,29 @@ fn build_ssh_command_args(
                     }
                 });
             if cached.is_some() {
-                hop_passwords[idx] = cached;
-                continue;
+                return cached;
             }
-            // Fallback: resolve from vault/variable.
+            // Fallback: resolve from vault/variable, then warm the cache.
             let conn_for_hop = state
                 .try_borrow()
                 .ok()
-                .and_then(|s| s.get_connection(*hid).cloned());
-            if let Some(hop_conn) = conn_for_hop {
-                let resolved_pw = state
-                    .try_borrow()
-                    .ok()
-                    .and_then(|s| s.resolve_connection_password_blocking(&hop_conn));
-                if let Some(pw_secret) = resolved_pw {
-                    if let Ok(mut state_mut) = state.try_borrow_mut() {
-                        use secrecy::ExposeSecret;
-                        state_mut.cache_credentials(
-                            *hid,
-                            hop_conn.username.as_deref().unwrap_or(""),
-                            pw_secret.expose_secret(),
-                            "",
-                        );
-                    }
-                    hop_passwords[idx] = Some(pw_secret);
-                }
+                .and_then(|s| s.get_connection(hid).cloned());
+            let hop_conn = conn_for_hop?;
+            let resolved_pw = state
+                .try_borrow()
+                .ok()
+                .and_then(|s| s.resolve_connection_password_blocking(&hop_conn))?;
+            if let Ok(mut state_mut) = state.try_borrow_mut() {
+                use secrecy::ExposeSecret;
+                state_mut.cache_credentials(
+                    hid,
+                    hop_conn.username.as_deref().unwrap_or(""),
+                    resolved_pw.expose_secret(),
+                    "",
+                );
             }
-        }
-    }
+            Some(resolved_pw)
+        });
 
     // In Flatpak, ~/.ssh is read-only — point known_hosts to a writable path.
     // Must be set BEFORE jump host resolution because ProxyCommand needs it too.
@@ -2503,5 +2533,81 @@ mod tests {
 
             std::fs::remove_file(&secret_path).expect("test secret file must be removed");
         }
+    }
+
+    // ── P2a: assemble_hop_passwords (pure, fake resolver) ─────────────────
+
+    #[test]
+    fn hop_passwords_stay_aligned_with_a_string_proxy_gap() {
+        // jump_hosts = [string-proxy, ref-hop-A, ref-hop-B]; the string proxy
+        // has no id, so its slot must stay None and the two reference hops keep
+        // their own index (SHALL CONTINUE TO: host↔password alignment).
+        use secrecy::ExposeSecret;
+        let a = Uuid::new_v4();
+        let b = Uuid::new_v4();
+        let hop_ids = vec![None, Some(a), Some(b)];
+
+        let out = assemble_hop_passwords(3, &hop_ids, None, |hid| {
+            Some(SecretString::from(format!("pw-{hid}")))
+        });
+
+        assert_eq!(out.len(), 3);
+        assert!(out[0].is_none(), "string proxy slot has no password");
+        assert_eq!(out[1].as_ref().unwrap().expose_secret(), format!("pw-{a}"));
+        assert_eq!(out[2].as_ref().unwrap().expose_secret(), format!("pw-{b}"));
+    }
+
+    #[test]
+    fn first_hop_password_lands_at_the_first_reference_hop() {
+        // first_hop_password covers the first Some entry; the resolver must not
+        // be called for it, only for the deeper hop.
+        use secrecy::ExposeSecret;
+        let first = Uuid::new_v4();
+        let deeper = Uuid::new_v4();
+        let hop_ids = vec![Some(first), Some(deeper)];
+        let mut resolved_ids = Vec::new();
+
+        let out =
+            assemble_hop_passwords(2, &hop_ids, Some(SecretString::from("first-pw")), |hid| {
+                resolved_ids.push(hid);
+                Some(SecretString::from("deeper-pw"))
+            });
+
+        assert_eq!(out[0].as_ref().unwrap().expose_secret(), "first-pw");
+        assert_eq!(out[1].as_ref().unwrap().expose_secret(), "deeper-pw");
+        assert_eq!(
+            resolved_ids,
+            vec![deeper],
+            "the resolver runs only for the deeper hop, never the already-resolved first"
+        );
+    }
+
+    #[test]
+    fn an_unresolvable_hop_stays_none() {
+        // A hop whose resolver returns None (no vault entry) leaves a None slot
+        // rather than shifting the others (SHALL CONTINUE TO: alignment).
+        use secrecy::ExposeSecret;
+        let a = Uuid::new_v4();
+        let b = Uuid::new_v4();
+        let hop_ids = vec![Some(a), Some(b)];
+
+        let out = assemble_hop_passwords(2, &hop_ids, None, |hid| {
+            if hid == a {
+                None
+            } else {
+                Some(SecretString::from("b-pw"))
+            }
+        });
+
+        assert!(out[0].is_none());
+        assert_eq!(out[1].as_ref().unwrap().expose_secret(), "b-pw");
+    }
+
+    #[test]
+    fn no_hops_yields_an_empty_aligned_vec() {
+        let out = assemble_hop_passwords(0, &[], None, |_| {
+            panic!("resolver must not run when there are no hops")
+        });
+        assert!(out.is_empty());
     }
 }
