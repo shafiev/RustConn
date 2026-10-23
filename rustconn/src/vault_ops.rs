@@ -1809,12 +1809,90 @@ fn retrieve_by_vault_entry_name(
     })?
 }
 
+/// Session cache of resolved secret global variables, keyed by variable name.
+///
+/// A secret global variable's value lives in the vault, so every connect that
+/// substitutes one used to pay a full vault read for it — and a single SSH
+/// connect reads the globals two to three times (the ASK scan, the launch
+/// substitution, and the reconnect path), each a fresh blocking lookup on the
+/// GTK main thread (issue, P1). This caches the resolved `Zeroizing` value
+/// for [`GLOBAL_SECRET_TTL`] so the second and third reads of one connect, and
+/// a reconnect within the window, cost nothing.
+///
+/// It mirrors the per-connection credential cache in `crate::state`: same 300 s
+/// window, same `Instant` clock, same "a secret in memory for the session is
+/// the accepted cost of not asking the vault every time". A miss is **not**
+/// cached — an absent secret stays absent and the next connect tries the vault
+/// again, matching the pre-cache behaviour. The entry is wiped on drop
+/// (`Zeroizing`), and [`invalidate_global_secret_cache`] clears it whenever the
+/// variables are saved, so an edited secret is never served stale.
+static GLOBAL_SECRET_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<
+        std::collections::HashMap<String, (zeroize::Zeroizing<String>, std::time::Instant)>,
+    >,
+> = std::sync::OnceLock::new();
+
+/// How long a resolved secret global variable is trusted before re-reading it
+/// from the vault.
+///
+/// 300 s, the same window as the per-connection credential cache — long enough
+/// that the two-to-three reads of one connect and a quick reconnect are served
+/// from memory, short enough that a secret rotated in the vault is picked up
+/// within five minutes without a restart.
+const GLOBAL_SECRET_TTL: std::time::Duration = std::time::Duration::from_secs(300);
+
+fn global_secret_cache() -> &'static std::sync::Mutex<
+    std::collections::HashMap<String, (zeroize::Zeroizing<String>, std::time::Instant)>,
+> {
+    GLOBAL_SECRET_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Reads a fresh (unexpired) cached secret for `var_name`, if any.
+fn cached_global_secret(var_name: &str) -> Option<zeroize::Zeroizing<String>> {
+    let guard = global_secret_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    guard.get(var_name).and_then(|(value, at)| {
+        if at.elapsed() < GLOBAL_SECRET_TTL {
+            Some(value.clone())
+        } else {
+            None
+        }
+    })
+}
+
+/// Stores a freshly resolved secret for `var_name`.
+fn store_global_secret(var_name: &str, value: &zeroize::Zeroizing<String>) {
+    let mut guard = global_secret_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    guard.insert(
+        var_name.to_string(),
+        (value.clone(), std::time::Instant::now()),
+    );
+}
+
+/// Clears the resolved-secret cache for every global variable.
+///
+/// Call this whenever the global variables are saved: a secret value may have
+/// changed in the vault, so a cached copy must not be served afterwards. Clears
+/// the whole map rather than one name because a save rewrites the whole set and
+/// the cost of re-reading on the next connect is one vault lookup.
+pub fn invalidate_global_secret_cache() {
+    let mut guard = global_secret_cache()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    guard.clear();
+}
+
 /// Returns global variables with secret values restored from vault.
 ///
 /// Non-secret variables are returned as-is. Secret variables with empty
-/// values have their values loaded from the configured vault backend.
-/// Vault load failures are logged but do not prevent other variables
-/// from being returned.
+/// values have their values loaded from the configured vault backend, through
+/// the session cache ([`GLOBAL_SECRET_CACHE`]) so repeated reads within one
+/// connect — and a reconnect inside [`GLOBAL_SECRET_TTL`] — do not re-hit the
+/// vault. Vault load failures are logged but do not prevent other variables
+/// from being returned, and a miss is not cached.
 ///
 /// When a variable has a custom `kdbx_entry_path`, that path is used
 /// for KeePass lookup instead of the default `rustconn/var/{name}`.
@@ -1826,6 +1904,15 @@ pub fn resolve_global_variables(
     let mut vars = settings.global_variables.clone();
     for var in &mut vars {
         if var.is_secret && var.value.is_empty() {
+            // Serve from the session cache first — the repeated reads of one
+            // connect, and a reconnect within the TTL, must not re-hit the
+            // vault (P1). A hit still goes through the same zeroize-then-write
+            // as a fresh resolve.
+            if let Some(cached) = cached_global_secret(&var.name) {
+                var.value.zeroize();
+                var.value.clone_from(&cached);
+                continue;
+            }
             match load_variable_from_vault_with_path(
                 &settings.secrets,
                 &var.name,
@@ -1833,6 +1920,10 @@ pub fn resolve_global_variables(
                 var.vault_entry_name.as_deref(),
             ) {
                 Ok(Some(pwd)) => {
+                    // Cache the resolved secret before it is moved into the
+                    // variable, so the next read of this connect is served from
+                    // memory. A miss (Ok(None)/Err) is deliberately not cached.
+                    store_global_secret(&var.name, &pwd);
                     // Zeroize the previous value before overwriting — clone_from
                     // frees the old buffer via the allocator (no zeroize), so a
                     // stale secret could linger in freed heap memory.
@@ -4068,5 +4159,34 @@ mod tests {
         let trashed = vault_connection("web", None);
         let live = std::slice::from_ref(&trashed);
         assert!(live_connection_sharing_vault_key(&settings, &[], &trashed, live).is_none());
+    }
+
+    // ── P1: global secret cache ───────────────────────────────────────────
+
+    #[test]
+    fn an_unknown_global_secret_is_a_miss() {
+        // SHALL CONTINUE TO: a name never resolved (a vault miss is not cached)
+        // reads as absent, so the next connect re-queries the vault.
+        assert!(cached_global_secret("p1_never_stored_var_xyz").is_none());
+    }
+
+    /// Store → hit → invalidate → miss, as one serial test because the cache is
+    /// a process-global static: splitting these across parallel tests would let
+    /// one test's `invalidate_global_secret_cache` (which clears the whole map)
+    /// race another's stored key.
+    #[test]
+    fn store_hit_then_invalidate_is_a_miss() {
+        let name = "p1_cache_lifecycle_var";
+        let secret = zeroize::Zeroizing::new("top-secret-value".to_string());
+
+        store_global_secret(name, &secret);
+        let got = cached_global_secret(name).expect("a freshly stored secret is a cache hit");
+        assert_eq!(*got, *secret);
+
+        invalidate_global_secret_cache();
+        assert!(
+            cached_global_secret(name).is_none(),
+            "invalidation must clear the cached secret so an edited value is not served stale"
+        );
     }
 }
