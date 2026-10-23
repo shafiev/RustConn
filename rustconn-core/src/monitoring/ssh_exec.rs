@@ -133,6 +133,63 @@ fn control_path_in(dir: &str, host: &str, port: u16) -> String {
     fallback
 }
 
+/// Reports whether a ControlMaster socket for `host:port` is already present.
+///
+/// Used as a connect-time fast path (P4): when the master socket is already
+/// there, a new SSH session multiplexes over it, so the pre-connect port check
+/// is redundant (the TCP connection is already up) and no target-password
+/// askpass file need be written (the master is already authenticated).
+///
+/// `ControlPath` contains `%r` (the remote user), which OpenSSH expands at
+/// runtime, so the exact file name is not known here — this matches any socket
+/// file sharing the path's prefix. It additionally requires the match to be a
+/// Unix **socket**, not a stale regular file, so a leftover non-socket does not
+/// trigger the fast path. It does **not** run `ssh -O check`: that would spawn
+/// the very process the fast path exists to avoid, and a socket that is present
+/// but dead is simply re-established by OpenSSH's own `ControlMaster=auto`
+/// fallback — the only cost of a false positive is a skipped port check, which
+/// `bypasses_direct_probe` connections already skip safely.
+#[must_use]
+pub fn control_socket_present(host: &str, port: u16) -> bool {
+    let control_path = ssh_control_path(host, port);
+    let prefix = control_path.replace("-%r", "-");
+    socket_with_prefix_exists(&prefix)
+}
+
+/// Like [`glob_socket_exists`] but requires the match to be a Unix socket.
+fn socket_with_prefix_exists(prefix: &str) -> bool {
+    let Some(dir) = std::path::Path::new(prefix).parent() else {
+        return false;
+    };
+    let Some(file_prefix) = std::path::Path::new(prefix).file_name() else {
+        return false;
+    };
+    let file_prefix_str = file_prefix.to_string_lossy();
+
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+
+    entries.filter_map(Result::ok).any(|entry| {
+        if !entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with(file_prefix_str.as_ref())
+        {
+            return false;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::FileTypeExt as _;
+            entry.file_type().map(|ft| ft.is_socket()).unwrap_or(false)
+        }
+        #[cfg(not(unix))]
+        {
+            true
+        }
+    })
+}
+
 /// Checks if any file exists with the given prefix (for socket detection).
 ///
 /// SSH expands `%r` in `ControlPath` to the remote username, so we can't
@@ -705,7 +762,8 @@ pub fn ssh_exec_factory(
 #[cfg(test)]
 mod tests {
     use super::{
-        MUX_TEMP_SUFFIX_LEN, SOCKET_PATH_MAX, USERNAME_RESERVE, control_path_in, ssh_control_path,
+        MUX_TEMP_SUFFIX_LEN, SOCKET_PATH_MAX, USERNAME_RESERVE, control_path_in,
+        socket_with_prefix_exists, ssh_control_path,
     };
 
     /// Simulates what OpenSSH actually binds: `%r` expanded to a username of
@@ -791,5 +849,40 @@ mod tests {
             bound_socket_len(&path, USERNAME_RESERVE) <= SOCKET_PATH_MAX,
             "ssh_control_path returned an unusable path: {path}"
         );
+    }
+
+    // ── P4: ControlMaster socket detection ────────────────────────────────
+
+    #[cfg(unix)]
+    #[test]
+    fn a_real_socket_sharing_the_prefix_is_detected() {
+        use std::os::unix::net::UnixListener;
+
+        let dir = tempfile::tempdir().unwrap();
+        let prefix = dir.path().join("rc-host-22-");
+        // OpenSSH binds `<prefix><user>`; emulate it with a real socket.
+        let socket_path = dir.path().join("rc-host-22-alice");
+        let _listener = UnixListener::bind(&socket_path).unwrap();
+
+        assert!(socket_with_prefix_exists(prefix.to_str().unwrap()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_regular_file_sharing_the_prefix_is_not_a_socket() {
+        // A stale non-socket left with the prefix must NOT trigger the fast
+        // path — only a live socket does.
+        let dir = tempfile::tempdir().unwrap();
+        let prefix = dir.path().join("rc-host-22-");
+        std::fs::write(dir.path().join("rc-host-22-alice"), b"stale").unwrap();
+
+        assert!(!socket_with_prefix_exists(prefix.to_str().unwrap()));
+    }
+
+    #[test]
+    fn an_empty_directory_has_no_socket() {
+        let dir = tempfile::tempdir().unwrap();
+        let prefix = dir.path().join("rc-host-22-");
+        assert!(!socket_with_prefix_exists(prefix.to_str().unwrap()));
     }
 }

@@ -1409,14 +1409,22 @@ pub fn start_ssh_connection_observed(
         .unwrap_or_default();
     let has_inherited_proxy =
         ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups, &settings.network).is_some();
+    // A live ControlMaster socket means the TCP connection to this host is
+    // already up and authenticated, so the pre-connect port check is redundant
+    // (P4). Checked here, once, and reused below to also skip writing a
+    // target-password askpass file — the master needs no password.
+    let has_control_socket = rustconn_core::control_socket_present(&conn.host, conn.port);
     // Use centralized probe-bypass logic + inherited proxy jump from groups
-    let should_check = conn.should_pre_connect_check(&settings.connection) && !has_inherited_proxy;
+    let should_check = conn.should_pre_connect_check(&settings.connection)
+        && !has_inherited_proxy
+        && !has_control_socket;
 
-    if conn.bypasses_direct_probe() || has_inherited_proxy {
+    if conn.bypasses_direct_probe() || has_inherited_proxy || has_control_socket {
         tracing::debug!(
             protocol = "ssh",
             host = %conn.host,
             port = conn.port,
+            control_socket = has_control_socket,
             "Skipping port check — connection bypasses direct probe"
         );
     }

@@ -196,7 +196,7 @@ pub use monitoring::{
     MetricsComputer, MetricsEvent, MetricsParser, MonitoringConfig, MonitoringError,
     MonitoringOverride, MonitoringResult, MonitoringSettings, NetworkMetrics, NetworkSnapshot,
     RemoteMetrics, RemoteOsType, SYSTEM_INFO_COMMAND, SystemInfo, close_all_control_sockets,
-    close_control_socket, close_dead_control_sockets, effective_monitoring,
+    close_control_socket, close_dead_control_sockets, control_socket_present, effective_monitoring,
     effective_monitoring_interval, ssh_control_path, ssh_exec_factory, start_collector,
 };
 pub use password_generator::{
