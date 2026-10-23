@@ -5,6 +5,11 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Performance instrumentation for vault and SSH operations (`rustconn::perf`, W0)** — 0.24 is a performance release, so its targets are measured rather than felt. A new `PerfSpan` helper times each vault operation (`vault.unlock`, `vault.retrieve`/`store`/`delete`) and each SSH-connect phase (`ssh.connect.resolve`, `ssh.connect.agent`, `ssh.connect.args`) and, on drop, emits one structured line to the `rustconn::perf` tracing target with `op`, `transport`, `elapsed_ms` and `calls` fields. The target is off unless you ask for it (`RUST_LOG=rustconn::perf=info`), and a line never carries a secret, a credential, a vault item name, a host name or a user name — only fixed labels. This is the instrument the release's timing targets are read from; see docs/ARCHITECTURE.md. (`rustconn-core/src/tracing/perf.rs`, `rustconn-core/src/secret/bitwarden.rs`, `rustconn/src/vault_ops.rs`, `rustconn/src/state/mod.rs`, `rustconn/src/window/protocols_ssh.rs`)
+
 ## [0.23.21] - 2026-10-23
 
 ### Fixed

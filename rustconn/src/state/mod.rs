@@ -1191,6 +1191,16 @@ impl AppState {
             )
         }
 
+        // Times the whole credential-resolve phase (including the cold-backend
+        // retries below). It runs off the GTK main thread via
+        // `spawn_credential_resolution`, so this measures the resolve cost the
+        // 0.24 SSH targets care about, not a main-thread stall. Off unless
+        // `RUST_LOG=rustconn::perf=info`. Placed after the item declarations
+        // above so it is the function's first statement (clippy
+        // `items_after_statements`).
+        let _perf =
+            rustconn_core::tracing::perf::PerfSpan::new("ssh.connect.resolve", "credentials");
+
         // Captured before the context moves into the final attempt.
         let conn_username = ctx.connection.username.clone();
         let conn_domain = ctx.connection.domain.clone();

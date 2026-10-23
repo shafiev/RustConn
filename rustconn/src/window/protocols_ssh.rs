@@ -456,6 +456,11 @@ impl JumpAuthShape {
 fn ensure_identity_in_agent(key_path: &std::path::Path) {
     use rustconn_core::ssh_agent::SshAgentManager;
 
+    // Times the ssh-agent identity phase and counts the agent operations it
+    // runs — the A1 target is driving both the time and the spawn/process count
+    // down. Off unless `RUST_LOG=rustconn::perf=info`.
+    let mut perf = rustconn_core::tracing::perf::PerfSpan::new("ssh.connect.agent", "ssh-agent");
+
     if !key_path.exists() {
         return;
     }
@@ -464,6 +469,8 @@ fn ensure_identity_in_agent(key_path: &std::path::Path) {
         tracing::debug!("no ssh-agent socket; multi-hop -J relies on an existing agent identity");
         return;
     }
+    // One add-key round trip against the agent — the call this phase exists for.
+    perf.add_calls(1);
     // `add_key` with no passphrase covers unencrypted keys and keys whose
     // passphrase the agent/askpass can still resolve. Encrypted keys without a
     // resolvable passphrase fail here and are left to the agent/user.
@@ -508,6 +515,11 @@ fn build_ssh_command_args(
     let rustconn_core::ProtocolConfig::Ssh(ssh_config) = &conn.protocol_config else {
         return (None, Vec::new(), false, None, Vec::new(), false);
     };
+
+    // Times the connect-args phase: key inheritance, jump-host/ProxyCommand
+    // wiring, bastion and target askpass helpers. Placed after the SSH guard so
+    // a non-SSH call emits no line. Off unless `RUST_LOG=rustconn::perf=info`.
+    let _perf = rustconn_core::tracing::perf::PerfSpan::new("ssh.connect.args", "ssh");
 
     // Resolve key path via inheritance (connection → group → parent group → root)
     let key = ssh_inheritance::resolve_ssh_key_path(conn, groups)

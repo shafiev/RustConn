@@ -2157,6 +2157,10 @@ async fn try_relogin_and_unlock(
 pub async fn auto_unlock(
     settings: &crate::config::SecretSettings,
 ) -> SecretResult<BitwardenBackend> {
+    // Times the whole unlock to "vault ready" — the 0.24 target of ≤ 4 s starts
+    // here. Off unless `RUST_LOG=rustconn::perf=info`; see `tracing::perf`.
+    let _perf = crate::tracing::perf::PerfSpan::new("vault.unlock", "bitwarden");
+
     // One unlock at a time, process-wide. The GUI's startup unlock runs on a
     // thread of its own, outside the vault-op lock, so a connect made while it
     // was still going started a second `bw status` / `bw unlock` / `bw sync`

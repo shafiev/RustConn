@@ -414,6 +414,29 @@ fn vault_op_timed_out(operation: &str, budget: std::time::Duration) -> String {
     format!("Vault {operation} timed out after {}s", budget.as_secs())
 }
 
+/// The fixed `transport` label a vault op's perf line carries for `backend`.
+///
+/// A `&'static str` per backend so a [`rustconn_core::tracing::perf::PerfSpan`]
+/// over a vault operation names which store it hit without ever putting a
+/// backend's own `Debug` (which could grow fields) into the log. One mapping so
+/// the labels stay stable across the baseline and post-change tables.
+const fn perf_transport_label(backend: rustconn_core::config::SecretBackendType) -> &'static str {
+    use rustconn_core::config::SecretBackendType;
+
+    match backend {
+        SecretBackendType::Bitwarden => "bitwarden",
+        SecretBackendType::OnePassword => "1password",
+        SecretBackendType::Passbolt => "passbolt",
+        SecretBackendType::Pass => "pass",
+        SecretBackendType::LibSecret => "libsecret",
+        SecretBackendType::MacOsKeychain => "macos-keychain",
+        SecretBackendType::KeePassXc => "keepassxc",
+        SecretBackendType::KdbxFile => "kdbx-file",
+        SecretBackendType::EncryptedFile => "encrypted-file",
+        SecretBackendType::PortableEncryptedFile => "portable-encrypted-file",
+    }
+}
+
 /// Stores credentials in the selected backend, and only in the selected backend.
 ///
 /// `allow_fallback` is passed as `false` to [`SecretManager::store_reported`], so
@@ -2389,6 +2412,18 @@ pub fn dispatch_vault_op_for(
     lookup_key: &str,
     op: VaultOp<'_>,
 ) -> Result<Option<rustconn_core::models::Credentials>, String> {
+    // Times every vault retrieve/store/delete, labelled by operation and by the
+    // backend transport it ran against. The 0.24 retrieve/store targets are read
+    // from these lines. Off unless `RUST_LOG=rustconn::perf=info`.
+    let _perf = rustconn_core::tracing::perf::PerfSpan::new(
+        match op {
+            VaultOp::Store(_) => "vault.store",
+            VaultOp::Retrieve | VaultOp::RetrieveFor { .. } => "vault.retrieve",
+            VaultOp::Delete => "vault.delete",
+        },
+        perf_transport_label(backend_type),
+    );
+
     // One budget for whichever operation follows, derived from the backend that
     // was named rather than assumed to be a local one.
     let budget = vault_op_timeout(backend_type);

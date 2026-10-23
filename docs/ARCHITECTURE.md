@@ -1588,9 +1588,33 @@ rustconn-core/src/
 ├── flatpak.rs             # Flatpak sandbox detection, portal key path resolution, stable key copy
 ├── snap.rs                # Snap environment detection and paths
 ├── performance/           # String interner (connection-string dedup) + search debouncer
-├── tracing/               # Span name constants for structured tracing
+├── tracing/               # Span name constants + the `rustconn::perf` timing target (PerfSpan)
 └── ...
 ```
+
+## Performance Instrumentation (`rustconn::perf`)
+
+0.24 is a performance release, so its targets are measured rather than felt. Every vault operation and every SSH-connect phase is timed by a `PerfSpan` (`rustconn-core/src/tracing/perf.rs`): construct one at the start of an operation, hold it for the operation's lifetime, and its `Drop` emits one structured line to the `rustconn::perf` tracing target with fields `op`, `transport`, `elapsed_ms` and `calls`. The line carries fields, never a formatted string, so a baseline table and a post-change table compare field by field.
+
+The target is off by default. The application initialises its subscriber from `RUST_LOG`, so these lines appear only when you ask for them:
+
+```bash
+RUST_LOG=rustconn::perf=info ./target/debug/rustconn
+```
+
+A perf line never carries a secret, a credential, a vault item name, a hostname, or a username — only fixed `&'static str` labels. The timing of an operation is not sensitive; what it operated on is.
+
+### Instrumented phases (W0)
+
+| `op` | `transport` | Where | Measures |
+|---|---|---|---|
+| `vault.unlock` | `bitwarden` | `secret/bitwarden.rs::auto_unlock` | Start to "vault ready" (target ≤ 4 s) |
+| `vault.retrieve` / `vault.store` / `vault.delete` | the backend (`bitwarden`, `keepassxc`, `libsecret`, …) | `vault_ops.rs::dispatch_vault_op_for` | One vault operation against the named backend |
+| `ssh.connect.resolve` | `credentials` | `state/mod.rs::resolve_credentials_blocking` | The off-main-thread credential-resolve phase, incl. cold-backend retries |
+| `ssh.connect.agent` | `ssh-agent` | `window/protocols_ssh.rs::ensure_identity_in_agent` | ssh-agent identity add; `calls` counts the agent round trips (A1 target) |
+| `ssh.connect.args` | `ssh` | `window/protocols_ssh.rs::build_ssh_command_args` | Connect-args build: key inheritance, jump-host/ProxyCommand wiring, askpass helpers |
+
+`calls` defaults to 1 and is raised with `PerfSpan::add_calls` when one logical operation fans out into several underlying calls (several `bw` spawns behind one store, several agent round trips behind one key lookup) — exactly the counts 0.24 is driving down.
 
 ## Remote Monitoring Architecture
 
