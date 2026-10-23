@@ -63,12 +63,14 @@ pub fn create_serial_options() -> SerialOptionsWidgets {
     // SERIAL-1: Detect available serial devices
     let detect_button = gtk4::Button::builder()
         .label(i18n("Detect Devices"))
-        .tooltip_text(i18n("Scan /dev for serial devices"))
+        .tooltip_text(i18n("Scan /dev for serial devices, USB adapters first"))
         .valign(gtk4::Align::Center)
         .build();
     let detect_row = adw::ActionRow::builder()
         .title(i18n("Auto-Detect"))
-        .subtitle(i18n("Scan for ttyUSB, ttyACM, and ttyS devices"))
+        .subtitle(i18n(
+            "Scan for ttyUSB, ttyACM, cu.* (macOS), and ttyS devices",
+        ))
         .activatable_widget(&detect_button)
         .build();
     detect_row.add_suffix(&detect_button);
@@ -76,19 +78,15 @@ pub fn create_serial_options() -> SerialOptionsWidgets {
 
     let device_entry_detect = device_entry.clone();
     detect_button.connect_clicked(move |_btn| {
-        let mut devices = Vec::new();
-        for pattern in &["ttyUSB", "ttyACM", "ttyS"] {
-            if let Ok(entries) = std::fs::read_dir("/dev") {
-                for entry in entries.flatten() {
-                    let name = entry.file_name();
-                    let name_str = name.to_string_lossy();
-                    if name_str.starts_with(pattern) {
-                        devices.push(format!("/dev/{name_str}"));
-                    }
-                }
-            }
-        }
-        devices.sort();
+        let names = std::fs::read_dir("/dev")
+            .map(|entries| {
+                entries
+                    .flatten()
+                    .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let devices = rank_serial_devices(names);
         if let Some(first) = devices.first() {
             device_entry_detect.set_text(first);
             device_entry_detect
@@ -227,4 +225,93 @@ pub fn create_serial_options() -> SerialOptionsWidgets {
         flow_dropdown,
         custom_args_entry,
     )
+}
+
+/// The serial devices among `names` (entries of `/dev`), best candidate first.
+///
+/// USB adapters before built-in UARTs: a Linux machine typically exposes dozens
+/// of `ttyS*` nodes whether or not a port exists, so a plain sort put
+/// `/dev/ttyS0` ahead of the `/dev/ttyUSB0` the user just plugged in. Order:
+/// `ttyUSB`, `ttyACM`, macOS `cu.usb*`, other `cu.*`, `ttyS`. macOS gets the
+/// `cu.*` callout node, not `tty.*`: opening `tty.*` blocks until carrier
+/// detect, which a console cable never raises. Within a class, numbered nodes
+/// sort by number (`ttyUSB2` before `ttyUSB10`).
+fn rank_serial_devices(names: impl IntoIterator<Item = String>) -> Vec<String> {
+    const CLASSES: [&str; 5] = ["ttyUSB", "ttyACM", "cu.usb", "cu.", "ttyS"];
+
+    let mut ranked: Vec<(usize, String, u64, String)> = names
+        .into_iter()
+        .filter_map(|name| {
+            let class = CLASSES.iter().position(|prefix| name.starts_with(prefix))?;
+            let stem = name.trim_end_matches(|c: char| c.is_ascii_digit());
+            let number = name[stem.len()..].parse().unwrap_or(0);
+            Some((class, stem.to_string(), number, name))
+        })
+        .collect();
+    ranked.sort();
+    ranked
+        .into_iter()
+        .map(|(_, _, _, name)| format!("/dev/{name}"))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rank_serial_devices;
+
+    fn rank(names: &[&str]) -> Vec<String> {
+        rank_serial_devices(names.iter().map(|n| (*n).to_string()))
+    }
+
+    /// The Linux bug: `ttyS0` sorted ahead of the USB adapter.
+    #[test]
+    fn a_usb_adapter_beats_the_builtin_uarts() {
+        let ranked = rank(&["ttyS0", "ttyS1", "ttyS31", "ttyUSB0", "tty0", "null"]);
+        assert_eq!(
+            ranked,
+            ["/dev/ttyUSB0", "/dev/ttyS0", "/dev/ttyS1", "/dev/ttyS31"]
+        );
+    }
+
+    #[test]
+    fn classes_follow_the_priority_order() {
+        let ranked = rank(&[
+            "ttyS0",
+            "cu.Bluetooth-Incoming-Port",
+            "cu.usbserial-1410",
+            "ttyACM0",
+            "ttyUSB0",
+        ]);
+        assert_eq!(
+            ranked,
+            [
+                "/dev/ttyUSB0",
+                "/dev/ttyACM0",
+                "/dev/cu.usbserial-1410",
+                "/dev/cu.Bluetooth-Incoming-Port",
+                "/dev/ttyS0",
+            ]
+        );
+    }
+
+    /// macOS: the callout `cu.*` node is offered, the dial-in `tty.*` is not.
+    #[test]
+    fn macos_offers_cu_and_not_tty() {
+        let ranked = rank(&["tty.usbserial-1410", "cu.usbserial-1410", "tty.Bluetooth"]);
+        assert_eq!(ranked, ["/dev/cu.usbserial-1410"]);
+    }
+
+    #[test]
+    fn numbered_nodes_sort_by_number() {
+        let ranked = rank(&["ttyUSB10", "ttyUSB2", "ttyS10", "ttyS2"]);
+        assert_eq!(
+            ranked,
+            ["/dev/ttyUSB2", "/dev/ttyUSB10", "/dev/ttyS2", "/dev/ttyS10"]
+        );
+    }
+
+    #[test]
+    fn nothing_found_is_empty() {
+        assert!(rank(&["null", "tty0", "pts"]).is_empty());
+    }
 }

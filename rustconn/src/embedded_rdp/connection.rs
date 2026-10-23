@@ -1050,6 +1050,35 @@ impl super::EmbeddedRdpWidget {
         // generation; direct tests may use generation zero.
         let generation = *self.connection_generation.borrow();
 
+        // A new session starts with a clean clipboard file-transfer state.
+        // `disconnect()` clears it too, but a session the server drops ends in
+        // the polling loop's `Disconnected`/error branch, and every reconnect
+        // route (the Reconnect button, a network-change reconnect, a
+        // cert-accept reconnect, the IronRDP-error fallback) calls `connect()`
+        // directly without going through `disconnect()` first. Without this,
+        // a batch cut off mid-download stays in `downloads`, so
+        // `holds_local_announce()` is still true in the reconnected session —
+        // whose clipboard monitor shares this same `Rc` — and every local
+        // clipboard change is silently deferred forever (issue #390, review
+        // finding: hold surviving reconnect).
+        //
+        // `folder_pick_pending` is preserved rather than dropped by `clear()`:
+        // an open folder picker's callback holds the same `Rc` and resolves on
+        // its own regardless of which session is live by then, but it is the
+        // very flag protecting the window between focus returning from the
+        // picker and that callback running. Dropping it here would open that
+        // window back up for exactly the length of a reconnect, so the safer
+        // choice is to carry it over rather than assume the callback's own
+        // cleanup makes it moot.
+        {
+            let mut transfer = self.file_transfer.borrow_mut();
+            let folder_pick_pending = transfer.folder_pick_pending;
+            transfer.clear();
+            transfer.folder_pick_pending = folder_pick_pending;
+        }
+        self.save_files_button.set_visible(false);
+        self.save_files_button.set_sensitive(true);
+
         // Get actual widget size for initial resolution. The remote desktop is
         // requested at the widget's LOGICAL size (Auto = 1.0×) so we don't push
         // scale-factor-inflated device resolutions over the network; the
@@ -1657,6 +1686,7 @@ impl super::EmbeddedRdpWidget {
                     on_file_progress: &on_file_progress,
                     on_file_complete: &on_file_complete,
                     ironrdp_tx: &ironrdp_tx,
+                    file_offer_active: &file_offer_active,
                 };
 
                 // Poll for events from IronRDP client
@@ -1705,6 +1735,7 @@ impl super::EmbeddedRdpWidget {
                                     let tx = ironrdp_tx.clone();
                                     let suppressed = clipboard_sync_suppressed.clone();
                                     let offer_active = file_offer_active.clone();
+                                    let file_transfer_for_monitor = file_transfer.clone();
                                     // Drop a monitor left behind by an earlier
                                     // generation before installing this one; the
                                     // slot holds a single entry (issue #261).
@@ -1757,6 +1788,29 @@ impl super::EmbeddedRdpWidget {
                                                 protocol = "rdp",
                                                 "[Clipboard] Local change does not offer text; \
                                                  not announcing (avoids clobbering a file offer)"
+                                            );
+                                            return;
+                                        }
+                                        // Skip while a "Save N Files" download holds the
+                                        // announce: the folder picker is open, or a batch
+                                        // has files still in flight. Announcing here would
+                                        // replace the server-side clipboard the download is
+                                        // reading from — a Format List PDU is not additive,
+                                        // it replaces the previous one — so the server would
+                                        // stop answering FileContentsRequests for a file
+                                        // RustConn is still fetching and the transfer would
+                                        // time out with nothing saved (issue #390). The
+                                        // change is not dropped: it is sent once the hold
+                                        // comes down, from `release_announce_hold`.
+                                        if file_transfer_for_monitor
+                                            .borrow()
+                                            .holds_local_announce()
+                                        {
+                                            file_transfer_for_monitor.borrow_mut().defer_announce();
+                                            tracing::debug!(
+                                                protocol = "rdp",
+                                                "Local clipboard change deferred: a remote file \
+                                                 download is in progress"
                                             );
                                             return;
                                         }
@@ -1920,6 +1974,7 @@ impl super::EmbeddedRdpWidget {
                                         &remote_clipboard_text,
                                         &copy_button,
                                         &clipboard_sync_suppressed,
+                                        &file_transfer,
                                         text,
                                     );
                                 }
@@ -2050,6 +2105,17 @@ impl super::EmbeddedRdpWidget {
                                 // text-sync hold — a later copy may legitimately
                                 // replace the clipboard once the file is on its way.
                                 file_offer_active.set(false);
+                                // A local clipboard change deferred while the
+                                // offer was outstanding has nothing left to wait
+                                // for: send it now rather than leaving it for
+                                // some later, unrelated picker-close or batch end
+                                // (issue #390, review finding: DnD-postponed
+                                // deferral has no trigger of its own).
+                                super::polling_handlers::release_announce_hold(
+                                    &file_transfer,
+                                    &file_offer_active,
+                                    &ironrdp_tx,
+                                );
                                 if let Some(ref sender) = *ironrdp_tx.borrow() {
                                     let _ = sender.send(RdpClientCommand::ProvideFileContents {
                                         stream_id,
@@ -3372,6 +3438,19 @@ Open Settings → Connection → Media Codecs to re-download it.",
 
         // Clear Cairo-backed buffer
         self.cairo_buffer.borrow_mut().clear();
+
+        // Drop any in-flight "Save N Files" batch and the folder-pick hold
+        // with it. Without this a download or an open folder picker cut off
+        // by a disconnect or reconnect never settles — the new session's
+        // monitor would then see `holds_local_announce()` stuck true forever
+        // and silently defer every later local clipboard change (issue #390,
+        // review finding: hold surviving session teardown).
+        #[cfg(feature = "rdp-embedded")]
+        {
+            self.file_transfer.borrow_mut().clear();
+            self.save_files_button.set_visible(false);
+            self.save_files_button.set_sensitive(true);
+        }
 
         // Reset state (but keep config for potential reconnect)
         *self.is_embedded.borrow_mut() = false;

@@ -263,7 +263,7 @@ impl MainWindow {
             let resolved_against = state_ref.settings().secrets.preferred_backend;
 
             // Handle CredentialResolutionResult variants with appropriate dialogs
-            state_ref.resolve_credentials_gtk(connection_id, move |result| {
+            crate::state::resolve_credentials_gtk(&state, connection_id, move |result| {
                 // Keep busy guard alive until the callback completes
                 use rustconn_core::sync::CredentialResolutionResult;
                 let _busy_guard = busy_guard;
@@ -328,7 +328,8 @@ impl MainWindow {
                                 .unwrap_or_default();
 
                             let mut names: Vec<String> = Vec::new();
-                            let mut types: Vec<rustconn_core::config::SecretBackendType> = Vec::new();
+                            let mut types: Vec<rustconn_core::config::SecretBackendType> =
+                                Vec::new();
 
                             // Add preferred backend first (if it's not LibSecret)
                             match preferred {
@@ -399,19 +400,30 @@ impl MainWindow {
                                 description.as_deref(),
                                 &backend_refs,
                                 move |response| {
-                                    if let crate::dialogs::VariableSetupResponse::Save { value, backend_index } = response {
+                                    if let crate::dialogs::VariableSetupResponse::Save {
+                                        value,
+                                        backend_index,
+                                    } = response
+                                    {
                                         // Map dialog backend index to SecretBackendType using the dynamic list
                                         let selected_backend = backend_types
                                             .get(backend_index as usize)
                                             .copied()
-                                            .unwrap_or(rustconn_core::config::SecretBackendType::LibSecret);
+                                            .unwrap_or(
+                                                rustconn_core::config::SecretBackendType::LibSecret,
+                                            );
 
                                         // Save the variable value using the user-selected backend
-                                        let save_ok = if let Ok(state_ref) = state_var.try_borrow() {
+                                        let save_ok = if let Ok(state_ref) = state_var.try_borrow()
+                                        {
                                             let mut settings = state_ref.settings().secrets.clone();
                                             // Override preferred_backend to match user's choice
                                             settings.preferred_backend = selected_backend;
-                                            match crate::state::save_variable_to_vault(&settings, &variable_name_owned, &value) {
+                                            match crate::state::save_variable_to_vault(
+                                                &settings,
+                                                &variable_name_owned,
+                                                &value,
+                                            ) {
                                                 Ok(()) => true,
                                                 Err(e) => {
                                                     tracing::error!(
@@ -420,7 +432,8 @@ impl MainWindow {
                                                         "Failed to save variable to vault"
                                                     );
                                                     if let Some(root) = notebook_var.widget().root()
-                                                        && let Some(window) = root.downcast_ref::<gtk4::Window>()
+                                                        && let Some(window) =
+                                                            root.downcast_ref::<gtk4::Window>()
                                                     {
                                                         crate::toast::show_toast_on_window(
                                                             window,
@@ -493,9 +506,12 @@ impl MainWindow {
                                         }
                                         crate::dialogs::BackendMissingResponse::OpenSettings => {
                                             // Connection not started — open settings so user can configure backend
-                                            tracing::info!("User chose to open settings to configure secret backend");
+                                            tracing::info!(
+                                                "User chose to open settings to configure secret backend"
+                                            );
                                             if let Some(root) = notebook_be.widget().root()
-                                                && let Some(win) = root.downcast_ref::<gtk4::Window>()
+                                                && let Some(win) =
+                                                    root.downcast_ref::<gtk4::Window>()
                                             {
                                                 gtk4::prelude::WidgetExt::activate_action(
                                                     win,
@@ -510,7 +526,10 @@ impl MainWindow {
                             );
                         }
                     }
-                    CredentialResolutionResult::VaultEntryMissing { connection_name, lookup_key } => {
+                    CredentialResolutionResult::VaultEntryMissing {
+                        connection_name,
+                        lookup_key,
+                    } => {
                         // Vault entry not found — proceed without credentials; the
                         // protocol handler prompts for a password if it needs one.
                         tracing::info!(
@@ -563,7 +582,10 @@ impl MainWindow {
                             observer_clone.clone(),
                         );
                     }
-                    CredentialResolutionResult::KdbxLocked { kdbx_path, connection_id: conn_id } => {
+                    CredentialResolutionResult::KdbxLocked {
+                        kdbx_path,
+                        connection_id: conn_id,
+                    } => {
                         // KDBX database needs unlocking — show on-demand unlock
                         // dialog (#273). On success, store the password in memory
                         // and retry credential resolution for the connection.
@@ -592,11 +614,15 @@ impl MainWindow {
                                 yubikey_slot.as_deref(),
                                 move |response| {
                                     match response {
-                                        crate::dialogs::KdbxUnlockResponse::Unlocked { password } => {
+                                        crate::dialogs::KdbxUnlockResponse::Unlocked {
+                                            password,
+                                        } => {
                                             // Store the verified password in AppState for
                                             // the remainder of the session (never persisted).
-                                            if let Ok(mut state_ref) = state_unlock.try_borrow_mut() {
-                                                state_ref.settings_mut().secrets.kdbx_password = Some(password);
+                                            if let Ok(mut state_ref) = state_unlock.try_borrow_mut()
+                                            {
+                                                state_ref.settings_mut().secrets.kdbx_password =
+                                                    Some(password);
                                             }
 
                                             // Retry credential resolution — now kdbx_password
@@ -620,7 +646,10 @@ impl MainWindow {
                             );
                         }
                     }
-                    CredentialResolutionResult::PortableFileLocked { file_path, connection_id: conn_id } => {
+                    CredentialResolutionResult::PortableFileLocked {
+                        file_path,
+                        connection_id: conn_id,
+                    } => {
                         // Portable credential file needs unlocking — show passphrase
                         // dialog. On success, store the passphrase in settings and
                         // retry credential resolution.
@@ -638,14 +667,17 @@ impl MainWindow {
                                 &file_path,
                                 move |response| {
                                     match response {
-                                        crate::dialogs::PortableUnlockResponse::Unlocked { passphrase } => {
+                                        crate::dialogs::PortableUnlockResponse::Unlocked {
+                                            passphrase,
+                                        } => {
                                             // Store the verified passphrase for the rest of
                                             // the session, in both places that need it: the
                                             // settings field the GUI paths read, and the
                                             // manager's backend, which no settings change
                                             // will rebuild (the runtime passphrase is
                                             // excluded from SecretSettings equality).
-                                            if let Ok(mut state_ref) = state_unlock.try_borrow_mut() {
+                                            if let Ok(mut state_ref) = state_unlock.try_borrow_mut()
+                                            {
                                                 state_ref.unlock_portable_store(passphrase);
                                             }
 

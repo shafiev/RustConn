@@ -452,6 +452,72 @@ mod manager_tests {
         assert!(status.socket_path.is_none());
         assert!(status.keys.is_empty());
     }
+
+    /// `add_key` used to put the passphrase itself in the `ssh-add`
+    /// environment, readable in `/proc/<pid>/environ`. Now only the paths of
+    /// the askpass helper and of the owner-only secret file are there, and the
+    /// helper still prints the passphrase exactly.
+    #[cfg(unix)]
+    #[test]
+    fn add_key_askpass_env_carries_paths_not_the_passphrase() {
+        use crate::ssh_tunnel::{
+            TUNNEL_ASKPASS_ENV_VAR, cleanup_askpass_script, create_one_shot_askpass_script,
+            create_tunnel_secret_file,
+        };
+
+        let passphrase = secrecy::SecretString::from(" hunter2 agent ");
+        let script = create_one_shot_askpass_script().unwrap();
+        let secret = create_tunnel_secret_file(&passphrase).unwrap();
+
+        let cmd = ssh_add_askpass_command(
+            std::path::Path::new("/home/u/.ssh/id_ed25519"),
+            "/tmp/agent.sock",
+            &script,
+            &secret,
+        );
+        let envs: Vec<(String, String)> = cmd
+            .get_envs()
+            .filter_map(|(k, v)| Some((k.to_str()?.to_owned(), v?.to_str()?.to_owned())))
+            .collect();
+        // Through `sh`, so a `noexec` temp dir does not fail the test.
+        let ask = || {
+            std::process::Command::new("sh")
+                .arg(&script)
+                .env(TUNNEL_ASKPASS_ENV_VAR, &secret)
+                .output()
+                .unwrap()
+        };
+        let printed = ask();
+        // ssh-add re-asks after a wrong passphrase until the answer is empty;
+        // the helper answers once, so that loop ends.
+        let asked_again = ask();
+        let left_in_file = std::fs::metadata(&secret).unwrap().len();
+        cleanup_askpass_script(&secret);
+        cleanup_askpass_script(&script);
+
+        assert!(
+            envs.iter().all(|(_, v)| !v.contains("hunter2")),
+            "passphrase reached the ssh-add environment"
+        );
+        assert!(envs.iter().all(|(k, _)| k != "RUSTCONN_ASKPASS_SECRET"));
+        assert!(envs.contains(&(
+            TUNNEL_ASKPASS_ENV_VAR.to_owned(),
+            secret.to_string_lossy().into_owned()
+        )));
+        assert!(envs.contains(&("SSH_ASKPASS_REQUIRE".to_owned(), "force".to_owned())));
+        assert!(printed.status.success());
+        assert_eq!(printed.stdout, b" hunter2 agent ");
+        assert!(!asked_again.status.success(), "a second ask must fail");
+        assert!(
+            asked_again.stdout.is_empty(),
+            "a second ask must print nothing"
+        );
+        assert_eq!(
+            left_in_file, 0,
+            "the passphrase must leave the file once read"
+        );
+        assert!(!secret.exists(), "secret file must be removed");
+    }
 }
 
 // ============================================================================
@@ -633,6 +699,19 @@ impl SshAgentManager {
     /// * `key_path` - Path to the private key file
     /// * `passphrase` - Optional passphrase for encrypted keys (as `SecretString`)
     ///
+    /// # Where the passphrase is written
+    ///
+    /// A passphrase goes to `ssh-add`'s askpass helper through a mode-0600,
+    /// `create_new`, randomly named file from `create_tunnel_secret_file`, the
+    /// same rule as the SSH tunnel and the GUI's `protocols_ssh` askpass:
+    /// `$XDG_RUNTIME_DIR` (tmpfs) on Linux, the per-user `$TMPDIR` on macOS,
+    /// and `std::env::temp_dir()` (`/tmp`) only on a Linux session without a
+    /// runtime dir. In the last two cases the file is on a real disk, where the
+    /// zero-overwrite before unlinking does not reliably erase it (APFS, CoW
+    /// filesystems). Accepted for now: refusing would break adding a key in
+    /// su/sudo/container shells, the file is readable only by the same uid,
+    /// and the one-shot helper empties it right after its single read.
+    ///
     /// # Errors
     ///
     /// Returns `AgentError::NotRunning` if no socket is configured.
@@ -642,61 +721,55 @@ impl SshAgentManager {
         key_path: &std::path::Path,
         passphrase: Option<&secrecy::SecretString>,
     ) -> AgentResult<()> {
-        use std::process::{Command, Stdio};
+        use std::process::Command;
 
         let socket_path = self.socket_path.as_ref().ok_or(AgentError::NotRunning)?;
 
         if let Some(pass) = passphrase {
-            use secrecy::ExposeSecret;
-            use zeroize::Zeroizing;
+            use crate::ssh_tunnel::{
+                cleanup_askpass_script, create_one_shot_askpass_script, create_tunnel_secret_file,
+            };
 
-            // SEC-2: Pass the passphrase via an environment variable instead of
-            // writing it to a temp file. On CoW filesystems (btrfs, APFS) overwriting
-            // with zeros is unreliable — the original data persists in old extents.
-            //
-            // The SSH_ASKPASS script only references the env var by name; the actual
-            // secret lives solely in the child process's memory and is never written
-            // to disk. The env var is not visible in /proc/<pid>/cmdline.
-            let script_dir =
-                std::env::temp_dir().join(format!("rustconn-askpass-{}", uuid::Uuid::new_v4()));
-            std::fs::create_dir_all(&script_dir)
-                .map_err(|e| AgentError::AddKeyFailed(format!("mkdir askpass: {e}")))?;
-            let script_path = script_dir.join("askpass.sh");
+            // The passphrase reaches ssh-add's askpass helper through an
+            // owner-only (0600) file in `$XDG_RUNTIME_DIR`; the environment
+            // carries only that file's path. It used to travel as the value of
+            // an env var, which the same user can read in `/proc/<pid>/environ`
+            // for as long as ssh-add runs. The secret file is the SSH tunnel's;
+            // the helper is its one-shot variant, because ssh-add asks again
+            // after a wrong passphrase and only an empty answer stops it.
+            let script_path = create_one_shot_askpass_script().map_err(AgentError::AddKeyFailed)?;
+            // ponytail: temp_dir fallback kept for parity with every askpass
+            // path; drop it in 0.24 for all of them at once, when the GUI
+            // helper moves to core (K1).
+            let secret_path = match create_tunnel_secret_file(pass) {
+                Ok(path) => path,
+                Err(e) => {
+                    cleanup_askpass_script(&script_path);
+                    return Err(AgentError::AddKeyFailed(e));
+                }
+            };
 
-            // The script reads the passphrase from an env var — no secret on disk.
-            let script_content = "#!/bin/sh\nprintf '%s\\n' \"$RUSTCONN_ASKPASS_SECRET\"\n";
-            std::fs::write(&script_path, script_content.as_bytes())
-                .map_err(|e| AgentError::AddKeyFailed(format!("write askpass: {e}")))?;
-
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o700))
-                    .map_err(|e| AgentError::AddKeyFailed(format!("chmod askpass: {e}")))?;
-            }
-
-            let output = Command::new("ssh-add")
-                .arg(key_path)
-                .env("SSH_AUTH_SOCK", socket_path)
-                .env("SSH_ASKPASS", &script_path)
-                .env("SSH_ASKPASS_REQUIRE", "force")
-                .env("DISPLAY", ":0")
-                // Pass the passphrase via env var — never touches disk.
-                // Wrap in Zeroizing so the String is zeroed when dropped.
-                .env(
-                    "RUSTCONN_ASKPASS_SECRET",
-                    Zeroizing::new(pass.expose_secret().to_string()).as_str(),
-                )
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .output()
+            // Bounded, so the files below are always cleaned up and the caller
+            // (the GTK thread) never waits on an ssh-add that does not finish.
+            let output = ssh_add_askpass_command(key_path, socket_path, &script_path, &secret_path)
+                .spawn()
+                .and_then(|child| {
+                    crate::proc::wait_bounded(child, SSH_ADD_TIMEOUT, "ssh-add with askpass")
+                })
                 .map_err(|e| AgentError::AddKeyFailed(e.to_string()));
 
-            // Clean up the helper script (contains no secrets, just env var reference)
-            let _ = std::fs::remove_dir_all(&script_dir);
+            // The child has exited or been killed and reaped, so neither file
+            // is needed any more. The secret file is zeroized before it is
+            // unlinked.
+            cleanup_askpass_script(&secret_path);
+            cleanup_askpass_script(&script_path);
 
-            let output = output?;
+            let output = output?.output().ok_or_else(|| {
+                AgentError::AddKeyFailed(format!(
+                    "ssh-add did not finish within {} s",
+                    SSH_ADD_TIMEOUT.as_secs()
+                ))
+            })?;
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
@@ -991,6 +1064,38 @@ impl SshAgentManager {
             || first_line.contains("EC PRIVATE KEY")
             || first_line.contains("DSA PRIVATE KEY")
     }
+}
+
+/// Ceiling on an `ssh-add` that is given a passphrase.
+///
+/// A backstop, not the loop guard — the one-shot askpass already ends the
+/// wrong-passphrase retry loop. Generous because a key encrypted with many
+/// bcrypt KDF rounds (`ssh-keygen -a`) takes seconds to decrypt.
+const SSH_ADD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// The `ssh-add` command that loads `key_path` with its passphrase supplied by
+/// the askpass helper at `script_path`, which reads it from `secret_path`.
+///
+/// Only the two paths enter the child's environment, never the passphrase.
+fn ssh_add_askpass_command(
+    key_path: &std::path::Path,
+    socket_path: &str,
+    script_path: &std::path::Path,
+    secret_path: &std::path::Path,
+) -> std::process::Command {
+    use std::process::{Command, Stdio};
+
+    let mut cmd = Command::new("ssh-add");
+    cmd.arg(key_path)
+        .env("SSH_AUTH_SOCK", socket_path)
+        .env("SSH_ASKPASS", script_path)
+        .env("SSH_ASKPASS_REQUIRE", "force")
+        .env("DISPLAY", ":0")
+        .env(crate::ssh_tunnel::TUNNEL_ASKPASS_ENV_VAR, secret_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    cmd
 }
 
 /// Removes stale `.pub` files from the agent-keys directory.

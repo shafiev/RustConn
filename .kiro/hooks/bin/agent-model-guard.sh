@@ -7,7 +7,7 @@
 # That is the wrong default in both directions at once: `rust-quality-check`
 # executes three fixed cargo commands and has clippy as its arbiter, so it should
 # be on the 0.05x tier; `unsafe-reviewer` decides whether a SAFETY comment is
-# verifiable and nothing re-checks it, so it should be on the 2.2x tier. Left
+# verifiable and nothing re-checks it, so it should be on the 2.0x tier. Left
 # unset, both sit at 1.0x and the profile looks deliberate.
 #
 # All five profiles were unset until 2026-09-06. The field is easy to forget
@@ -59,8 +59,8 @@ block() {
 
     predictable work with a machine arbiter   qwen3-coder-next  0.05x
     tool-driven navigation                    claude-haiku-4.5  0.4x
-    judgement a human reads                   claude-sonnet-4.6 1.3x
-    judgement nothing re-checks               claude-opus-4.5   2.2x
+    judgement a human reads                   claude-sonnet-5.5 1.3x
+    judgement nothing re-checks               claude-opus-5.5   2.0x
 
   Pick by whether anything verifies the agent's answer, not by how simple the
   task looks. Rationale and the full table: steering cost-discipline.md.

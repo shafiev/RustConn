@@ -9,7 +9,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use secrecy::SecretString;
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use super::normalize::parse_host_port;
 use super::traits::{ImportResult, ImportSource, SkippedEntry, read_import_file};
@@ -19,6 +21,14 @@ use crate::models::{
     RdpConfig, RdpGateway, Resolution, SpiceConfig, SshAuthMethod, SshConfig, SshKeySource,
     TelnetConfig, VncConfig,
 };
+
+/// Ceiling on one `secret-tool lookup`.
+///
+/// Generous on purpose: a locked keyring shows an unlock prompt the user has to
+/// answer, and the first lookup waits for it. The point is to bound a prompt
+/// left open or a hung keyring daemon, not to race the user; past it the
+/// connection is imported without its password.
+const SECRET_TOOL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Importer for Remmina connection files.
 ///
@@ -63,20 +73,12 @@ impl RemminaImporter {
     /// attributes: `filename` (full path to .remmina file) and `key` (field name,
     /// e.g. "password"). We try the full path first, then fall back to just the
     /// filename for compatibility with older Remmina versions.
-    fn get_password_from_keyring(file_path: &str) -> Option<String> {
+    fn get_password_from_keyring(file_path: &str) -> Option<SecretString> {
         // Primary lookup: full path + key="password" (matches Remmina's schema)
-        let output = Command::new("secret-tool")
-            .args(["lookup", "filename", file_path, "key", "password"])
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .output()
-            .ok()?;
-
-        if output.status.success() {
-            let password = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !password.is_empty() {
-                return Some(password);
-            }
+        if let Some(stdout) = Self::secret_tool_lookup(file_path)
+            && let Some(password) = Self::password_from_lookup_output(stdout)
+        {
+            return Some(password);
         }
 
         // Fallback: try with just the basename (older Remmina versions)
@@ -86,22 +88,50 @@ impl RemminaImporter {
             .unwrap_or(file_path);
 
         if basename != file_path {
-            let output = Command::new("secret-tool")
-                .args(["lookup", "filename", basename, "key", "password"])
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                .output()
-                .ok()?;
-
-            if output.status.success() {
-                let password = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !password.is_empty() {
-                    return Some(password);
-                }
-            }
+            return Self::secret_tool_lookup(basename).and_then(Self::password_from_lookup_output);
         }
 
         None
+    }
+
+    /// stdout of a successful `secret-tool lookup filename <filename> key
+    /// password`, or `None` if it failed, could not start, or ran past
+    /// [`SECRET_TOOL_TIMEOUT`].
+    ///
+    /// The deadline exists because a locked keyring makes `secret-tool` wait on
+    /// an unlock prompt, and without one the import waited with it for as long
+    /// as the prompt stayed open.
+    fn secret_tool_lookup(filename: &str) -> Option<Vec<u8>> {
+        let child = Command::new("secret-tool")
+            .args(["lookup", "filename", filename, "key", "password"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .ok()?;
+        let output = crate::proc::wait_bounded(child, SECRET_TOOL_TIMEOUT, "secret-tool lookup")
+            .ok()?
+            .output()?;
+        if output.status.success() {
+            Some(output.stdout)
+        } else {
+            // A failed lookup prints no password, but wipe whatever it printed.
+            drop(Zeroizing::new(output.stdout));
+            None
+        }
+    }
+
+    /// The password in `secret-tool lookup` stdout, or `None` when it is empty.
+    ///
+    /// Only the one trailing newline `secret-tool` may append is removed. The
+    /// `.trim()` this replaced also cut spaces a password can legitimately
+    /// start or end with, so such a password was imported corrupted. Every
+    /// intermediate buffer is wiped on drop.
+    fn password_from_lookup_output(stdout: Vec<u8>) -> Option<SecretString> {
+        let stdout = Zeroizing::new(stdout);
+        let text = Zeroizing::new(String::from_utf8_lossy(&stdout).into_owned());
+        let password = text.strip_suffix('\n').unwrap_or(&text);
+        (!password.is_empty()).then(|| SecretString::from(password))
     }
 
     /// Parses a single .remmina file content
@@ -369,10 +399,10 @@ impl RemminaImporter {
             && let Some(password) = Self::get_password_from_keyring(source_path)
         {
             // Store credentials in the result for later persistence
-            let creds = Credentials::with_password(
-                connection.username.clone().unwrap_or_default(),
-                password,
-            );
+            let creds = Credentials {
+                password: Some(password),
+                ..Credentials::with_username(connection.username.clone().unwrap_or_default())
+            };
             result.add_credentials(connection.id, creds);
             connection.password_source = PasswordSource::Vault;
         }
@@ -558,6 +588,24 @@ fn remmina_audio_mode(sound: &str) -> RdpAudioMode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use secrecy::ExposeSecret;
+
+    /// `secret-tool` may end its output with a newline; that one character is
+    /// not part of the password, but spaces at either end are.
+    #[test]
+    fn lookup_output_keeps_edge_spaces_and_drops_only_the_newline() {
+        let lookup = |out: &str| {
+            RemminaImporter::password_from_lookup_output(out.as_bytes().to_vec())
+                .map(|p| p.expose_secret().to_owned())
+        };
+
+        assert_eq!(lookup("  pass word  \n").as_deref(), Some("  pass word  "));
+        assert_eq!(lookup(" no-newline ").as_deref(), Some(" no-newline "));
+        // Only one newline is the CLI's; a second belongs to the password.
+        assert_eq!(lookup("p\n\n").as_deref(), Some("p\n"));
+        assert_eq!(lookup("\n"), None);
+        assert_eq!(lookup(""), None);
+    }
 
     /// Every audio mode survives a Remmina export and import, `remote`
     /// included, which the exporter used to write as `off`.

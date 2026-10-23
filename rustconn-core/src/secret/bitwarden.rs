@@ -82,6 +82,37 @@ static BW_LAST_VERIFIED: RwLock<Option<std::time::Instant>> = RwLock::new(None);
 /// vault locks within a reasonable window.
 const UNLOCK_VERIFY_TTL_SECS: u64 = 120;
 
+/// Timestamp of the last successful `bw sync`.
+///
+/// Kept apart from [`BW_LAST_VERIFIED`] so that re-trusting a stored session
+/// after the short verify TTL does not cost a `bw sync` (seconds) every time;
+/// see [`SYNC_TTL_SECS`].
+///
+/// Wall-clock `SystemTime`, not `Instant`: on Linux `Instant` stops while the
+/// machine is suspended, so after an overnight sleep a sync taken just before
+/// it would still look recent and the first connects would skip `bw sync`.
+static BW_LAST_SYNCED: RwLock<Option<std::time::SystemTime>> = RwLock::new(None);
+
+/// How long (in seconds) after a successful `bw sync` an [`auto_unlock`] that
+/// re-trusts a stored session skips the next one.
+///
+/// The cost: an item edited in another Bitwarden client is seen up to this much
+/// later. A refused sign-in still forces a sync at once, because
+/// [`sync_on_next_unlock`] clears this mark too (issue #351), and a fresh unlock
+/// always syncs.
+const SYNC_TTL_SECS: u64 = 600;
+
+/// One Bitwarden unlock at a time, process-wide.
+///
+/// [`auto_unlock`] holds it across its `bw` calls, and
+/// [`unlock_vault_blocking`] — the Settings → Secrets entry — takes it too, so
+/// the page's unlock no longer runs alongside a connect's (issue #353 logs show
+/// two or three `bw unlock` at once). A tokio mutex because `auto_unlock`
+/// holds the guard across awaits; it is not tied to a runtime, which matters
+/// because each caller brings its own, and its `blocking_lock` serves the
+/// blocking entry.
+static BW_UNLOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 /// Ceiling on a single `bw` invocation.
 ///
 /// One number for "one child process", so the guarantee is the same wherever a
@@ -123,6 +154,28 @@ fn is_recently_verified() -> bool {
 /// the vault were just refused, so the retry reads the item fresh (issue #351).
 pub fn sync_on_next_unlock() {
     clear_verified();
+    if let Ok(mut guard) = BW_LAST_SYNCED.write() {
+        *guard = None;
+    }
+}
+
+/// Records that `bw sync` just succeeded.
+fn mark_synced() {
+    if let Ok(mut guard) = BW_LAST_SYNCED.write() {
+        *guard = Some(std::time::SystemTime::now());
+    }
+}
+
+/// Returns `true` if the vault should be synced: never synced in this process,
+/// or the last sync is older than [`SYNC_TTL_SECS`].
+fn sync_due() -> bool {
+    is_sync_due(BW_LAST_SYNCED.read().ok().and_then(|guard| *guard))
+}
+
+/// [`sync_due`] for a given last-sync time, so the TTL is testable without
+/// waiting it out. A mark in the future (the clock was set back) counts as due.
+fn is_sync_due(last_synced: Option<std::time::SystemTime>) -> bool {
+    last_synced.is_none_or(|t| !t.elapsed().is_ok_and(|age| age.as_secs() < SYNC_TTL_SECS))
 }
 
 /// Clears the verification timestamp (e.g. on lock/logout).
@@ -149,6 +202,17 @@ pub fn set_session_key(key: SecretString) {
 #[must_use]
 pub fn get_session_key() -> Option<SecretString> {
     BW_SESSION_STORE.read().ok().and_then(|guard| guard.clone())
+}
+
+/// Returns `true` if a Bitwarden session key is stored in-process.
+///
+/// The same answer as `get_session_key().is_some()`, without copying the key.
+/// A stored key means an unlock succeeded in this process; it is trusted the
+/// same way [`BitwardenBackend::is_unlocked_fast`] trusts it, because
+/// `bw status` on CLI v2026.4+ reports `locked` even with a valid session.
+#[must_use]
+pub fn has_session_key() -> bool {
+    BW_SESSION_STORE.read().is_ok_and(|guard| guard.is_some())
 }
 
 /// Clears the stored Bitwarden session key.
@@ -333,6 +397,77 @@ enum RootMatch {
     ShortName,
 }
 
+/// Which title match ended a root search early.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TermHit {
+    /// RustConn's own `RustConn: {id}` item, found in the first term's
+    /// results — what the scoped search this replaces would have returned.
+    Own,
+    /// An item titled by a candidate (or, in a later term, RustConn's own
+    /// item: a scoped search can miss it while a `store` of the same
+    /// connection is still creating it).
+    Title,
+}
+
+/// The root-search choice over each term's `bw --search` results, without the
+/// CLI, so the order, the early exit and the pool are unit-tested.
+///
+/// Feed the results term by term, in candidate order, to [`Self::offer`]; stop
+/// at its first `Some`. Otherwise hand [`Self::into_pool`] to
+/// [`BitwardenBackend::pick_root_match`].
+struct RootSelection<'a> {
+    candidates: &'a [&'a str],
+    own_name: &'a str,
+    first_term: bool,
+    pool: Vec<BitwardenItem>,
+}
+
+impl<'a> RootSelection<'a> {
+    const fn new(candidates: &'a [&'a str], own_name: &'a str) -> Self {
+        Self {
+            candidates,
+            own_name,
+            first_term: true,
+            pool: Vec::new(),
+        }
+    }
+
+    /// Takes one term's results. Returns the item that ends the search: in
+    /// the first term RustConn's own item before anything else (the scoped
+    /// search used to run first and win), then the first exact title match.
+    /// Otherwise pools the items, de-duplicated by id, and returns `None`.
+    fn offer(&mut self, items: Vec<BitwardenItem>) -> Option<(BitwardenItem, TermHit)> {
+        let first_term = std::mem::replace(&mut self.first_term, false);
+        let own = first_term
+            .then(|| items.iter().position(|item| item.name == self.own_name))
+            .flatten()
+            .map(|pos| (pos, TermHit::Own));
+        let hit = own.or_else(|| {
+            items
+                .iter()
+                .position(|item| {
+                    item.name == self.own_name
+                        || BitwardenBackend::root_search_matches(&item.name, self.candidates)
+                })
+                .map(|pos| (pos, TermHit::Title))
+        });
+        if let Some((pos, how)) = hit {
+            return items.into_iter().nth(pos).map(|item| (item, how));
+        }
+        for item in items {
+            if !self.pool.iter().any(|p| p.id == item.id) {
+                self.pool.push(item);
+            }
+        }
+        None
+    }
+
+    /// Everything the terms returned without a title match, first-seen order.
+    fn into_pool(self) -> Vec<BitwardenItem> {
+        self.pool
+    }
+}
+
 /// Bitwarden item template for creation
 #[derive(Debug, Serialize)]
 struct BitwardenItemTemplate {
@@ -349,9 +484,11 @@ struct BitwardenItemTemplate {
 #[derive(Debug, Serialize)]
 struct BitwardenLoginTemplate {
     username: Option<String>,
-    // Plain String: serde `Serialize` cannot derive over `Zeroizing`/`SecretString`.
-    // The plaintext lifetime is bounded — the serialized JSON is wrapped in
-    // `Zeroizing` at the call site and the template is dropped right after.
+    // Plain String: serde `Serialize` cannot derive over `Zeroizing`/`SecretString`
+    // (the workspace `zeroize` has no `serde` feature). It is still wiped: the
+    // `Drop` impl below zeroizes it, and `Drop` rules out moving it out first.
+    // The serialized JSON is wrapped in `Zeroizing` at the call site and the
+    // template is dropped right after.
     password: Option<String>,
     uris: Vec<BitwardenUri>,
 }
@@ -512,6 +649,21 @@ impl BitwardenBackend {
 
     /// Runs a bw command and returns stdout
     async fn run_command(&self, args: &[&str]) -> SecretResult<String> {
+        self.run_command_inner(args, None).await
+    }
+
+    /// Runs a bw command with `input` written to its stdin, then closed.
+    ///
+    /// For `bw create item` / `bw edit item`: given no encoded-JSON argument,
+    /// `bw` reads it from stdin (`CliUtils.readStdin` in the CLI). The item
+    /// carries the plaintext password, and as an argument it sat in
+    /// `/proc/<pid>/cmdline`, which every user on the machine can read.
+    async fn run_command_with_stdin(&self, args: &[&str], input: &[u8]) -> SecretResult<String> {
+        self.run_command_inner(args, Some(input)).await
+    }
+
+    /// [`Self::run_command`] and [`Self::run_command_with_stdin`].
+    async fn run_command_inner(&self, args: &[&str], input: Option<&[u8]>) -> SecretResult<String> {
         // Only the verb reaches the log, never the whole argv.
         //
         // `bw create item` and `bw edit item` take the item as a base64 argument,
@@ -529,7 +681,26 @@ impl BitwardenBackend {
 
         // Timeout prevents hanging when Bitwarden CLI stalls on network
         // requests (e.g. expired session triggers a sync attempt that blocks).
-        let output = tokio::time::timeout(BW_INVOCATION_TIMEOUT, self.build_command(args).output())
+        let mut cmd = self.build_command(args);
+        let run = async {
+            let Some(input) = input else {
+                return cmd.output().await;
+            };
+            cmd.stdin(Stdio::piped());
+            let mut child = cmd.spawn()?;
+            if let Some(mut stdin) = child.stdin.take() {
+                use tokio::io::AsyncWriteExt;
+                // A `bw` that exits before reading everything breaks the pipe;
+                // its exit status and stderr below say why, so that is what
+                // gets reported, not the write error.
+                if let Err(e) = stdin.write_all(input).await {
+                    tracing::debug!(%verb, error = %e, "Bitwarden run_command: stdin write failed");
+                }
+                // Dropping the handle closes the pipe: `bw` reads to EOF.
+            }
+            child.wait_with_output().await
+        };
+        let output = tokio::time::timeout(BW_INVOCATION_TIMEOUT, run)
             .await
             .map_err(|_| {
                 tracing::warn!(%verb, "Bitwarden run_command: timed out after 30s");
@@ -612,12 +783,16 @@ impl BitwardenBackend {
         self.is_unlocked().await
     }
 
-    /// Syncs the vault with the server
+    /// Syncs the vault with the server.
+    ///
+    /// A success restarts the ten-minute window in which [`auto_unlock`] skips
+    /// the sync when it re-trusts a stored session.
     ///
     /// # Errors
     /// Returns `SecretError` if the sync command fails
     pub async fn sync(&self) -> SecretResult<()> {
         self.run_command(&["sync"]).await?;
+        mark_synced();
         Ok(())
     }
 
@@ -850,8 +1025,9 @@ impl BitwardenBackend {
         connection_id: &str,
         aliases: &[&str],
     ) -> SecretResult<Option<BitwardenItem>> {
-        if let Some(item) = self.find_item(connection_id).await? {
-            return Ok(Some(item));
+        // Root-search off: the scoped search is the whole lookup, one `bw` call.
+        if !self.root_search {
+            return self.find_item(connection_id).await;
         }
 
         // Root-search fallback: an entry the user keeps outside RustConn's
@@ -859,24 +1035,26 @@ impl BitwardenBackend {
         // #353, by the connection's host or name. Search for each candidate and
         // match it exactly via `root_search_matches`. Reads only — stores still
         // use the `RustConn: {id}` name and RustConn folder.
-        if !self.root_search {
-            return Ok(None);
-        }
-
+        //
         // `bw --search` is a substring search over title, username, URIs and
         // notes, so it returns items whose title is not a candidate. An exact
         // title match from any search wins at once (the pre-#353 behaviour);
         // everything else is pooled, and only after every search came back
         // empty-handed is the pool tried for a URI-host or short-name match.
         let candidates = Self::bare_candidates(connection_id, aliases);
-        // RustConn's own item can turn up here too: the scoped search above
-        // misses it when it ran while a `store` of the same connection was
-        // still creating the item. Its exact name is the strongest match there
-        // is, so accept it alongside the bare candidates.
         let own_name = Self::entry_name(connection_id);
-        let is_title_match =
-            |name: &str| name == own_name || Self::root_search_matches(name, &candidates);
-        let mut pool: Vec<BitwardenItem> = Vec::new();
+        // The first candidate is the connection id, and a search for it returns
+        // everything the scoped `RustConn: {id}` search does (each word of the
+        // id is in that name), so `RootSelection` looks for the own item in its
+        // results first and the scoped call is skipped — one `bw` call fewer
+        // (seconds each). Only an id that `bare_candidates` trimmed or dropped
+        // breaks that, and keeps the scoped call.
+        if candidates.first() != Some(&connection_id)
+            && let Some(item) = self.find_item(connection_id).await?
+        {
+            return Ok(Some(item));
+        }
+        let mut selection = RootSelection::new(&candidates, &own_name);
         for term in &candidates {
             let bare_output = self
                 .run_command(&["list", "items", "--search", term])
@@ -899,23 +1077,17 @@ impl BitwardenBackend {
                 titles = ?bare_items.iter().map(|i| i.name.as_str()).collect::<Vec<_>>(),
                 "Bitwarden root search: search returned"
             );
-            if let Some(pos) = bare_items
-                .iter()
-                .position(|item| is_title_match(&item.name))
-            {
-                let item = bare_items.into_iter().nth(pos);
-                if let Some(item) = &item {
-                    Self::log_root_match(item, term, RootMatch::Title, connection_id);
+            match selection.offer(bare_items) {
+                Some((item, TermHit::Own)) => return Ok(Some(item)),
+                Some((item, TermHit::Title)) => {
+                    Self::log_root_match(&item, term, RootMatch::Title, connection_id);
+                    return Ok(Some(item));
                 }
-                return Ok(item);
-            }
-            for item in bare_items {
-                if !pool.iter().any(|p| p.id == item.id) {
-                    pool.push(item);
-                }
+                None => {}
             }
         }
 
+        let pool = selection.into_pool();
         match Self::pick_root_match(&pool, &candidates) {
             Ok(Some((pos, how))) => {
                 let item = pool.into_iter().nth(pos);
@@ -1154,24 +1326,31 @@ impl SecretBackend for BitwardenBackend {
             );
             let encoded = base64_encode_secret(json.as_bytes());
 
+            // The item goes to `bw` on stdin, never as an argument: it holds
+            // the password, and argv is world-readable in /proc/<pid>/cmdline.
             let edit_result = self
-                .run_command(&["edit", "item", &existing.id, &encoded])
+                .run_command_with_stdin(&["edit", "item", &existing.id], encoded.as_bytes())
                 .await;
 
             if let Err(ref e) = edit_result {
                 let err_msg = format!("{e}");
                 if err_msg.contains("out of date") || err_msg.contains("out-of-date") {
                     tracing::info!("Bitwarden cipher out of date, syncing and retrying...");
-                    let _ = self.run_command(&["sync"]).await;
+                    // `sync()`, not a bare `run_command`: it records the sync,
+                    // so the next `auto_unlock` does not repeat it.
+                    let _ = self.sync().await;
 
                     // Re-fetch the item to get updated revision
                     if let Some(refreshed) = self.find_item(connection_id).await? {
-                        let refreshed_encoded = base64_encode_secret(json.as_bytes());
-                        self.run_command(&["edit", "item", &refreshed.id, &refreshed_encoded])
-                            .await?;
+                        self.run_command_with_stdin(
+                            &["edit", "item", &refreshed.id],
+                            encoded.as_bytes(),
+                        )
+                        .await?;
                     } else {
                         // Item was deleted remotely — create instead
-                        self.run_command(&["create", "item", &encoded]).await?;
+                        self.run_command_with_stdin(&["create", "item"], encoded.as_bytes())
+                            .await?;
                     }
                 } else {
                     edit_result?;
@@ -1202,7 +1381,9 @@ impl SecretBackend for BitwardenBackend {
             );
             let encoded = base64_encode_secret(json.as_bytes());
 
-            self.run_command(&["create", "item", &encoded]).await?;
+            // On stdin, not argv — see the edit branch above.
+            self.run_command_with_stdin(&["create", "item"], encoded.as_bytes())
+                .await?;
         }
 
         Ok(())
@@ -1239,6 +1420,15 @@ impl SecretBackend for BitwardenBackend {
     }
 
     async fn is_available(&self) -> bool {
+        // A session key exists only after a successful unlock, which needs both
+        // an installed `bw` and a logged-in account — exactly what the two
+        // probes below establish. Skipping them saves two `bw` spawns (seconds
+        // each) on every `SecretManager` read, store and delete. An expired
+        // session still surfaces, on the data command that follows.
+        if self.session_key.is_some() || has_session_key() {
+            return true;
+        }
+
         // Check if bw CLI is installed
         let installed = bw_command(&self.bw_cmd)
             .arg("--version")
@@ -1332,14 +1522,49 @@ pub async fn unlock_vault(password: &SecretString) -> SecretResult<SecretString>
 /// four implemented the verbose fallback (issue
 /// [#312](https://github.com/totoshko88/RustConn/issues/312)).
 ///
+/// Waits for any [`auto_unlock`] in progress, then holds the same process-wide
+/// unlock lock for the whole unlock, so this never runs a `bw unlock` alongside
+/// another one.
+///
+/// The wait has no deadline of its own. It is bounded by the holder: every
+/// `auto_unlock` caller runs it under a 30 s or 45 s timeout, and each `bw`
+/// child here under [`BW_INVOCATION_TIMEOUT`]. Two consequences are accepted:
+/// a connect's `auto_unlock` that queues behind this unlock (up to three
+/// strategies × 30 s) can hit its own timeout while waiting, and an
+/// `auto_unlock` dropped by its caller's timeout releases the lock while the
+/// `bw unlock` it spawned may still be finishing. Either way the callers see an
+/// ordinary timeout or a second unlock, never a hang.
+///
 /// # Errors
 /// Returns `SecretError::ConnectionFailed` if every strategy fails, the password
 /// is wrong, or an invocation exceeded its budget.
+///
+/// # Panics
+/// Panics if called from within an asynchronous execution context (a tokio
+/// runtime), where [`tokio::sync::Mutex::blocking_lock`] refuses to block.
+/// Call it from a blocking worker (`gio::spawn_blocking`,
+/// `tokio::task::spawn_blocking`); async code uses [`unlock_vault`] or
+/// [`auto_unlock`].
 pub fn unlock_vault_blocking(password: &SecretString) -> SecretResult<SecretString> {
-    // Zeroizing, not a bare String: this is the master password in the clear and
-    // it must not be left in freed heap when the call returns.
-    let pw = zeroize::Zeroizing::new(password.expose_secret().to_string());
-    unlock_vault_sync(&pw)
+    with_unlock_lock_blocking(|| {
+        // Zeroizing, not a bare String: this is the master password in the clear
+        // and it must not be left in freed heap when the call returns.
+        let pw = zeroize::Zeroizing::new(password.expose_secret().to_string());
+        unlock_vault_sync(&pw)
+    })
+}
+
+/// Runs `f` while holding [`BW_UNLOCK`], taken by blocking the current thread.
+///
+/// Separate from [`unlock_vault_blocking`] so the serialisation is testable
+/// without a `bw` binary. [`unlock_vault_sync`] must not take the lock itself:
+/// [`auto_unlock`] already holds it while [`unlock_vault`] runs that function.
+///
+/// # Panics
+/// Panics inside an asynchronous execution context, like `blocking_lock`.
+fn with_unlock_lock_blocking<T>(f: impl FnOnce() -> T) -> T {
+    let _one_at_a_time = BW_UNLOCK.blocking_lock();
+    f()
 }
 
 /// Strips anything that looks like a session key out of `bw`'s stderr.
@@ -1937,12 +2162,9 @@ pub async fn auto_unlock(
     // was still going started a second `bw status` / `bw unlock` / `bw sync`
     // alongside it — every step twice in the issue #353 logs, each `bw` call
     // seconds long. Waiting here instead lets the second caller find the
-    // session the first one just stored and take the fast path.
-    //
-    // A tokio mutex because the guard is held across the `bw` awaits; it is not
-    // tied to a runtime, which matters because each caller brings its own.
-    static UNLOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-    let _one_at_a_time = UNLOCK.lock().await;
+    // session the first one just stored and take the fast path. The Settings
+    // page's `unlock_vault_blocking` waits on the same lock.
+    let _one_at_a_time = BW_UNLOCK.lock().await;
 
     // One place for the toggles: the unlock below has many return points, and
     // each used to hand back a backend with read-only off.
@@ -1989,7 +2211,15 @@ async fn unlock_with_saved_credentials(
         tracing::debug!("Bitwarden: using existing session key (trusting without status check)");
         mark_verified();
         let backend = BitwardenBackend::with_session(session);
-        let _ = backend.sync().await;
+        // The verify TTL is short, and a sync costs seconds on every first
+        // vault operation after it; sync only once SYNC_TTL_SECS has passed.
+        // A refused sign-in clears the mark (`sync_on_next_unlock`), so the
+        // retry still reads a fresh item (issue #351).
+        if sync_due() {
+            let _ = backend.sync().await;
+        } else {
+            tracing::debug!("Bitwarden: skipping bw sync (synced recently)");
+        }
         return Ok(backend);
     }
 
@@ -2146,9 +2376,290 @@ mod debug_tests {
 #[cfg(test)]
 mod unlock_tests {
     use super::{
-        BW_INVOCATION_TIMEOUT, is_recently_verified, mark_verified, redact_session_keys,
-        sync_on_next_unlock,
+        BW_INVOCATION_TIMEOUT, BW_SESSION_STORE, BW_UNLOCK, BitwardenBackend, SYNC_TTL_SECS,
+        SecretBackend, SecretString, has_session_key, is_recently_verified, is_sync_due,
+        mark_synced, mark_verified, redact_session_keys, sync_due, sync_on_next_unlock,
+        with_unlock_lock_blocking,
     };
+    use std::sync::{Mutex, MutexGuard, PoisonError};
+
+    /// The session store and the verify/sync marks are process-wide, and the
+    /// test harness runs tests in parallel; every test here that touches them
+    /// holds this.
+    static GLOBALS: Mutex<()> = Mutex::new(());
+
+    fn lock_globals() -> MutexGuard<'static, ()> {
+        GLOBALS.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Sets the global session store directly, so the verify mark is left
+    /// alone (`clear_session_key` also clears it).
+    fn set_global_session(key: Option<&str>) {
+        *BW_SESSION_STORE.write().unwrap() = key.map(SecretString::from);
+    }
+
+    /// A stored session proves an unlock succeeded, so `is_available` answers
+    /// without spawning `bw`. The bogus command path makes any spawn fail, so
+    /// a `true` here can only come from the session check.
+    #[test]
+    fn is_available_trusts_a_session_without_spawning_bw() {
+        let _globals = lock_globals();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let no_bw = |backend: BitwardenBackend| BitwardenBackend {
+            bw_cmd: "/nonexistent/rustconn-test-bw".to_owned(),
+            ..backend
+        };
+
+        set_global_session(None);
+        assert!(!has_session_key());
+        assert!(
+            !runtime.block_on(no_bw(BitwardenBackend::new()).is_available()),
+            "without a session the CLI probe decides, and there is no CLI"
+        );
+
+        let own = no_bw(BitwardenBackend::with_session(SecretString::from("k")));
+        assert!(runtime.block_on(own.is_available()), "instance session");
+
+        set_global_session(Some("global-k"));
+        assert!(has_session_key());
+        let global = runtime.block_on(no_bw(BitwardenBackend::new()).is_available());
+        set_global_session(None);
+        assert!(global, "global session from auto_unlock");
+    }
+
+    /// `unlock_vault_blocking` takes the lock `auto_unlock` holds: a blocking
+    /// caller waits while it is held and proceeds once it is released.
+    #[test]
+    fn the_blocking_unlock_waits_for_a_held_unlock_lock() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        // Free lock: no deadlock, and the closure's value comes back.
+        assert_eq!(with_unlock_lock_blocking(|| 7), 7);
+        assert_eq!(with_unlock_lock_blocking(|| 8), 8);
+
+        let held = BW_UNLOCK.blocking_lock();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let waiter = std::thread::spawn(move || {
+            started_tx.send(()).unwrap();
+            with_unlock_lock_blocking(|| entered_tx.send(()).unwrap());
+        });
+        started_rx.recv().unwrap();
+        assert!(
+            entered_rx.recv_timeout(Duration::from_millis(200)).is_err(),
+            "entered the unlock while another one held the lock"
+        );
+
+        drop(held);
+        entered_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the waiter must proceed once the lock is released");
+        waiter.join().unwrap();
+    }
+
+    /// An `auto_unlock` holding the lock across awaits on a runtime blocks the
+    /// blocking entry the same way, and releasing it lets that entry through.
+    #[test]
+    fn the_blocking_unlock_waits_for_an_async_holder() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let (locked_tx, locked_rx) = mpsc::channel();
+        let (release_tx, release_rx) = tokio::sync::oneshot::channel::<()>();
+        let holder = std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            runtime.block_on(async {
+                let _guard = BW_UNLOCK.lock().await;
+                locked_tx.send(()).unwrap();
+                let _ = release_rx.await;
+            });
+        });
+        locked_rx.recv().unwrap();
+
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let waiter = std::thread::spawn(move || {
+            with_unlock_lock_blocking(|| entered_tx.send(()).unwrap());
+        });
+        assert!(entered_rx.recv_timeout(Duration::from_millis(200)).is_err());
+
+        release_tx.send(()).unwrap();
+        entered_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the waiter must proceed once auto_unlock is done");
+        holder.join().unwrap();
+        waiter.join().unwrap();
+    }
+
+    /// `store` hands the item — which holds the plaintext password — to `bw`
+    /// on stdin. As an argument it was readable by every user in
+    /// `/proc/<pid>/cmdline`. A stub `bw` records its argv and stdin; both the
+    /// create path (no item yet) and the edit path (item exists) are checked.
+    #[cfg(unix)]
+    #[test]
+    fn store_passes_the_item_on_stdin_not_in_argv() {
+        use crate::models::Credentials;
+        use std::os::unix::fs::PermissionsExt;
+
+        let _globals = lock_globals();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        for (existing_items, verb) in [
+            ("[]", "create item"),
+            (
+                r#"[{"id":"i1","name":"RustConn: c1","notes":null,"login":null}]"#,
+                "edit item i1",
+            ),
+        ] {
+            let dir = tempfile::TempDir::new().unwrap();
+            let stub = dir.path().join("bw");
+            // $1 is the `--nointeraction` every `bw` call starts with.
+            let script = format!(
+                "#!/bin/sh\n\
+                 d=\"$(dirname \"$0\")\"\n\
+                 printf '%s\\n' \"$*\" >> \"$d/argv\"\n\
+                 case \"$2 $3\" in\n\
+                 \"list folders\") echo '[{{\"id\":\"f1\",\"name\":\"RustConn\"}}]' ;;\n\
+                 \"list items\") echo '{existing_items}' ;;\n\
+                 \"create item\"|\"edit item\") cat > \"$d/stdin\"; echo '{{}}' ;;\n\
+                 esac\n"
+            );
+            std::fs::write(&stub, script).unwrap();
+            std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+            let backend = BitwardenBackend {
+                bw_cmd: stub.to_string_lossy().into_owned(),
+                ..BitwardenBackend::with_session(SecretString::from("test-session"))
+            };
+            let mut creds = Credentials::with_username("alice");
+            creds.password = Some(SecretString::from("hunter2-store"));
+            runtime
+                .block_on(backend.store("c1", &creds))
+                .expect("store through the stub bw");
+
+            let argv = std::fs::read_to_string(dir.path().join("argv")).unwrap();
+            let stdin = std::fs::read_to_string(dir.path().join("stdin")).unwrap();
+            let item = data_encoding::BASE64
+                .decode(stdin.trim().as_bytes())
+                .expect("stdin is the base64 item");
+            let item = String::from_utf8(item).unwrap();
+
+            assert!(item.contains("hunter2-store"), "the item reached bw");
+            assert!(
+                argv.lines().any(|l| l == format!("--nointeraction {verb}")),
+                "expected a bare `{verb}`: {argv}"
+            );
+            assert!(!argv.contains(stdin.trim()), "item in argv: {argv}");
+            assert!(!argv.contains("hunter2"), "password in argv: {argv}");
+        }
+    }
+
+    /// The `bw` calls `find_item_with_aliases` makes, recorded by a stub `bw`
+    /// whose every search comes back empty (the worst case: nothing short-cuts).
+    /// Root search off: the scoped search alone. On: one search per candidate
+    /// and no scoped one, because the id search covers it. An id that
+    /// `bare_candidates` trims is not the first candidate, so the scoped search
+    /// comes back for it.
+    #[cfg(unix)]
+    #[test]
+    fn root_search_issues_one_bw_search_per_candidate() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        for (root_search, id, expected) in [
+            (false, "c1", vec!["list items --search RustConn: c1"]),
+            (
+                true,
+                "c1",
+                vec!["list items --search c1", "list items --search host.example"],
+            ),
+            (
+                true,
+                " c1",
+                vec![
+                    "list items --search RustConn:  c1",
+                    "list items --search c1",
+                    "list items --search host.example",
+                ],
+            ),
+        ] {
+            let dir = tempfile::TempDir::new().unwrap();
+            let stub = dir.path().join("bw");
+            // $1 is the `--nointeraction` every `bw` call starts with.
+            let script = "#!/bin/sh\n\
+                 d=\"$(dirname \"$0\")\"\n\
+                 shift\n\
+                 printf '%s\\n' \"$*\" >> \"$d/argv\"\n\
+                 echo '[]'\n";
+            std::fs::write(&stub, script).unwrap();
+            std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+            let backend = BitwardenBackend {
+                bw_cmd: stub.to_string_lossy().into_owned(),
+                ..BitwardenBackend::with_session(SecretString::from("test-session"))
+                    .with_root_search(root_search)
+            };
+            let found = runtime
+                .block_on(backend.find_item_with_aliases(id, &["host.example"]))
+                .expect("lookup through the stub bw");
+            assert!(found.is_none());
+
+            let argv = std::fs::read_to_string(dir.path().join("argv")).unwrap();
+            assert_eq!(
+                argv.lines().collect::<Vec<_>>(),
+                expected,
+                "root_search={root_search} id={id:?}"
+            );
+        }
+    }
+
+    /// Never synced, or synced longer ago than the TTL: sync. Synced within
+    /// it: skip.
+    #[test]
+    fn sync_is_due_only_after_the_sync_ttl() {
+        use std::time::{Duration, SystemTime};
+
+        assert!(is_sync_due(None));
+        assert!(!is_sync_due(Some(SystemTime::now())));
+        let ttl = Duration::from_secs(SYNC_TTL_SECS);
+        assert!(!is_sync_due(SystemTime::now().checked_sub(ttl / 2)));
+        if let Some(old) = SystemTime::now().checked_sub(ttl + Duration::from_secs(1)) {
+            assert!(is_sync_due(Some(old)));
+        }
+        // A mark ahead of the clock (time set back) must not suppress syncs.
+        assert!(is_sync_due(SystemTime::now().checked_add(ttl)));
+        // Longer than the verify TTL, or the separate mark saves nothing.
+        const { assert!(SYNC_TTL_SECS > super::UNLOCK_VERIFY_TTL_SECS) };
+    }
+
+    /// A refused sign-in must force the next unlock to sync even when the last
+    /// sync is recent (issue #351): `sync_on_next_unlock` clears the sync mark
+    /// along with the verify mark.
+    #[test]
+    fn sync_on_next_unlock_forgets_the_recent_sync() {
+        let _globals = lock_globals();
+        mark_synced();
+        mark_verified();
+        assert!(!sync_due());
+
+        sync_on_next_unlock();
+
+        assert!(sync_due());
+        assert!(!is_recently_verified());
+    }
 
     /// Unlock stderr reaches a debug log *and* the error string the Secrets page
     /// renders. `extract_session_key` looks for the export banner on stdout, so a
@@ -2207,6 +2718,7 @@ Invalid master password.";
     /// test touches the verification timestamp, so this one does not race.
     #[test]
     fn sync_on_next_unlock_forgets_the_recent_check() {
+        let _globals = lock_globals();
         mark_verified();
         assert!(is_recently_verified());
 
@@ -2600,5 +3112,146 @@ mod root_search_tests {
             BitwardenBackend::pick_root_match(&[], &candidates),
             Ok(None)
         );
+    }
+
+    /// What [`select_root_item`] chose.
+    #[derive(Debug, PartialEq)]
+    enum Chosen {
+        /// A term's results ended the search (`RootSelection::offer`).
+        Hit(String, TermHit),
+        /// No title matched; `pick_root_match` chose from the pool.
+        Pooled(String, RootMatch),
+        /// No title matched and the pool held nothing usable.
+        Nothing,
+        /// No title matched and the pool was ambiguous.
+        Ambiguous(RootMatch),
+    }
+
+    /// Drives [`RootSelection`] over canned per-term results exactly the way
+    /// `find_item_with_aliases` drives it over `bw --search` output. Returns
+    /// the choice, how many searches it consumed, and the pool's ids.
+    fn select_root_item(
+        results_per_term: Vec<Vec<BitwardenItem>>,
+        candidates: &[&str],
+        own_name: &str,
+    ) -> (Chosen, usize, Vec<String>) {
+        assert_eq!(
+            results_per_term.len(),
+            candidates.len(),
+            "one result per term"
+        );
+        let mut selection = RootSelection::new(candidates, own_name);
+        for (searches, items) in results_per_term.into_iter().enumerate() {
+            if let Some((item, how)) = selection.offer(items) {
+                return (Chosen::Hit(item.id, how), searches + 1, Vec::new());
+            }
+        }
+        let pool = selection.into_pool();
+        let ids = pool.iter().map(|i| i.id.clone()).collect();
+        let chosen = match BitwardenBackend::pick_root_match(&pool, candidates) {
+            Ok(Some((pos, how))) => Chosen::Pooled(pool[pos].id.clone(), how),
+            Ok(None) => Chosen::Nothing,
+            Err(how) => Chosen::Ambiguous(how),
+        };
+        (chosen, candidates.len(), ids)
+    }
+
+    /// The first term is the connection id, whose results include RustConn's
+    /// own item; that item wins over a bare-title match in the same results,
+    /// as it did when a scoped search ran first.
+    #[test]
+    fn own_item_beats_a_bare_title_in_the_first_terms_results() {
+        let candidates = BitwardenBackend::bare_candidates("krdp-id", &["krdp"]);
+        assert_eq!(candidates[0], "krdp-id", "first term is the connection id");
+        let own = BitwardenBackend::entry_name("krdp-id");
+
+        let (chosen, searches, _) = select_root_item(
+            vec![
+                vec![item("bare", "krdp-id", &[]), item("own", &own, &[])],
+                vec![item("never", "krdp", &[])],
+            ],
+            &candidates,
+            &own,
+        );
+
+        assert_eq!(chosen, Chosen::Hit("own".into(), TermHit::Own));
+        assert_eq!(searches, 1, "the own item ends the search at once");
+    }
+
+    /// Without the own item, the first exact title wins, and no later term is
+    /// searched once one has.
+    #[test]
+    fn the_first_title_match_ends_the_search() {
+        let candidates = BitwardenBackend::bare_candidates("krdp-id", &["10.0.0.5", "krdp"]);
+        let own = BitwardenBackend::entry_name("krdp-id");
+
+        let (chosen, searches, _) = select_root_item(
+            vec![
+                vec![item("x", "unrelated", &["rdp://10.0.0.5"])],
+                vec![item("t", "10.0.0.5", &[]), item("t2", "krdp", &[])],
+                vec![item("late", "krdp", &[])],
+            ],
+            &candidates,
+            &own,
+        );
+
+        assert_eq!(chosen, Chosen::Hit("t".into(), TermHit::Title));
+        assert_eq!(searches, 2);
+    }
+
+    /// The own item found by a later term (a scoped search could miss it while
+    /// a `store` was still creating it) is a title match, by position.
+    #[test]
+    fn the_own_item_in_a_later_term_is_a_title_match() {
+        let candidates = BitwardenBackend::bare_candidates("krdp-id", &["krdp"]);
+        let own = BitwardenBackend::entry_name("krdp-id");
+
+        let (chosen, _, _) = select_root_item(
+            vec![vec![], vec![item("own", &own, &[])]],
+            &candidates,
+            &own,
+        );
+
+        assert_eq!(chosen, Chosen::Hit("own".into(), TermHit::Title));
+    }
+
+    /// With no title anywhere, every term is searched, the same item seen by
+    /// two terms is pooled once, and the pool goes to `pick_root_match` — so
+    /// that item is an unambiguous URI-host match rather than a tie with
+    /// itself.
+    #[test]
+    fn untitled_results_are_deduplicated_into_the_pool() {
+        let candidates = BitwardenBackend::bare_candidates("krdp-id", &["10.0.0.5", "krdp"]);
+        let own = BitwardenBackend::entry_name("krdp-id");
+        let by_uri = || item("a", "Office RDP", &["rdp://10.0.0.5:3389"]);
+
+        let (chosen, searches, pool) = select_root_item(
+            vec![
+                vec![by_uri()],
+                vec![by_uri(), item("b", "Other", &[])],
+                vec![],
+            ],
+            &candidates,
+            &own,
+        );
+
+        assert_eq!(chosen, Chosen::Pooled("a".into(), RootMatch::UriHost));
+        assert_eq!(searches, 3);
+        assert_eq!(pool, vec!["a".to_owned(), "b".to_owned()]);
+
+        // Two distinct items at the same weak tier stay ambiguous.
+        let (chosen, _, _) = select_root_item(
+            vec![
+                vec![by_uri()],
+                vec![item("c", "Second RDP", &["rdp://10.0.0.5"])],
+                vec![],
+            ],
+            &candidates,
+            &own,
+        );
+        assert_eq!(chosen, Chosen::Ambiguous(RootMatch::UriHost));
+
+        let (chosen, _, _) = select_root_item(vec![vec![], vec![], vec![]], &candidates, &own);
+        assert_eq!(chosen, Chosen::Nothing);
     }
 }

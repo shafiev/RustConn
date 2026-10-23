@@ -489,10 +489,19 @@ fn strip_local_only_ssh_fields(config: &ProtocolConfig) -> ProtocolConfig {
     }
 }
 
-/// Returns a copy of `ssh` with `key_path` cleared (local-only field).
+/// Returns a copy of `ssh` with its local key file path cleared.
+///
+/// The path lives in two places: the legacy `key_path` and
+/// `SshKeySource::File { path }`. Both are cleared — clearing only `key_path`
+/// spread the file path to every device on the Group Sync. A `File` source
+/// becomes `Default`, the same "no explicit key, let ssh pick" state a `None`
+/// `key_path` means. `Agent` and `Inherit` name no local file and stay.
 fn strip_ssh_key_path(ssh: &crate::models::SshConfig) -> crate::models::SshConfig {
     let mut cleaned = ssh.clone();
     cleaned.key_path = None;
+    if matches!(cleaned.key_source, crate::models::SshKeySource::File { .. }) {
+        cleaned.key_source = crate::models::SshKeySource::Default;
+    }
     cleaned
 }
 
@@ -1197,6 +1206,76 @@ mod tests {
                 assert_eq!(ssh.key_path, None, "sftp key_path should be stripped");
             }
             other => panic!("expected Sftp config, got: {other:?}"),
+        }
+    }
+
+    /// The key file path also lives in `SshKeySource::File`; leaving it there
+    /// spread a device-local path to every other device on the Group Sync.
+    #[test]
+    fn from_connection_strips_a_file_key_source() {
+        use crate::models::SshKeySource;
+        use std::path::PathBuf;
+
+        for config in [ProtocolConfig::Ssh, ProtocolConfig::Sftp] {
+            let ssh_config = SshConfig {
+                key_path: Some(PathBuf::from("/home/user/.ssh/id_ed25519")),
+                key_source: SshKeySource::File {
+                    path: PathBuf::from("/home/user/.ssh/id_ed25519"),
+                },
+                ..Default::default()
+            };
+            let conn = Connection::new(
+                "file-key".to_owned(),
+                "host".to_owned(),
+                22,
+                config(ssh_config),
+            );
+
+            let sync_conn = SyncConnection::from_connection(&conn, "Root");
+
+            let (ProtocolConfig::Ssh(ssh) | ProtocolConfig::Sftp(ssh)) = &sync_conn.protocol_config
+            else {
+                panic!(
+                    "expected Ssh/Sftp config, got: {:?}",
+                    sync_conn.protocol_config
+                );
+            };
+            assert_eq!(ssh.key_source, SshKeySource::Default);
+            assert_eq!(ssh.key_path, None);
+            let json = serde_json::to_string(&sync_conn).expect("serializes");
+            assert!(!json.contains("id_ed25519"), "key path leaked: {json}");
+        }
+    }
+
+    /// `Agent` and `Inherit` name no local file, so they are synced unchanged.
+    #[test]
+    fn from_connection_keeps_agent_and_inherit_key_sources() {
+        use crate::models::SshKeySource;
+
+        for key_source in [
+            SshKeySource::Agent {
+                fingerprint: "SHA256:abc".to_owned(),
+                comment: "user@host".to_owned(),
+            },
+            SshKeySource::Inherit,
+        ] {
+            let ssh_config = SshConfig {
+                key_source: key_source.clone(),
+                ..Default::default()
+            };
+            let conn = Connection::new(
+                "kept".to_owned(),
+                "host".to_owned(),
+                22,
+                ProtocolConfig::Ssh(ssh_config),
+            );
+
+            let sync_conn = SyncConnection::from_connection(&conn, "Root");
+
+            match &sync_conn.protocol_config {
+                ProtocolConfig::Ssh(ssh) => assert_eq!(ssh.key_source, key_source),
+                other => panic!("expected Ssh config, got: {other:?}"),
+            }
         }
     }
 

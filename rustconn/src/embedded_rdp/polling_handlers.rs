@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 use gtk4::glib;
 use gtk4::prelude::*;
-use rustconn_core::rdp_client::RdpClientCommand;
+use rustconn_core::rdp_client::{ClipboardFormatInfo, RdpClientCommand};
 
 use super::CairoBackedBuffer;
 use crate::i18n::{i18n, i18n_f};
@@ -47,6 +47,14 @@ pub(super) struct FileTransferContext<'a> {
             Option<tokio::sync::mpsc::UnboundedSender<rustconn_core::rdp_client::RdpClientCommand>>,
         >,
     >,
+    /// True while a file drag-and-drop upload offer is outstanding.
+    ///
+    /// Threaded through so [`release_announce_hold`] can apply the same guard
+    /// the local-clipboard monitor itself applies: announcing here while a
+    /// DnD offer is live would replace that offer before the server pulls it
+    /// (issue #390, review finding: release path skipping the monitor's
+    /// guards).
+    pub file_offer_active: &'a Rc<Cell<bool>>,
 }
 
 /// Records that a displayable frame arrived from the server.
@@ -147,6 +155,7 @@ pub(super) fn handle_clipboard_text(
     remote_clipboard_text: &Rc<RefCell<Option<String>>>,
     copy_button: &gtk4::Button,
     clipboard_sync_suppressed: &Rc<RefCell<bool>>,
+    file_transfer: &Rc<RefCell<super::ClipboardFileTransfer>>,
     text: String,
 ) {
     tracing::debug!(
@@ -154,6 +163,12 @@ pub(super) fn handle_clipboard_text(
         chars = text.len(),
         "Received clipboard text from server"
     );
+    // The remote just announced a newer clipboard of its own. A local change
+    // deferred earlier is now stale: sending it once the hold comes down
+    // would replace the text that just arrived with the older local one
+    // (issue #390, review finding: release path overriding a newer remote
+    // clipboard).
+    file_transfer.borrow_mut().drop_deferred_announce();
     *remote_clipboard_text.borrow_mut() = Some(text.clone());
     copy_button.set_sensitive(true);
     copy_button.set_tooltip_text(Some(&i18n("Copy remote clipboard to local")));
@@ -234,6 +249,8 @@ pub(super) fn handle_clipboard_file_list(
             "Skipping directories in the clipboard file list; only files can be transferred"
         );
     }
+    // Drops a deferred announce from a batch this list just superseded; see
+    // `ClipboardFileTransfer::set_available_files` (issue #390).
     ctx.file_transfer.borrow_mut().set_available_files(files);
     if file_count > 0 {
         ctx.save_files_button
@@ -246,6 +263,47 @@ pub(super) fn handle_clipboard_file_list(
         ctx.save_files_button.set_sensitive(true);
     } else {
         ctx.save_files_button.set_visible(false);
+    }
+}
+
+/// Sends a deferred local-clipboard announce to the server once nothing holds
+/// the announce back anymore.
+///
+/// Called everywhere [`super::ClipboardFileTransfer::holds_local_announce`]
+/// can turn false: the folder picker closing without a batch starting, and a
+/// batch settling (via [`finish_batch_if_settled`]). A local clipboard change
+/// seen while the hold was up is not lost — it goes out once, here — and
+/// nothing is sent if no change happened while the hold was up, so closing the
+/// picker or finishing a batch does not itself cause an announce
+/// (issue #390).
+pub(super) fn release_announce_hold(
+    file_transfer: &Rc<RefCell<super::ClipboardFileTransfer>>,
+    file_offer_active: &Rc<Cell<bool>>,
+    ironrdp_tx: &Rc<RefCell<Option<tokio::sync::mpsc::UnboundedSender<RdpClientCommand>>>>,
+) {
+    // The monitor itself refuses to announce while a DnD upload offer is
+    // outstanding (`offer_active` guard, checked before this hold is even
+    // reached) — releasing the hold must not bypass that guard. The flag is
+    // left deferred rather than taken: it is not lost, only postponed to the
+    // next release once the offer has been consumed or timed out.
+    if file_offer_active.get() {
+        return;
+    }
+    let should_announce = {
+        let mut transfer = file_transfer.borrow_mut();
+        !transfer.holds_local_announce() && transfer.take_deferred_announce()
+    };
+    if !should_announce {
+        return;
+    }
+    if let Some(ref sender) = *ironrdp_tx.borrow() {
+        let _ = sender.send(RdpClientCommand::AnnounceClipboardFormats(vec![
+            ClipboardFormatInfo::unicode_text(),
+        ]));
+        tracing::debug!(
+            protocol = "rdp",
+            "[Clipboard] Released local announce hold; sent deferred text format to server"
+        );
     }
 }
 
@@ -478,6 +536,11 @@ fn finish_batch_if_settled(ctx: &FileTransferContext<'_>) {
     if let Some(ref callback) = *ctx.on_file_complete.borrow() {
         callback(saved, &target);
     }
+
+    // The batch just settled, so the local-clipboard monitor's hold
+    // (`holds_local_announce`) may now be down; send on whatever change it
+    // deferred while the batch was running (issue #390).
+    release_announce_hold(ctx.file_transfer, ctx.file_offer_active, ctx.ironrdp_tx);
 }
 
 /// Handles a file the server refused to hand over during a "Save N Files" batch.
@@ -578,4 +641,99 @@ pub(super) fn handle_display_control_unavailable(
             callback();
         }
     });
+}
+
+#[cfg(test)]
+mod release_announce_hold_tests {
+    use std::cell::{Cell, RefCell};
+    use std::rc::Rc;
+
+    use rustconn_core::rdp_client::RdpClientCommand;
+
+    use super::super::ClipboardFileTransfer;
+    use super::release_announce_hold;
+
+    /// A sender/receiver pair standing in for the real IronRDP command
+    /// channel, wrapped the same way [`super::FileTransferContext::ironrdp_tx`]
+    /// is: behind `Rc<RefCell<Option<...>>>`.
+    fn channel() -> (
+        Rc<RefCell<Option<tokio::sync::mpsc::UnboundedSender<RdpClientCommand>>>>,
+        tokio::sync::mpsc::UnboundedReceiver<RdpClientCommand>,
+    ) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        (Rc::new(RefCell::new(Some(tx))), rx)
+    }
+
+    /// With nothing holding the announce and no DnD offer outstanding, a
+    /// deferred change goes out and is taken exactly once.
+    #[test]
+    fn releases_and_sends_once_nothing_holds_and_no_offer_is_outstanding() {
+        let transfer = Rc::new(RefCell::new(ClipboardFileTransfer::new()));
+        transfer.borrow_mut().defer_announce();
+        let file_offer_active = Rc::new(Cell::new(false));
+        let (tx, mut rx) = channel();
+
+        release_announce_hold(&transfer, &file_offer_active, &tx);
+
+        assert!(
+            matches!(
+                rx.try_recv(),
+                Ok(RdpClientCommand::AnnounceClipboardFormats(_))
+            ),
+            "the deferred change is announced"
+        );
+        assert!(!transfer.borrow_mut().take_deferred_announce());
+    }
+
+    /// A DnD upload offer outstanding must postpone the release, not drop it:
+    /// the monitor itself would refuse to announce right now, and the release
+    /// path must apply the same guard rather than clobbering the file offer
+    /// before the server pulls it (issue #390, review finding: release path
+    /// skipping the monitor's guards).
+    #[test]
+    fn a_file_offer_in_flight_postpones_the_release() {
+        let transfer = Rc::new(RefCell::new(ClipboardFileTransfer::new()));
+        transfer.borrow_mut().defer_announce();
+        let file_offer_active = Rc::new(Cell::new(true));
+        let (tx, mut rx) = channel();
+
+        release_announce_hold(&transfer, &file_offer_active, &tx);
+
+        assert!(
+            rx.try_recv().is_err(),
+            "nothing is sent while the DnD offer is live"
+        );
+        assert!(
+            transfer.borrow_mut().take_deferred_announce(),
+            "the deferral is kept, not lost"
+        );
+    }
+
+    /// No deferred change means nothing to send, DnD offer or not.
+    #[test]
+    fn nothing_is_sent_with_no_deferred_change() {
+        let transfer = Rc::new(RefCell::new(ClipboardFileTransfer::new()));
+        let file_offer_active = Rc::new(Cell::new(false));
+        let (tx, mut rx) = channel();
+
+        release_announce_hold(&transfer, &file_offer_active, &tx);
+
+        assert!(rx.try_recv().is_err());
+    }
+
+    /// A batch still running (the hold itself, not a DnD offer) must also
+    /// keep the deferral rather than sending it.
+    #[test]
+    fn a_running_batch_also_postpones_the_release() {
+        let transfer = Rc::new(RefCell::new(ClipboardFileTransfer::new()));
+        transfer.borrow_mut().begin_folder_pick();
+        transfer.borrow_mut().defer_announce();
+        let file_offer_active = Rc::new(Cell::new(false));
+        let (tx, mut rx) = channel();
+
+        release_announce_hold(&transfer, &file_offer_active, &tx);
+
+        assert!(rx.try_recv().is_err());
+        assert!(transfer.borrow_mut().take_deferred_announce());
+    }
 }

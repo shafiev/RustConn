@@ -906,7 +906,6 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
             glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
                 match rx.try_recv() {
                     Ok(_) => {
-                        state_for_poll.borrow_mut().refresh_secret_backend_cache();
                         refresh_sidebar_secret_status(&state_for_poll, &sidebar_for_poll);
                         check_secret_backend_available(
                             &state_for_poll,
@@ -918,7 +917,6 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
                     }
                     Err(std::sync::mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                     Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                        state_for_poll.borrow_mut().refresh_secret_backend_cache();
                         refresh_sidebar_secret_status(&state_for_poll, &sidebar_for_poll);
                         check_secret_backend_available(
                             &state_for_poll,
@@ -932,9 +930,6 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
             });
         } else {
             // No Bitwarden — just refresh sidebar status immediately
-            state_for_secrets
-                .borrow_mut()
-                .refresh_secret_backend_cache();
             refresh_sidebar_secret_status(&state_for_secrets, &sidebar_for_secrets);
             check_secret_backend_available(
                 &state_for_secrets,
@@ -1393,13 +1388,12 @@ fn register_secret_backend_recheck(
     let banner = secret_banner.clone();
     let window_weak = window.downgrade();
     action.connect_activate(move |_, _| {
-        // `try_borrow_mut` rather than `borrow_mut`: this runs from a settings
-        // save, and the caller there is inside its own `try_borrow_mut` scope on
-        // the same state. A missed refresh costs a stale banner until the next
-        // launch; a panic costs the session.
-        if let Ok(mut state_mut) = state.try_borrow_mut() {
-            state_mut.refresh_secret_backend_cache();
-        } else {
+        // Probe the borrow before the two helpers below take `state.borrow()`:
+        // this runs from a settings save, and the caller there may still be
+        // inside its own `try_borrow_mut` scope on the same state. A missed
+        // refresh costs a stale banner until the next launch; a panic costs
+        // the session.
+        if state.try_borrow().is_err() {
             tracing::debug!(
                 "secret backend re-check skipped: application state is borrowed elsewhere"
             );

@@ -328,8 +328,8 @@ modules:
       - -Dtests=disabled
     sources:
       - type: archive
-        url: https://github.com/cisco/openh264/archive/refs/tags/v2.6.0.tar.gz
-        sha256: 558544ad358283a7ab2930d69a9ceddf913f4a51ee9bf1bfb9e377322af81a69
+        url: https://github.com/cisco/openh264/archive/refs/tags/v2.7.0.tar.gz
+        sha256: 5178775c8b440073e70920e97d195efff721c0e56d0a78cc82c919e95d54924d
         x-checker-data:
           type: anitya
           project-id: 15752
@@ -381,7 +381,7 @@ modules:
         # chicken-and-egg problem and any placeholder would be a fake pin.
         # The immutable commit is added once the tag exists — by hand or by the
         # Flathub bot — in the Flathub repository, not here.
-        tag: v0.23.20
+        tag: v0.23.21
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$

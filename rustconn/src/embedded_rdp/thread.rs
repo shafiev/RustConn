@@ -166,6 +166,23 @@ pub struct ClipboardFileTransfer {
     /// a large folder copy ran into IronRDP's limit of 1000 pending requests,
     /// so the files past it failed.
     pub pending: VecDeque<usize>,
+    /// The "Save N Files" folder picker is open.
+    ///
+    /// Set from the moment Save is pressed, *before* the picker opens — not
+    /// from when a batch starts. Under a portal (Flatpak, Snap) the picker is a
+    /// separate Wayland client; returning focus to RustConn makes GTK report a
+    /// local clipboard change before the callback with the chosen folder has
+    /// even run. Holding from the button press rather than from `begin_batch`
+    /// covers that ordering (issue #390).
+    pub folder_pick_pending: bool,
+    /// A local clipboard change was seen while [`Self::holds_local_announce`]
+    /// was true, and still needs to be sent to the server once the hold is
+    /// released.
+    ///
+    /// The change itself is never read or stored here — only that one happened
+    /// — because the monitor announces *availability*, not data; the server
+    /// pulls the actual text later with its own Format Data Request.
+    pub announce_deferred: bool,
 }
 
 #[cfg(feature = "rdp-embedded")]
@@ -182,6 +199,8 @@ impl ClipboardFileTransfer {
             save_failures: 0,
             refused_count: 0,
             pending: VecDeque::new(),
+            folder_pick_pending: false,
+            announce_deferred: false,
         }
     }
 
@@ -197,6 +216,12 @@ impl ClipboardFileTransfer {
         self.available_files = files;
         self.downloads.clear();
         self.reset_batch_counters();
+        // The remote just announced a clipboard of its own — a newer one than
+        // whatever a local change deferred earlier was waiting to replace.
+        // Sending that stale change once some later, unrelated hold came down
+        // would override the list just received (issue #390, review finding:
+        // deferral outliving a superseded batch).
+        self.announce_deferred = false;
     }
 
     /// Withdraws the offer: the remote clipboard no longer holds these files.
@@ -211,6 +236,10 @@ impl ClipboardFileTransfer {
         self.available_files.clear();
         self.refused_count += self.pending.len();
         self.pending.clear();
+        // Same reasoning as `set_available_files`: the remote clipboard just
+        // changed to something that is not files, so a local change deferred
+        // earlier must not be sent on top of it later (issue #390).
+        self.announce_deferred = false;
     }
 
     /// Arms a fresh "Save N Files" run over the list offered right now.
@@ -229,6 +258,11 @@ impl ClipboardFileTransfer {
     pub fn begin_batch(&mut self, target_directory: PathBuf) -> usize {
         self.downloads.clear();
         self.reset_batch_counters();
+        // The folder has been picked, so the hold the button press armed via
+        // `begin_folder_pick` is no longer needed on its own account: from here
+        // `holds_local_announce` is carried by the batch itself (`total_files`
+        // below) until every file settles.
+        self.folder_pick_pending = false;
         self.target_directory = Some(target_directory);
         self.total_files = self.available_files.len();
         self.pending = (0..self.total_files).collect();
@@ -474,6 +508,64 @@ impl ClipboardFileTransfer {
         self.total_files > 0 && self.settled_count() >= self.total_files
     }
 
+    /// Marks that the "Save N Files" folder picker is about to open.
+    ///
+    /// Called before `dialog.select_folder(...)`, not from its callback: focus
+    /// can return to RustConn — and with it a spurious local clipboard
+    /// `changed` signal — before the callback carrying the chosen path has run.
+    /// The hold has to be in place for that window too (issue #390).
+    pub const fn begin_folder_pick(&mut self) {
+        self.folder_pick_pending = true;
+    }
+
+    /// Releases the hold [`Self::begin_folder_pick`] took, without a batch
+    /// having started: the dialog was dismissed, cancelled, failed, or
+    /// returned no path, or the remote clipboard no longer offered anything by
+    /// the time a batch would have started.
+    pub const fn cancel_folder_pick(&mut self) {
+        self.folder_pick_pending = false;
+    }
+
+    /// Whether a local clipboard change must not be announced to the server
+    /// right now.
+    ///
+    /// True while the folder picker is open, and while a batch has files that
+    /// have not yet settled: announcing in either window replaces the
+    /// server-side clipboard the in-flight download is reading from (MS-RDPECLIP
+    /// Format List PDUs are not additive — each one replaces the last), so the
+    /// server stops answering `FileContentsRequest`s for a file RustConn is
+    /// still fetching and the transfer times out with nothing saved
+    /// (issue #390).
+    pub const fn holds_local_announce(&self) -> bool {
+        self.folder_pick_pending || (self.total_files > 0 && !self.all_complete())
+    }
+
+    /// Records that a local clipboard change happened while
+    /// [`Self::holds_local_announce`] was true, so it can be sent once the hold
+    /// is released instead of being lost.
+    pub const fn defer_announce(&mut self) {
+        self.announce_deferred = true;
+    }
+
+    /// Takes and clears the deferred-announce flag, so it fires at most once
+    /// per change it was set for.
+    pub fn take_deferred_announce(&mut self) -> bool {
+        std::mem::take(&mut self.announce_deferred)
+    }
+
+    /// Discards a deferred announce without sending it.
+    ///
+    /// Used when the remote clipboard itself changes to something new while an
+    /// announce was deferred: the remote's own Format List PDU just became the
+    /// shared clipboard's current content, and sending the stale local change
+    /// afterwards would replace it — the same clobbering
+    /// [`Self::holds_local_announce`] exists to prevent, just arriving from the
+    /// other direction (issue #390, review finding: deferral outliving a
+    /// superseded batch).
+    pub const fn drop_deferred_announce(&mut self) {
+        self.announce_deferred = false;
+    }
+
     /// Clears all state
     pub fn clear(&mut self) {
         self.available_files.clear();
@@ -481,6 +573,8 @@ impl ClipboardFileTransfer {
         self.next_stream_id = 1;
         self.target_directory = None;
         self.reset_batch_counters();
+        self.folder_pick_pending = false;
+        self.announce_deferred = false;
     }
 }
 
@@ -1604,6 +1698,245 @@ mod tests {
         assert_eq!(t.begin_batch(std::path::PathBuf::from("/tmp")), 0);
         assert!(t.start_next_download().is_none());
         assert!(!t.all_complete(), "an empty batch reports nothing");
+    }
+
+    // ------------------------------------------------------------------
+    // Local-clipboard announce hold (issue #390)
+    // ------------------------------------------------------------------
+
+    /// From the moment the folder picker opens until the batch it starts has
+    /// settled, a local clipboard change must not be announced. Covers both
+    /// halves: the picker being open with no batch yet, and a batch running
+    /// after the picker closed.
+    #[test]
+    fn a_folder_pick_holds_local_announce_until_the_batch_settles() {
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(vec![ClipboardFileInfo::new(
+            "a.bin".to_string(),
+            4,
+            0,
+            0,
+            0,
+        )]);
+
+        assert!(!t.holds_local_announce(), "nothing is happening yet");
+
+        t.begin_folder_pick();
+        assert!(t.holds_local_announce(), "the picker is open");
+
+        assert_eq!(t.begin_batch(std::path::PathBuf::from("/tmp")), 1);
+        assert!(
+            t.holds_local_announce(),
+            "a file is in flight after the picker closed"
+        );
+
+        let (sid, _) = t.start_next_download().expect("starts");
+        t.update_size(sid, 4);
+        assert_eq!(t.append_data(sid, &[0u8; 4], true), ChunkOutcome::Complete);
+        assert!(
+            !t.holds_local_announce(),
+            "the batch settled; nothing to hold for anymore"
+        );
+    }
+
+    /// Dismissing or cancelling the folder dialog must release the hold the
+    /// button press took, even though no batch ever started.
+    #[test]
+    fn a_cancelled_folder_pick_releases_the_hold() {
+        let mut t = ClipboardFileTransfer::new();
+        t.begin_folder_pick();
+        assert!(t.holds_local_announce());
+
+        t.cancel_folder_pick();
+        assert!(
+            !t.holds_local_announce(),
+            "no batch started, so nothing else holds the announce"
+        );
+    }
+
+    /// A file the server refuses must still release the hold once it was the
+    /// only thing outstanding, the same way it settles the batch summary.
+    #[test]
+    fn a_refused_file_releases_the_hold() {
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(vec![ClipboardFileInfo::new(
+            "a.bin".to_string(),
+            4,
+            0,
+            0,
+            0,
+        )]);
+        t.begin_batch(std::path::PathBuf::from("/tmp"));
+        let (sid, _) = t.start_next_download().expect("starts");
+        assert!(t.holds_local_announce());
+
+        assert!(t.cancel_download(sid));
+        assert!(
+            !t.holds_local_announce(),
+            "the refusal settled the only file in the batch"
+        );
+    }
+
+    /// The remote clipboard withdrawing its file offer must release the hold
+    /// once nothing is left in flight, the same as any other settlement path.
+    #[test]
+    fn a_withdrawn_offer_releases_the_hold_once_nothing_is_in_flight() {
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(three_files());
+        t.begin_batch(std::path::PathBuf::from("/tmp"));
+        let (sid, _) = t.start_next_download().expect("starts");
+        assert!(t.holds_local_announce());
+
+        t.withdraw_offer();
+        assert!(
+            t.holds_local_announce(),
+            "the file already in flight can still finish"
+        );
+
+        t.update_size(sid, 4);
+        assert_eq!(t.append_data(sid, b"data", false), ChunkOutcome::Complete);
+        assert!(
+            !t.holds_local_announce(),
+            "nothing is left in flight and the picker is not open"
+        );
+    }
+
+    /// A deferred announce fires once and only once: taking it clears it, so a
+    /// second release of the hold with no new change in between does not
+    /// re-announce.
+    #[test]
+    fn a_deferred_announce_is_taken_once() {
+        let mut t = ClipboardFileTransfer::new();
+        assert!(!t.take_deferred_announce(), "nothing was deferred yet");
+
+        t.defer_announce();
+        assert!(t.take_deferred_announce());
+        assert!(
+            !t.take_deferred_announce(),
+            "taking it must clear it, not just read it"
+        );
+    }
+
+    /// `clear()` must drop both the fold-pick hold and a pending deferral, or a
+    /// widget reused for a new connection would start out already holding.
+    #[test]
+    fn clear_drops_the_hold_and_the_deferral() {
+        let mut t = ClipboardFileTransfer::new();
+        t.begin_folder_pick();
+        t.defer_announce();
+
+        t.clear();
+
+        assert!(!t.holds_local_announce());
+        assert!(!t.take_deferred_announce());
+    }
+
+    /// `connect_ironrdp` resets this state at the start of every embedded
+    /// session (capture `folder_pick_pending`, `clear()`, restore it) so that
+    /// a batch a server-dropped session cut off mid-download does not keep
+    /// holding the local-clipboard announce forever once the Reconnect
+    /// button, a network-change reconnect, a cert-accept reconnect or the
+    /// IronRDP-error fallback starts the next session — none of which route
+    /// through `disconnect()` (issue #390, review finding: hold surviving
+    /// reconnect).
+    #[test]
+    fn a_session_start_reset_drops_a_batch_hold_left_by_the_old_session() {
+        let (mut t, _sid) = transfer_with_file(10);
+        assert!(
+            t.holds_local_announce(),
+            "an in-flight download holds the announce"
+        );
+
+        let folder_pick_pending = t.folder_pick_pending;
+        t.clear();
+        t.folder_pick_pending = folder_pick_pending;
+
+        assert!(
+            !t.holds_local_announce(),
+            "the reconnected session must not inherit the old batch's hold"
+        );
+    }
+
+    /// The same reset must leave an *open* folder picker's hold in place: its
+    /// callback holds the same `Rc` and is the only thing that can resolve
+    /// it, and it is the flag protecting the window between focus returning
+    /// from the picker and that callback running — exactly the window a
+    /// reconnect must not reopen (issue #390, review finding: hold surviving
+    /// reconnect — the safer option named in the fix).
+    #[test]
+    fn a_session_start_reset_keeps_an_open_folder_picks_hold() {
+        let mut t = ClipboardFileTransfer::new();
+        t.begin_folder_pick();
+
+        let folder_pick_pending = t.folder_pick_pending;
+        t.clear();
+        t.folder_pick_pending = folder_pick_pending;
+
+        assert!(
+            t.holds_local_announce(),
+            "an open picker's hold must survive a reconnect"
+        );
+    }
+
+    /// `drop_deferred_announce` discards the flag outright: unlike
+    /// `take_deferred_announce`, nothing is meant to be sent afterwards.
+    #[test]
+    fn drop_deferred_announce_discards_it_without_sending() {
+        let mut t = ClipboardFileTransfer::new();
+        t.defer_announce();
+
+        t.drop_deferred_announce();
+
+        assert!(
+            !t.take_deferred_announce(),
+            "the deferral was discarded, not merely read"
+        );
+    }
+
+    /// A new remote file list is a newer clipboard arriving from the other
+    /// direction: a local change deferred against an earlier, now-superseded
+    /// batch must not survive to be announced later and override it.
+    ///
+    /// Before this, `set_available_files` only reset the batch counters, so
+    /// `announce_deferred` passed through it untouched and fired at the end
+    /// of some later, unrelated hold (issue #390, review finding: deferral
+    /// outliving a superseded batch).
+    #[test]
+    fn a_new_file_list_drops_a_deferral_left_over_from_the_superseded_batch() {
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(three_files());
+        t.begin_batch(std::path::PathBuf::from("/tmp"));
+        // A local change happens while this batch is still running.
+        t.defer_announce();
+
+        // The remote clipboard changes again before the batch settled.
+        t.set_available_files(vec![ClipboardFileInfo::new(
+            "new.bin".to_string(),
+            4,
+            0,
+            0,
+            0,
+        )]);
+
+        assert!(
+            !t.take_deferred_announce(),
+            "the stale deferral must not survive the new list"
+        );
+    }
+
+    /// The remote clipboard withdrawing its file offer (e.g. a remote text
+    /// copy) is the same kind of "newer clipboard from the other side" as a
+    /// new file list, and must drop a stale deferral the same way.
+    #[test]
+    fn withdrawing_the_offer_drops_a_pending_deferral() {
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(three_files());
+        t.begin_batch(std::path::PathBuf::from("/tmp"));
+        t.defer_announce();
+
+        t.withdraw_offer();
+
+        assert!(!t.take_deferred_announce());
     }
 
     // ------------------------------------------------------------------

@@ -140,6 +140,21 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.23.21" date="2026-10-23">
+      <description>
+        <p>Version 0.23.21 - a Save N Files timeout fix, Bitwarden hardening and performance, and dependency updates:</p>
+        <ul>
+          <li>Embedded RDP "Save N Files" no longer times out without saving when the folder dialog is a portal window (issue #390)</li>
+          <li>Bitwarden credential saves no longer pass plaintext through the bw command line, and bw sync now runs at most every 10 minutes per session</li>
+          <li>Settings and the startup unlock no longer freeze the UI, and repeated credential fetches (Copy Username/Password, Load from vault) are now served from a session cache (issue #353)</li>
+          <li>Bitwarden "Search from vault root" makes one bw call fewer per lookup, and Settings → Secrets no longer unlocks an already-unlocked vault again (issue #353)</li>
+          <li>Serial Auto-Detect now finds macOS ports and ranks USB adapters first</li>
+          <li>The SSH key passphrase is no longer exposed through the process environment when adding a key to the agent, and a wrong key passphrase no longer freezes RustConn</li>
+          <li>Group Sync no longer exports a local SSH key file path, and Remmina import keeps leading and trailing spaces in passwords</li>
+          <li>Updated dependencies, including a constant-time security fix in ctutils</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.23.20" date="2026-10-23">
       <description>
         <p>Version 0.23.20 - session scripting, vault user names and domains, and Bitwarden search fixes:</p>

@@ -24,7 +24,9 @@ You are editing a file that handles credentials.
   issue #312
 - Credential resolution → 30s timeout
 - Bitwarden auto_unlock → 30s timeout
-- has_secret_backend / refresh_cache → 5s timeout
+- Backend availability probes (Settings → Secrets detection, startup banner
+  via `detect_secret_backends`, off the GTK main thread) → 5s timeout. Never
+  `block_on` an availability probe on the GTK main thread
 
 ## New Backends
 
