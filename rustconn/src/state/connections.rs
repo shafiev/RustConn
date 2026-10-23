@@ -353,6 +353,9 @@ impl AppState {
         self.connection_manager
             .update_connection(id, connection)
             .map_err(|e| format!("Failed to update connection: {e}"))?;
+        // An edit can change the password, its source or the user name; a
+        // cached copy from before it must not be replayed by the next connect.
+        self.password_cache.forget(id);
         self.mark_simple_sync_dirty();
         Ok(())
     }
@@ -383,6 +386,7 @@ impl AppState {
         self.connection_manager
             .delete_connection(id)
             .map_err(|e| format!("Failed to delete connection: {e}"))?;
+        self.password_cache.forget(id);
         // Simple Sync: record the deletion so it propagates to other devices.
         self.record_tombstone(rustconn_core::sync::SyncEntityType::Connection, id);
         Ok(())

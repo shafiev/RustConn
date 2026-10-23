@@ -119,6 +119,8 @@ impl ConnectionDialog {
         let groups_data = self.groups_data.clone();
         let window = self.dialog.clone();
         let kdbx_password = kdbx_password.cloned();
+        let state = self.state.clone();
+        let editing_id = self.editing_id.clone();
 
         // Clone groups for use in closure
         let groups = Rc::new(groups);
@@ -222,10 +224,55 @@ impl ConnectionDialog {
 
             match selected {
                 1 => {
+                    // A saved connection whose lookup fields are untouched asks
+                    // the vault exactly what its connect asks, so the session
+                    // cache (keyed by connection) answers a repeat Load, and a
+                    // vault answer is kept for the next Load, Copy or Connect.
+                    // Any edit, or a new connection, goes to the vault.
+                    let cache_target = {
+                        let selected_group_idx = group_dropdown.selected() as usize;
+                        let group_id = groups_data
+                            .borrow()
+                            .get(selected_group_idx)
+                            .and_then(|(id, _)| *id);
+                        let username = username_entry.text();
+                        let domain = domain_entry.text();
+                        let fields = LoadLookup {
+                            name: &conn_name,
+                            host: &conn_host,
+                            protocol: protocol_suffix,
+                            group_id,
+                            username: username.as_str(),
+                            domain: domain.as_str(),
+                        };
+                        (*editing_id.borrow()).and_then(|id| {
+                            let state_ref = state.try_borrow().ok()?;
+                            let saved = state_ref.get_connection(id)?;
+                            load_matches_saved(saved, &fields).then(|| CacheTarget {
+                                connection_id: id,
+                                protocol: saved.protocol_config.protocol_type(),
+                                username: fields.username.to_string(),
+                                domain: fields.domain.to_string(),
+                            })
+                        })
+                    };
+                    if let Some(target) = &cache_target
+                        && fill_from_cache(
+                            &state,
+                            target.connection_id,
+                            &password_entry,
+                            &username_entry,
+                            &domain_entry,
+                        )
+                    {
+                        return;
+                    }
+
                     // Vault — delegate to configured backend
                     let password_entry = password_entry.clone();
                     let window = window.clone();
                     let btn = btn.clone();
+                    let state = state.clone();
                     let kdbx_enabled = kdbx_enabled;
                     let kdbx_path = kdbx_path.clone();
                     let kdbx_password = kdbx_password.clone();
@@ -281,6 +328,25 @@ impl ConnectionDialog {
                                         Ok(Some(password)) => {
                                             use secrecy::ExposeSecret;
                                             password_entry.set_text(password.expose_secret());
+                                            // A KeePass entry supplies the password
+                                            // alone; a connect pairs it with the
+                                            // connection's own user name and domain.
+                                            if let Some(target) = cache_target {
+                                                let non_empty = |s: String| {
+                                                    Some(s).filter(|s| !s.trim().is_empty())
+                                                };
+                                                crate::state::cache_resolved_credentials(
+                                                    &state,
+                                                    target.connection_id,
+                                                    target.protocol,
+                                                    &rustconn_core::models::Credentials {
+                                                        username: non_empty(target.username),
+                                                        password: Some(password),
+                                                        key_passphrase: None,
+                                                        domain: non_empty(target.domain),
+                                                    },
+                                                );
+                                            }
                                         }
                                         Ok(None) => {
                                             alert::show_error(
@@ -353,11 +419,27 @@ impl ConnectionDialog {
                                                     creds.username.as_deref(),
                                                     creds.domain.as_deref(),
                                                 );
-                                            if let Some(username) = identity.username {
-                                                username_entry.set_text(&username);
+                                            if let Some(username) = &identity.username {
+                                                username_entry.set_text(username);
                                             }
-                                            if let Some(domain) = identity.domain {
-                                                domain_entry.set_text(&domain);
+                                            if let Some(domain) = &identity.domain {
+                                                domain_entry.set_text(domain);
+                                            }
+                                            // The fields were the saved ones, so
+                                            // this merge is the one a connect
+                                            // makes; keep its answer.
+                                            if let Some(target) = &cache_target {
+                                                crate::state::cache_resolved_credentials(
+                                                    &state,
+                                                    target.connection_id,
+                                                    target.protocol,
+                                                    &rustconn_core::models::Credentials {
+                                                        username: identity.username,
+                                                        password: creds.password.clone(),
+                                                        key_passphrase: None,
+                                                        domain: identity.domain,
+                                                    },
+                                                );
                                             }
                                         } else {
                                             alert::show_error(
@@ -692,5 +774,168 @@ impl ConnectionDialog {
     #[must_use]
     pub const fn password_row(&self) -> &GtkBox {
         &self.password_row
+    }
+}
+
+/// The editor fields "Load password from vault" builds its lookup from.
+struct LoadLookup<'a> {
+    name: &'a str,
+    host: &'a str,
+    /// Lowercase protocol id, as in [`rustconn_core::models::ProtocolType::as_str`].
+    protocol: &'a str,
+    group_id: Option<uuid::Uuid>,
+    username: &'a str,
+    domain: &'a str,
+}
+
+/// The saved connection whose session-cache entry a Load may read and write.
+struct CacheTarget {
+    connection_id: uuid::Uuid,
+    protocol: rustconn_core::models::ProtocolType,
+    /// The connection's user name and domain as the editor shows them, which
+    /// [`load_matches_saved`] proved equal to the saved ones.
+    username: String,
+    domain: String,
+}
+
+/// Whether a Load for `fields` asks the vault the question a connect of `saved`
+/// asks, so the session cache, keyed by connection, holds the same answer.
+///
+/// Every input of the lookup has to be untouched: name and host (the keys and
+/// the root-search aliases), protocol and group (the key), and the user name and
+/// domain the vault identity is merged into. The saved source has to be Vault,
+/// because a cache entry for a Variable or Script connection holds that
+/// source's secret, not the vault's.
+fn load_matches_saved(saved: &rustconn_core::models::Connection, fields: &LoadLookup<'_>) -> bool {
+    saved.password_source == rustconn_core::models::PasswordSource::Vault
+        && saved.name == fields.name
+        && saved.host == fields.host
+        && saved.protocol_config.protocol_type().as_str() == fields.protocol
+        && saved.group_id == fields.group_id
+        && saved.username.as_deref().unwrap_or_default() == fields.username
+        && saved.domain.as_deref().unwrap_or_default() == fields.domain
+}
+
+/// Fills the editor from the session cache entry for `connection_id`.
+///
+/// Returns `false`, leaving the fields alone, when there is no live entry with
+/// a non-empty password; the caller then asks the vault. User name and domain
+/// follow the merge rule the vault answer gets.
+///
+/// The entry does not record where it came from. When the vault had no entry
+/// and the user typed the password at the connect prompt, that typed password
+/// is what Load shows here, for the rest of the cache TTL. Accepted: it is the
+/// password Connect and Copy would use for this connection right now, so Load
+/// shows what the next connect sends rather than a different answer.
+// ponytail: no source tag on cache entries; add one and skip prompt-sourced
+// entries here if Load must show only what the vault holds.
+fn fill_from_cache(
+    state: &crate::state::SharedAppState,
+    connection_id: uuid::Uuid,
+    password_entry: &adw::PasswordEntryRow,
+    username_entry: &gtk4::Entry,
+    domain_entry: &gtk4::Entry,
+) -> bool {
+    use secrecy::ExposeSecret;
+
+    // Copied out so no state borrow is held while the entries emit `changed`.
+    let Some((password, cached_username, cached_domain)) =
+        state.try_borrow().ok().and_then(|state_ref| {
+            state_ref
+                .get_cached_credentials(connection_id)
+                .filter(|c| !c.password.expose_secret().is_empty())
+                .map(|c| {
+                    (
+                        zeroize::Zeroizing::new(c.password.expose_secret().to_string()),
+                        c.username.clone(),
+                        c.domain.clone(),
+                    )
+                })
+        })
+    else {
+        return false;
+    };
+    password_entry.set_text(&password);
+    let identity = rustconn_core::secret::merge_vault_identity(
+        Some(username_entry.text().as_str()),
+        Some(domain_entry.text().as_str()),
+        Some(cached_username.as_str()),
+        Some(cached_domain.as_str()),
+    );
+    if let Some(username) = identity.username {
+        username_entry.set_text(&username);
+    }
+    if let Some(domain) = identity.domain {
+        domain_entry.set_text(&domain);
+    }
+    tracing::debug!(%connection_id, "Editor password loaded from the session cache");
+    true
+}
+
+#[cfg(test)]
+mod load_cache_tests {
+    use rustconn_core::models::{Connection, PasswordSource};
+
+    use super::{LoadLookup, load_matches_saved};
+
+    fn saved() -> Connection {
+        let mut conn = Connection::new_rdp("krdp".to_string(), "192.168.0.122".to_string(), 3389);
+        conn.password_source = PasswordSource::Vault;
+        conn.username = Some("admin".to_string());
+        conn
+    }
+
+    fn unedited(conn: &Connection) -> LoadLookup<'_> {
+        LoadLookup {
+            name: &conn.name,
+            host: &conn.host,
+            protocol: "rdp",
+            group_id: conn.group_id,
+            username: conn.username.as_deref().unwrap_or_default(),
+            domain: conn.domain.as_deref().unwrap_or_default(),
+        }
+    }
+
+    #[test]
+    fn an_unedited_vault_connection_may_use_the_cache() {
+        let conn = saved();
+        assert!(load_matches_saved(&conn, &unedited(&conn)));
+    }
+
+    /// Each input of the lookup, edited alone, sends the Load to the vault.
+    #[test]
+    fn any_edited_lookup_field_goes_to_the_vault() {
+        let conn = saved();
+        let group = Some(uuid::Uuid::new_v4());
+        let edits: [&dyn Fn(&mut LoadLookup<'_>); 6] = [
+            &|f| f.name = "other",
+            &|f| f.host = "10.0.0.1",
+            &|f| f.protocol = "ssh",
+            &|f| f.group_id = group,
+            &|f| f.username = "root",
+            &|f| f.domain = "CORP",
+        ];
+        for (i, edit) in edits.iter().enumerate() {
+            let mut fields = unedited(&conn);
+            edit(&mut fields);
+            assert!(!load_matches_saved(&conn, &fields), "edit #{i}");
+        }
+    }
+
+    /// A cache entry of a connection saved with another source holds that
+    /// source's secret, not the vault's.
+    #[test]
+    fn a_connection_saved_with_another_source_goes_to_the_vault() {
+        for source in [
+            PasswordSource::Prompt,
+            PasswordSource::None,
+            PasswordSource::Inherit,
+            PasswordSource::Variable("SECRET".to_string()),
+            PasswordSource::Script("op read".to_string()),
+        ] {
+            let mut conn = saved();
+            conn.password_source = source.clone();
+            assert!(!load_matches_saved(&conn, &unedited(&conn)), "{source:?}");
+        }
     }
 }

@@ -231,10 +231,7 @@ pub(crate) fn copy_username(
     // released first, because the resolver re-borrows the state.
     let window_weak = window.downgrade();
     let toast = toast.clone();
-    let Ok(state_ref) = state.try_borrow() else {
-        return;
-    };
-    state_ref.resolve_credentials_gtk(conn_id, move |result| {
+    crate::state::resolve_credentials_gtk(state, conn_id, move |result| {
         use rustconn_core::sync::CredentialResolutionResult;
         let resolved = match result {
             Ok(CredentialResolutionResult::Resolved(creds)) => {
@@ -302,10 +299,7 @@ pub(crate) fn copy_password(
     // released first, because the resolver re-borrows the state.
     let window_weak = window.downgrade();
     let toast = toast.clone();
-    let Ok(state_ref) = state.try_borrow() else {
-        return;
-    };
-    state_ref.resolve_credentials_gtk(conn_id, move |result| {
+    crate::state::resolve_credentials_gtk(state, conn_id, move |result| {
         use rustconn_core::sync::CredentialResolutionResult;
         match result {
             Ok(CredentialResolutionResult::Resolved(creds)) => match creds.password {

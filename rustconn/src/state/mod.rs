@@ -154,7 +154,12 @@ struct CredentialCache(HashMap<Uuid, CachedCredentials>);
 
 impl CredentialCache {
     /// Stores `credentials` for `connection_id`, replacing any earlier entry.
+    ///
+    /// Expired entries of every connection are dropped first, so a password
+    /// past its TTL does not stay in memory until its own connection happens to
+    /// be cached again.
     fn insert(&mut self, connection_id: Uuid, credentials: CachedCredentials) {
+        self.0.retain(|_, cached| !cached.is_expired());
         self.0.insert(connection_id, credentials);
     }
 
@@ -228,12 +233,6 @@ pub struct AppState {
     /// Wakes the debounced history flusher in `app.rs`; `None` until the
     /// flusher is installed (or in tests), in which case saves are immediate
     history_dirty_tx: Option<async_channel::Sender<()>>,
-    /// Cached secret backend availability (updated on init and settings change)
-    secret_backend_available: Option<bool>,
-    /// Cached fine-grained availability of the *preferred* secret backend.
-    /// Distinguishes a missing client from an unresponsive Secret Service so
-    /// the startup check can surface an accurate, actionable warning (#201).
-    secret_backend_availability: Option<rustconn_core::secret::BackendAvailability>,
 
     /// Backends whose "remember this on the machine" request the last settings
     /// save could not honour.
@@ -709,8 +708,6 @@ impl AppState {
             history_entries,
             history_dirty: std::cell::Cell::new(false),
             history_dirty_tx: None,
-            secret_backend_available: None,
-            secret_backend_availability: None,
             persistence_failures: Vec::new(),
             sync_manager,
             tombstones,
@@ -753,7 +750,7 @@ impl AppState {
     /// Gets cached credentials for a connection if not expired
     ///
     /// Returns `None` if credentials are not cached or have expired. An expired
-    /// entry stays in the map until the connection is cached again or
+    /// entry stays in the map until the next insert of any connection, or until
     /// [`Self::forget_cached_credentials`] drops it.
     #[must_use]
     pub fn get_cached_credentials(&self, connection_id: Uuid) -> Option<&CachedCredentials> {
@@ -951,105 +948,19 @@ impl AppState {
         }
     }
 
-    // ========== Connection Operations ==========
-
-    /// Checks if any secret backend is available (uses cache if available)
-    ///
-    /// Used internally by `resolve_credentials_blocking` and `resolve_credentials_gtk`.
-    /// Includes a 5-second timeout to prevent blocking the GTK main thread
-    /// if the backend is unresponsive.
-    pub fn has_secret_backend(&self) -> bool {
-        if let Some(cached) = self.secret_backend_available {
-            return cached;
-        }
-        let secret_manager = self.secret_manager.clone();
-
-        with_runtime(|rt| {
-            rt.block_on(async {
-                tokio::time::timeout(
-                    std::time::Duration::from_secs(5),
-                    secret_manager.is_available(),
-                )
-                .await
-                .unwrap_or(false)
-            })
-        })
-        .unwrap_or(false)
-    }
-
-    /// Refreshes the cached secret backend availability
-    ///
-    /// Call this after settings changes
-    /// that affect the secret backend configuration.
-    /// Includes a 5-second timeout to prevent blocking the GTK main thread
-    /// if the backend is unresponsive.
-    pub fn refresh_secret_backend_cache(&mut self) {
-        let secret_manager = self.secret_manager.clone();
-        let (available, availability) = with_runtime(|rt| {
-            rt.block_on(async {
-                // Fine-grained availability of the preferred backend, used by
-                // the startup warning to distinguish a missing client from an
-                // unresponsive Secret Service (#201).
-                let availability = tokio::time::timeout(
-                    std::time::Duration::from_secs(5),
-                    secret_manager.primary_availability(),
-                )
-                .await
-                .unwrap_or(rustconn_core::secret::BackendAvailability::ServiceUnavailable);
-                // Whether any backend can store secrets, used to gate
-                // credential resolution.
-                let available = tokio::time::timeout(
-                    std::time::Duration::from_secs(5),
-                    secret_manager.is_available(),
-                )
-                .await
-                .unwrap_or(false);
-                (available, availability)
-            })
-        })
-        .unwrap_or((
-            false,
-            rustconn_core::secret::BackendAvailability::ServiceUnavailable,
-        ));
-        self.secret_backend_available = Some(available);
-        self.secret_backend_availability = Some(availability);
-    }
-
-    /// Returns the cached fine-grained availability of the preferred secret
-    /// backend, or `None` if it has not been probed yet.
-    ///
-    /// Populated by [`Self::refresh_secret_backend_cache`]; used by the startup
-    /// check to surface an accurate warning when the keyring cannot work.
-    #[must_use]
-    pub fn secret_backend_availability(
-        &self,
-    ) -> Option<rustconn_core::secret::BackendAvailability> {
-        self.secret_backend_availability.clone()
-    }
-
     // ========== GTK-Friendly Async Credential Operations ==========
 
     /// Resolves credentials for a connection without blocking the GTK main thread
     ///
     /// This method spawns the credential resolution in a background thread and
-    /// delivers the result via callback in the GTK main thread. This is the
-    /// preferred method for credential resolution in GUI code.
+    /// delivers the result via callback in the GTK main thread. It does not
+    /// touch the session cache; GUI code calls the free
+    /// [`resolve_credentials_gtk`], which wraps this and caches the answer.
     ///
     /// # Arguments
     /// * `connection_id` - The ID of the connection to resolve credentials for
     /// * `callback` - Function called with the result when resolution completes
-    ///
-    /// # Example
-    /// ```ignore
-    /// state.resolve_credentials_gtk(connection_id, move |result| {
-    ///     match result {
-    ///         Ok(Some(creds)) => { /* use credentials */ }
-    ///         Ok(None) => { /* prompt user */ }
-    ///         Err(e) => { /* show error */ }
-    ///     }
-    /// });
-    /// ```
-    pub fn resolve_credentials_gtk<F>(&self, connection_id: Uuid, callback: F)
+    fn spawn_credential_resolution<F>(&self, connection_id: Uuid, callback: F)
     where
         F: FnOnce(Result<rustconn_core::sync::CredentialResolutionResult, String>) + 'static,
     {
@@ -2290,9 +2201,6 @@ impl AppState {
         // Rebuild secret manager backends if secret settings changed
         if self.settings.secrets != settings.secrets {
             self.secret_manager.rebuild_from_settings(&settings.secrets);
-            // Invalidate cache so next check re-evaluates availability
-            self.secret_backend_available = None;
-            self.secret_backend_availability = None;
         }
 
         // Keep the sync manager's settings copy in step (sync_dir, device
@@ -2421,6 +2329,107 @@ pub fn forget_cached_credentials(state: &SharedAppState, connection_id: Uuid) {
     });
 }
 
+/// Resolves a connection's credentials off the GTK main thread and keeps a
+/// usable answer in the session cache.
+///
+/// Every GUI read of a saved connection's credentials goes through here
+/// (Connect, Copy Password, Copy Username), so a second read within
+/// [`DEFAULT_CREDENTIAL_TTL_SECONDS`] can be served from the cache instead of
+/// asking the vault again — a Bitwarden lookup costs seconds. Before, only the
+/// connect branches cached, so a Copy followed by a Connect, or two Copies,
+/// each paid for a full vault lookup. What is cached is decided by
+/// [`cacheable_credentials`]. Callers still check the cache first themselves;
+/// this only fills it.
+///
+/// The editor's "Test credential resolution" button does not come through
+/// here on purpose: it exists to ask the vault. A refused connection still
+/// drops the entry through [`forget_cached_credentials`] (issue #351).
+///
+/// The cache is written on the main thread before `callback` runs, so a
+/// connect handler that caches by its own rule still has the last word.
+pub fn resolve_credentials_gtk<F>(state: &SharedAppState, connection_id: Uuid, callback: F)
+where
+    F: FnOnce(Result<rustconn_core::sync::CredentialResolutionResult, String>) + 'static,
+{
+    let Ok(state_ref) = state.try_borrow() else {
+        callback(Err("Application state is busy".to_string()));
+        return;
+    };
+    let protocol = state_ref
+        .get_connection(connection_id)
+        .map(|c| c.protocol_config.protocol_type());
+    let state_weak = Rc::downgrade(state);
+    state_ref.spawn_credential_resolution(connection_id, move |result| {
+        if let Ok(rustconn_core::sync::CredentialResolutionResult::Resolved(creds)) = &result
+            && let Some(protocol) = protocol
+            && let Some(state) = state_weak.upgrade()
+        {
+            cache_resolved_credentials(&state, connection_id, protocol, creds);
+        }
+        callback(result);
+    });
+}
+
+/// Stores a resolved credential in the session cache when
+/// [`cacheable_credentials`] allows it.
+///
+/// For read paths outside [`resolve_credentials_gtk`] that produce the same
+/// answer a connect would (the editor's "Load password from vault" on an
+/// unedited connection). A busy state skips the write: the next read goes to
+/// the vault, which is the behaviour before this cache existed, not a fault.
+pub fn cache_resolved_credentials(
+    state: &SharedAppState,
+    connection_id: Uuid,
+    protocol: rustconn_core::models::ProtocolType,
+    creds: &rustconn_core::models::Credentials,
+) {
+    let Some((username, password, domain)) = cacheable_credentials(protocol, creds) else {
+        tracing::debug!(
+            %connection_id,
+            ?protocol,
+            "Resolved credentials not cached: no password, or no user name for a protocol that needs one"
+        );
+        return;
+    };
+    if let Ok(mut state_mut) = state.try_borrow_mut() {
+        state_mut.cache_credentials(connection_id, username, password, domain);
+    } else {
+        tracing::debug!(
+            %connection_id,
+            "Application state busy; resolved credentials not cached"
+        );
+    }
+}
+
+/// What a resolved credential leaves in the session cache: `(username,
+/// password, domain)`, or `None` when it must not be cached.
+///
+/// - No password, or an empty one: nothing worth replaying.
+/// - RDP and Web without a user name: not cached. Both sign in as a user, and
+///   the connect fast path replays a cache entry as-is, so a cached
+///   password-only answer would launch with an empty login instead of asking
+///   for one. This is the rule their connect branches already apply.
+/// - Every other protocol: a password-only answer is cached with an empty
+///   user name — a Custom Command resolving `${password}` or a VNC login
+///   needs nothing else, which is the SSH-family connect rule (issue #151).
+fn cacheable_credentials(
+    protocol: rustconn_core::models::ProtocolType,
+    creds: &rustconn_core::models::Credentials,
+) -> Option<(&str, &str, &str)> {
+    use rustconn_core::models::ProtocolType;
+
+    let password = creds.expose_password().filter(|p| !p.is_empty())?;
+    let username = creds.username.as_deref().unwrap_or_default();
+    if matches!(protocol, ProtocolType::Rdp | ProtocolType::Web) && username.trim().is_empty() {
+        return None;
+    }
+    Some((
+        username,
+        password,
+        creds.domain.as_deref().unwrap_or_default(),
+    ))
+}
+
 /// Safe read access to `SharedAppState`, preventing borrow panics from
 /// leaking across callback boundaries.
 pub fn with_state<R>(state: &SharedAppState, f: impl FnOnce(&AppState) -> R) -> R {
@@ -2507,6 +2516,113 @@ mod credential_cache_tests {
 
         assert!(cache.get(fresh).is_some());
         assert!(cache.get(stale).is_none());
+    }
+
+    /// An expired password must not linger in memory: the next insert, for any
+    /// connection, drops it, and leaves fresh entries alone.
+    #[test]
+    fn an_insert_drops_every_expired_entry() {
+        let mut cache = CredentialCache::default();
+        let fresh = Uuid::new_v4();
+        let stale = Uuid::new_v4();
+        cache.insert(fresh, creds("fresh"));
+        let mut old = creds("stale");
+        let age = i64::try_from(DEFAULT_CREDENTIAL_TTL_SECONDS).expect("the TTL fits in i64") + 1;
+        old.cached_at = chrono::Utc::now() - chrono::Duration::seconds(age);
+        cache.insert(stale, old);
+        assert!(cache.0.contains_key(&stale));
+
+        cache.insert(Uuid::new_v4(), creds("new"));
+
+        assert!(!cache.0.contains_key(&stale), "expired entry still held");
+        assert!(cache.get(fresh).is_some());
+        assert_eq!(cache.0.len(), 2);
+    }
+}
+
+#[cfg(test)]
+mod cacheable_credentials_tests {
+    use rustconn_core::models::{Credentials, ProtocolType};
+    use secrecy::SecretString;
+
+    use super::cacheable_credentials;
+
+    fn resolved(
+        username: Option<&str>,
+        password: Option<&str>,
+        domain: Option<&str>,
+    ) -> Credentials {
+        Credentials {
+            username: username.map(str::to_string),
+            password: password.map(|p| SecretString::from(p.to_string())),
+            key_passphrase: None,
+            domain: domain.map(str::to_string),
+        }
+    }
+
+    const ALL_PROTOCOLS: [ProtocolType; 11] = [
+        ProtocolType::Ssh,
+        ProtocolType::Rdp,
+        ProtocolType::Vnc,
+        ProtocolType::Spice,
+        ProtocolType::Telnet,
+        ProtocolType::ZeroTrust,
+        ProtocolType::Serial,
+        ProtocolType::Sftp,
+        ProtocolType::Kubernetes,
+        ProtocolType::Mosh,
+        ProtocolType::Web,
+    ];
+
+    /// A full answer is cached for every protocol, domain included.
+    #[test]
+    fn a_full_answer_is_cached_for_every_protocol() {
+        let creds = resolved(Some("admin"), Some("pw"), Some("CORP"));
+        for protocol in ALL_PROTOCOLS {
+            assert_eq!(
+                cacheable_credentials(protocol, &creds),
+                Some(("admin", "pw", "CORP")),
+                "{protocol:?}"
+            );
+        }
+    }
+
+    /// No password, or an empty one, is never cached: there is nothing to
+    /// replay, and Copy Password would only report an empty cached password.
+    #[test]
+    fn an_answer_without_a_password_is_never_cached() {
+        for protocol in ALL_PROTOCOLS {
+            assert_eq!(
+                cacheable_credentials(protocol, &resolved(Some("admin"), None, None)),
+                None
+            );
+            assert_eq!(
+                cacheable_credentials(protocol, &resolved(Some("admin"), Some(""), None)),
+                None
+            );
+        }
+    }
+
+    /// The partial-result rule: RDP and Web need a user name, because the
+    /// connect fast path would replay a password-only entry as an empty login;
+    /// everything else caches a password-only answer (issue #151).
+    #[test]
+    fn a_password_only_answer_is_cached_except_for_rdp_and_web() {
+        for username in [None, Some(""), Some("  ")] {
+            let creds = resolved(username, Some("pw"), None);
+            for protocol in ALL_PROTOCOLS {
+                let cached = cacheable_credentials(protocol, &creds);
+                if matches!(protocol, ProtocolType::Rdp | ProtocolType::Web) {
+                    assert_eq!(cached, None, "{protocol:?} with user name {username:?}");
+                } else {
+                    assert_eq!(
+                        cached.map(|(_, password, _)| password),
+                        Some("pw"),
+                        "{protocol:?} with user name {username:?}"
+                    );
+                }
+            }
+        }
     }
 }
 

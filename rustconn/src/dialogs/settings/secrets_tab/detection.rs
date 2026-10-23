@@ -621,8 +621,8 @@ fn detect_secret_tool() -> bool {
 /// Runs the same read-only probe the keyring backend uses (`availability()`),
 /// so the Secrets tab can show whether the keyring is genuinely usable —
 /// distinguishing a missing client from an unresponsive Secret Service (#201) —
-/// rather than only whether the client binary exists. Bounded by the same 5s
-/// budget as the startup `has_secret_backend` check.
+/// rather than only whether the client binary exists. Bounded by a 5s budget
+/// (R2.4).
 fn detect_system_keyring_availability() -> rustconn_core::secret::BackendAvailability {
     use rustconn_core::secret::{BackendAvailability, SecretBackend};
 
@@ -761,9 +761,29 @@ impl BwVaultStatus {
 /// The key travels as an environment variable, not as `--session`, for the reason
 /// the backend does the same: argv is world-readable through `/proc/PID/cmdline`.
 ///
+/// A session key RustConn already holds short-circuits the probe to
+/// [`BwVaultStatus::Unlocked`] without spawning `bw` — the trust
+/// `BitwardenBackend::is_unlocked_fast` gives it. `bw status` on CLI 2026.4+
+/// reports `locked` even with a valid `BW_SESSION`, so asking it turned a
+/// working vault into "Locked" and made both Settings auto-unlock paths run a
+/// fresh `bw unlock` on every open, racing the connect path's unlock.
+///
+/// The cost: a held session that went stale outside RustConn (a `bw lock` or
+/// `bw logout` against the same data dir) still reads Unlocked here, and
+/// nothing replaces it automatically — `auto_unlock` trusts a stored key too,
+/// and only `lock_vault` clears it. Data commands then fail until the user
+/// presses Unlock on this page or restarts RustConn; either one gets a fresh
+/// session. Before, every open of this page quietly re-unlocked it.
+///
 /// [`BitwardenBackend::build_command`]: rustconn_core::secret::BitwardenBackend
 pub(super) fn check_bitwarden_status_sync(bw_cmd: &str) -> BwVaultStatus {
     use secrecy::ExposeSecret;
+
+    // ponytail: a stale held key is not recovered automatically; clearing the
+    // session when a data command reports a locked vault is the upgrade (0.24).
+    if rustconn_core::secret::has_session_key() {
+        return BwVaultStatus::Unlocked;
+    }
 
     let mut cmd = std::process::Command::new(bw_cmd);
     cmd.env("PATH", rustconn_core::cli_download::get_extended_path());
@@ -936,7 +956,28 @@ mod readiness_tests {
 
 #[cfg(test)]
 mod bw_vault_status_tests {
-    use super::BwVaultStatus;
+    use super::{BwVaultStatus, check_bitwarden_status_sync};
+
+    /// A held session answers `Unlocked` without running `bw`: the command path
+    /// does not exist, so any spawn would come back as `ProbeFailed`. Without
+    /// the session the same path does fail, which proves the probe is real.
+    ///
+    /// The only test in this crate that touches the process-wide session store.
+    #[test]
+    fn a_held_session_is_unlocked_without_asking_bw() {
+        let missing_bw = "/nonexistent/rustconn-test/bw";
+        rustconn_core::secret::clear_session_key();
+        assert_eq!(
+            check_bitwarden_status_sync(missing_bw),
+            BwVaultStatus::ProbeFailed
+        );
+
+        rustconn_core::secret::set_session_key(secrecy::SecretString::from("test-session"));
+        let with_session = check_bitwarden_status_sync(missing_bw);
+        rustconn_core::secret::clear_session_key();
+        assert_eq!(with_session, BwVaultStatus::Unlocked);
+        assert!(!BwVaultStatus::Unlocked.should_try_unlock());
+    }
 
     /// Written out rather than derived, for the same reason `ALL_BACKENDS` above
     /// is: the enum has no iterator, and the point is to notice a variant that

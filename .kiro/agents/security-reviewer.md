@@ -23,7 +23,7 @@ provided files for these violations:
 3. **CLI argument leaks** — `Command::new().arg(password)` instead of stdin pipe (`Stdio::piped()`)
 4. **Secret logging** — `tracing::info/warn/error/debug`, `println!`, `eprintln!`, or `dbg!` with password/secret/token variables
 5. **Error message leaks** — error messages (thiserror Display, format!, etc.) that include secret values
-6. **Missing timeouts** — blocking operations on secrets without timeouts: vault ops (store/retrieve/delete) 10s, credential resolution 30s, Bitwarden auto-unlock 30s, `has_secret_backend`/`refresh_cache` 5s
+6. **Missing timeouts** — blocking operations on secrets without timeouts: vault ops (store/retrieve/delete) 10s, credential resolution 30s, Bitwarden auto-unlock 30s, backend availability probes (`detect_secret_backends`, keyring probe) 5s and off the GTK main thread
 
 Report format:
 - If no violations found: "✅ No security issues found"
