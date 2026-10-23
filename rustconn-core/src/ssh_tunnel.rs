@@ -211,6 +211,10 @@ pub(crate) fn create_one_shot_askpass_script() -> Result<std::path::PathBuf, Str
 
 /// Writes `script` to a fresh mode-0700 file in the temp dir and returns its
 /// path. The script holds no secret, only the name of the env var to read.
+///
+/// The file is created with `create_new` (O_EXCL) and, on Unix, mode 0700 set
+/// at open time, so it never exists world-readable for a window and a symlink
+/// at the random path cannot redirect the write (SEC-4 hardening).
 fn write_askpass_script(script: &str) -> Result<std::path::PathBuf, String> {
     use std::io::Write;
 
@@ -220,17 +224,18 @@ fn write_askpass_script(script: &str) -> Result<std::path::PathBuf, String> {
         uuid::Uuid::new_v4().as_hyphenated()
     ));
 
-    let mut file = std::fs::File::create(&path)
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o700);
+    }
+    let mut file = options
+        .open(&path)
         .map_err(|e| format!("Failed to create tunnel askpass script: {e}"))?;
     file.write_all(script.as_bytes())
         .map_err(|e| format!("Failed to write tunnel askpass script: {e}"))?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
-            .map_err(|e| format!("Failed to set tunnel askpass script permissions: {e}"))?;
-    }
 
     Ok(path)
 }
