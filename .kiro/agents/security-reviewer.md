@@ -10,7 +10,7 @@ tools: ["read", "grep"]
 # Nothing re-checks this agent's "✅ No security issues found" — a missed
 # SecretString or a password in argv ships. The rule is that the tier follows
 # whether an arbiter exists, not whether the task looks simple.
-model: claude-sonnet-4.6
+model: claude-opus-5.5
 ---
 
 You are a security reviewer for the RustConn project. Your ONLY job is to audit code for credential security violations.

@@ -5,7 +5,7 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.23.21] - 2026-10-23
 
 ### Fixed
 - **Embedded RDP "Save N Files" no longer times out without saving after the folder dialog closes (issue #390)** — when the folder picker was a portal window (Flatpak, Snap), returning focus to RustConn made GTK report a clipboard change, and the local-clipboard monitor announced text to the server. That announcement replaces the server's clipboard, so the files being fetched were no longer offered: the request went unanswered, IronRDP gave up after 60 s and the button went back to "Save N Files" with nothing written. The monitor now holds local announcements from the moment Save is pressed until the batch settles, and a change seen meanwhile is announced once afterwards; a cancelled or failed folder dialog is now logged and releases the hold. (`rustconn/src/embedded_rdp/thread.rs`, `rustconn/src/embedded_rdp/polling_handlers.rs`, `rustconn/src/embedded_rdp/mod.rs`, `rustconn/src/embedded_rdp/connection.rs`)
@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **`bw sync` runs at most every 10 minutes while a Bitwarden session is held (issue #353)** — each time the 120 s session check expired, `auto_unlock` also ran `bw sync`, a few seconds per connect. A separate 10-minute sync TTL now gates that step. A fresh unlock still syncs every time, a successful sync from any path (including the "out of date" retry in `store`) resets the timer, and `sync_on_next_unlock` after a rejected password still forces a sync (issue #351). The 10 minutes are wall-clock time, so a suspend counts towards them. (`rustconn-core/src/secret/bitwarden.rs`)
+
+### Dependencies
+- **ctutils 0.4.3 → 0.4.5 (RUSTSEC-2026-0385)** — fixes non-constant-time mask generation and `u128` comparisons in `ctutils::Choice`, which could branch on a secret value on common platforms and leak it through a covert timing channel; pulled in transitively under the IronRDP/`sspi`/`rsa`/`picky` smartcard and crypto chain. `cargo deny check advisories` is clean again.
+- **Updated** (semver-compatible): cc 1.9.0 → 1.10.0, crypto-bigint 0.7.5 → 0.7.6, smallvec 1.16.3 → 1.16.4, uuid 1.28.0 → 1.29.0; `cargo-sources.json` regenerated for the Flatpak/Flathub manifests.
+- **Flatpak — OpenH264 2.6.0 → 2.7.0** — the bundled embedded-RDP H.264 decoder/encoder picks up a batch of hardening fixes (several out-of-bounds, use-after-free and integer-overflow guards in the decoder's threaded and rate-control paths); version and `sha256` updated in both the local and Flathub manifests. GNOME runtime 51, FreeRDP 3.32.2, cJSON 1.7.19 and the bundled VTE 0.84.1 were already current; every downloadable CLI tool resolves current (TigerVNC pinned 1.16.2). The Snap stays on `core24` + `gnome-46-2404`: Snapcraft 9.2 just added core26 support to the `gnome` extension, but moving the base is a multi-step migration (libadwaita 1.8 features, re-checked staged package names, a full strict-confinement smoke test) that needs its own change rather than a version bump here — tracked as a proposal for 0.24 (issue #174).
 
 ## [0.23.20] - 2026-10-23
 

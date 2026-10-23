@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.23.20
+Version:        0.23.21
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -392,6 +392,30 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Fri Oct 23 2026 Anton Isaiev <totoshko88@gmail.com> - 0.23.21-0
+- Version bump to 0.23.21
+- Fixed: embedded RDP "Save N Files" no longer times out without saving
+  when the folder dialog is a portal window (Flatpak, Snap) (issue #390)
+- Fixed: Bitwarden item contents are passed to bw via stdin instead of
+  command-line arguments, closing a local /proc/<pid>/cmdline leak
+- Fixed: no more UI freeze after the startup Bitwarden unlock and after
+  every Settings save (issue #353)
+- Fixed: Bitwarden "Search from vault root" makes one bw call fewer per
+  lookup, and Settings no longer unlocks an already-unlocked vault again
+  (issue #353)
+- Fixed: repeated credential fetches (Copy Username/Password, Load
+  password from vault) are now served from a session cache (issue #353)
+- Fixed: Serial Auto-Detect finds macOS ports and ranks USB adapters first
+- Fixed: Remmina import keeps leading and trailing spaces in passwords
+- Fixed: Group Sync no longer exports a local SSH key file path
+- Fixed: the SSH key passphrase is no longer passed to ssh-add in the
+  environment, and a wrong passphrase no longer freezes RustConn
+- Changed: bw sync runs at most every 10 minutes while a Bitwarden
+  session is held (issue #353)
+- Dependencies: ctutils 0.4.3 -> 0.4.5 (RUSTSEC-2026-0385); cc,
+  crypto-bigint, smallvec, uuid (semver-compatible); Flatpak OpenH264
+  2.6.0 -> 2.7.0
+
 * Fri Oct 23 2026 Anton Isaiev <totoshko88@gmail.com> - 0.23.20-0
 - Version bump to 0.23.20
 - Added session scripting with .rsc scripts (PR #387, contributed by Naim Shafiev): send keys, wait for and capture output, ask the user, run local commands and manage sessions; Tools > Scripts manager; auto-run scripts on connections and groups with group inheritance

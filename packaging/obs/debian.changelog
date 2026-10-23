@@ -1,3 +1,31 @@
+rustconn (0.23.21-1) unstable; urgency=medium
+
+  * Version bump to 0.23.21
+  * Fixed: embedded RDP "Save N Files" no longer times out without saving
+    when the folder dialog is a portal window (Flatpak, Snap) (issue #390)
+  * Fixed: Bitwarden item contents are passed to bw via stdin instead of
+    command-line arguments, closing a local /proc/<pid>/cmdline leak
+  * Fixed: no more UI freeze after the startup Bitwarden unlock and after
+    every Settings save (issue #353)
+  * Fixed: Bitwarden "Search from vault root" makes one bw call fewer per
+    lookup, and Settings no longer unlocks an already-unlocked vault again
+    (issue #353)
+  * Fixed: repeated credential fetches (Copy Username/Password, Load
+    password from vault) are now served from a session cache (issue #353)
+  * Fixed: Serial Auto-Detect finds macOS ports and ranks USB adapters
+    first
+  * Fixed: Remmina import keeps leading and trailing spaces in passwords
+  * Fixed: Group Sync no longer exports a local SSH key file path
+  * Fixed: the SSH key passphrase is no longer passed to ssh-add in the
+    environment, and a wrong passphrase no longer freezes RustConn
+  * Changed: bw sync runs at most every 10 minutes while a Bitwarden
+    session is held (issue #353)
+  * Dependencies: ctutils 0.4.3 -> 0.4.5 (RUSTSEC-2026-0385); cc,
+    crypto-bigint, smallvec, uuid (semver-compatible); Flatpak OpenH264
+    2.6.0 -> 2.7.0
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Fri, 23 Oct 2026 00:00:00 +0000
+
 rustconn (0.23.20-1) unstable; urgency=medium
 
   * Version bump to 0.23.20

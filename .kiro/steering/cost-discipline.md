@@ -34,8 +34,15 @@ unattended.
 | tool-driven | `claude-haiku-4.5` | 0.4x | MCP/graph navigation, deterministic backends |
 | | `glm-5` | 0.5x | |
 | default | `auto` | 1.0x | router; picks per request |
-| judgement | `claude-sonnet-4/4.5/4.6` | 1.3x | findings a human reads and acts on |
-| unattended judgement | `claude-opus-4.5` | 2.2x | a wrong "no issues" ships |
+| judgement | `claude-sonnet-5.5` | 1.3x | findings a human reads and acts on |
+| unattended judgement | `claude-opus-5.5` | 2.0x | a wrong "no issues" ships |
+
+Checked 2026-10-23 against the [Kiro models changelog](https://kiro.dev/changelog/models/).
+Sonnet 5.5 and Sonnet 5 both cost 1.3x, as Sonnet 4.6 did, and 5.5 is the newer of the two.
+Opus 5.5 is 2.0x, *cheaper* than Opus 5 and Opus 4.5 (2.2x).
+Sonnet 4 reached end of life on 2026-10-14. Haiku 4.5 is still the latest Haiku.
+Moving to a newer Claude model at the same price, or cheaper, is free.
+Moving to a pricier one is a policy change for this table.
 
 Refresh the list — it changes, and it differs per client:
 
@@ -43,10 +50,32 @@ Refresh the list — it changes, and it differs per client:
 kiro-cli chat --list-models --format json
 ```
 
-The IDE offers models the CLI does not. A profile pinned to an IDE-only ID falls
-back to the default in a CLI session, **silently**, with the config still looking
-deliberate. Prefer IDs present in both. The same silence applies to a typo: an
-unrecognised ID is not an error, it is a fallback.
+The IDE offers models the CLI does not, so prefer IDs present in both. `model` is
+a single string: a profile cannot list fallback models. The
+[configuration reference](https://kiro.dev/docs/custom-agents/configuration-reference/#model-field)
+(read 2026-10-23) says that if the pinned model is unavailable, the first prompt
+can fail rather than fall back. Kiro then restores the model that was active
+before the pin, and a retry runs on that one. An unavailable or misspelled ID
+therefore costs a failed first prompt and then a run on the wrong tier. The
+older behaviour, a silent fallback to `auto`, is not documented any more.
+
+On 2026-10-23 the installed `kiro-cli` still listed only the 4.x Claude IDs
+(`claude-sonnet-4.6`, `claude-opus-4.5`), while the IDE was already running
+`claude-opus-5.5`. Update and restart the CLI before relying on these profiles
+from a CLI session.
+
+### Workflow steps do not read the profile's `model:`
+
+A workflow step runs on its own `modelId`. If the step does not set one, it inherits
+the session model. The profile's `model:` line is not consulted.
+
+Observed 2026-10-23: the workflow-creator generated a run in which every step ran
+on `claude-opus-5.5` (2.0x). That included the `rust-quality-check` gate (pinned
+to 0.05x here) and the reviewers pinned to 1.3x, which put the gate at 40x its tier.
+
+So, when briefing a workflow, either pin `modelId` per step to the tier in the
+table below, or say so in the `workflowPrompt`. `rustconn-review.workflow.json`
+already pins every step.
 
 ### Current assignment
 
@@ -54,11 +83,11 @@ unrecognised ID is not an error, it is a fallback.
 |-------|-------|---------------|
 | `rust-quality-check` | `qwen3-coder-next` | clippy is the arbiter |
 | `kirograph` | `claude-haiku-4.5` | graph answers are deterministic, but tool selection must not be |
-| `rust-implementer` | `claude-sonnet-4.6` | clippy, tests, two write guards and the caller's diff read are the arbiters; not the floor, because i18n/`SecretString` slips are silent |
-| `security-reviewer` | `claude-sonnet-4.6` | six mechanical checks, zero arbiters — a missed `SecretString` ships |
-| `uk-translation-reviewer` | `claude-sonnet-4.6` | Ukrainian morphology; only a reader can catch a wrong genitive |
-| `config-mapping-reviewer` | `claude-sonnet-4.6` | a stored-but-unread field compiles and passes clippy; only a reader finds it |
-| `unsafe-reviewer` | `claude-opus-4.5` | UB is not a re-run; fires only when a `-sys` crate changes |
+| `rust-implementer` | `claude-sonnet-5.5` | clippy, tests, two write guards and the caller's diff read are the arbiters; not the floor, because i18n/`SecretString` slips are silent |
+| `security-reviewer` | `claude-sonnet-5.5` | six mechanical checks, zero arbiters — a missed `SecretString` ships |
+| `uk-translation-reviewer` | `claude-sonnet-5.5` | Ukrainian morphology; only a reader can catch a wrong genitive |
+| `config-mapping-reviewer` | `claude-sonnet-5.5` | a stored-but-unread field compiles and passes clippy; only a reader finds it |
+| `unsafe-reviewer` | `claude-opus-5.5` | UB is not a re-run; fires only when a `-sys` crate changes |
 
 Built-in agents (`general-task-execution`, `context-gatherer`) have no profile
 file, so they cannot carry `model:` and `agent-model-guard` cannot see them —
