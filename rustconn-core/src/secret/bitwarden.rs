@@ -2546,9 +2546,22 @@ mod unlock_tests {
             };
             let mut creds = Credentials::with_username("alice");
             creds.password = Some(SecretString::from("hunter2-store"));
-            runtime
-                .block_on(backend.store("c1", &creds))
-                .expect("store through the stub bw");
+            // ETXTBSY race: a just-written, just-chmod-executable stub can still
+            // be held open for write by the OS under parallel test load, so the
+            // exec inside `store` intermittently fails with "Text file busy".
+            // That is a test-harness artefact, not a backend bug, so retry the
+            // store a few times on exactly that error before giving up.
+            let mut attempts = 0;
+            loop {
+                attempts += 1;
+                match runtime.block_on(backend.store("c1", &creds)) {
+                    Ok(()) => break,
+                    Err(e) if e.to_string().contains("Text file busy") && attempts < 10 => {
+                        std::thread::sleep(std::time::Duration::from_millis(20));
+                    }
+                    Err(e) => panic!("store through the stub bw: {e:?}"),
+                }
+            }
 
             let argv = std::fs::read_to_string(dir.path().join("argv")).unwrap();
             let stdin = std::fs::read_to_string(dir.path().join("stdin")).unwrap();
