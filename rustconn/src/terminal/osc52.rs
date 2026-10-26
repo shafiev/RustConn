@@ -187,8 +187,9 @@ enum State {
 /// What VTE is fed is *VTE-equivalent* to the raw stream, not byte-identical:
 /// on the ground and inside OSC strings it draws the same text, executes the
 /// same controls, and dispatches the same OSC strings, minus the recognised
-/// OSC 52 clipboard offers. The filter keeps no DCS state (see the module
-/// `ponytail`), so the claim does not extend to the body of a DCS string. A
+/// OSC 52 clipboard offers. The filter keeps no DCS, SOS/PM/APC or SCI state
+/// (see the module `ponytail`), so the claim does not extend to the body of
+/// those strings. A
 /// sequence the filter removes — an offer, a query, a string past
 /// [`MAX_OSC_BODY`], and an OSC string the stream ended inside while offers are
 /// honoured ([`finish`](Self::finish)) — is replaced by exactly one `CAN`.
@@ -199,21 +200,27 @@ enum State {
 /// ground and drops all of those with it (see [`CAN`]).
 ///
 /// Two more byte-level differences exist. The first is invisible to VTE, the
-/// second is not inside a DCS string:
+/// second is not inside a DCS, SOS/PM/APC or SCI string:
 ///
 /// * an OSC string abandoned for a new `ESC` sequence is released closed with
 ///   `CAN` as well, because the held `ESC` may be overtaken by a C0 control
 ///   that would otherwise land inside the string;
 /// * a C0 control that arrives while an `ESC` is held goes out ahead of it.
-///   That changes nothing on the ground, or in a CSI, SOS, PM or APC string,
-///   and an abandoned OSC string has been closed by then. In a DCS string it
-///   does: `ESC P … ESC NUL \` reaches VTE as `ESC P … NUL ESC \`, which VTE
-///   takes as DCS data followed by the terminator instead of an aborted DCS.
-///   The filter is on the ground while VTE is inside a DCS, so it cannot tell
-///   the two apart. This opens no capability the remote lacks (it can send a
-///   well-formed DCS directly) and does not bypass OSC 52 interception, since
-///   `]` after the held `ESC` still opens a string. Real applications do not
-///   end a DCS with `ESC <C0> \`. Keeping the order would need a DCS state.
+///   That changes nothing on the ground, in a CSI or in an intermediate
+///   sequence, and an abandoned OSC string has been closed by then. It does
+///   inside a DCS string, an SOS/PM/APC string (VTE's `ST_IGNORE`) and after
+///   an SCI (`ESC Z`). In a DCS, `ESC P … ESC NUL \` reaches VTE as
+///   `ESC P … NUL ESC \`, which VTE takes as DCS data followed by the
+///   terminator instead of an aborted DCS. In an APC, `ESC _ x ESC LF \`
+///   becomes `ESC _ x LF ESC \`: VTE ignores the `LF` inside the string where
+///   the raw stream would have executed it. After `ESC Z`, `ESC LF` becomes
+///   `LF ESC` and the `LF` is taken as the SCI final instead of being executed.
+///   The filter is on the ground while VTE is inside any of these, so it cannot
+///   tell the cases apart. This opens no capability the remote lacks (it can
+///   send the well-formed sequence directly) and does not bypass OSC 52
+///   interception, since `]` after the held `ESC` still opens a string. Real
+///   applications do not end such a string with `ESC <C0> \`. Keeping the
+///   order would need a state for each of them.
 #[derive(Debug, Default)]
 pub struct Osc52Filter {
     state: State,

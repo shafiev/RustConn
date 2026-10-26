@@ -1162,9 +1162,10 @@ impl TerminalNotebook {
             }
             // The stream can end inside a sequence. A lone `ESC` or `c2` is
             // handed to VTE rather than dropped with the filter. An OSC string
-            // still open is not: with OSC 52 enabled `finish` replaces it with a
-            // `CAN`, so a later `BEL` or `ST` cannot complete it; with it
-            // disabled the fragment is released as it came.
+            // still open depends on the setting: with OSC 52 enabled `finish`
+            // replaces it with a `CAN`, so a later `BEL` or `ST` cannot
+            // complete it; with it disabled the fragment is released as it
+            // came.
             if let Some(terminal) = terminal.upgrade() {
                 hold.detach(&terminal);
                 let tail = osc52_filter.finish();
