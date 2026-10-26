@@ -194,7 +194,8 @@ fn build_browser_mode_combo() -> adw::ComboRow {
         .title(i18n("Mode"))
         .subtitle(i18n("How the URL is opened"))
         .model(&string_list)
-        .selected(0)
+        // Follows the default mode, which is System in the snap.
+        .selected(combo_index_from_browser_mode(WebBrowserMode::default()))
         .build()
 }
 

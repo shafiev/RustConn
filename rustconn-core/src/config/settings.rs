@@ -542,6 +542,20 @@ const fn default_true() -> bool {
     true
 }
 
+/// Whether "Open Browser via Tunnel" prefers the embedded browser by default.
+///
+/// Off in a snap, where the embedded WebKit browser runs without a sandbox.
+/// Pure so both answers are testable without the environment.
+const fn default_tunnelled_browser_embedded_for(is_snap: bool) -> bool {
+    !is_snap
+}
+
+/// Serde and `Default` entry point for
+/// [`UiSettings::open_tunnelled_browser_in_embedded`].
+fn default_open_tunnelled_browser_in_embedded() -> bool {
+    default_tunnelled_browser_embedded_for(crate::snap::is_snap())
+}
+
 /// Default start page for the tunnelled browser (see
 /// [`UiSettings::tunnel_browser_start_url`]).
 fn default_tunnel_start_url() -> String {
@@ -1217,11 +1231,13 @@ pub struct UiSettings {
     /// Open the "Open Browser via Tunnel" SSH action in the embedded browser
     /// rather than an external one.
     ///
-    /// Default `true`: use the in-app WebKit browser when this build has it, so
-    /// the tunnel's lifetime matches the tab. When `false` (or on a build
+    /// Default `true` (`false` in a snap, where the embedded browser runs
+    /// without a sandbox): use the in-app WebKit browser when this build has it,
+    /// so the tunnel's lifetime matches the tab. When `false` (or on a build
     /// without the embedded browser) the action launches an external
     /// Chromium-based browser in incognito mode through the tunnel instead.
-    #[serde(default = "default_true")]
+    /// A stored value is never rewritten.
+    #[serde(default = "default_open_tunnelled_browser_in_embedded")]
     pub open_tunnelled_browser_in_embedded: bool,
     /// Start page for the "Open Browser via Tunnel" SSH action.
     ///
@@ -1388,7 +1404,7 @@ impl Default for UiSettings {
             window_title_shows_connection: false,
             window_title_shows_path: false,
             double_click_opens_new_session: false,
-            open_tunnelled_browser_in_embedded: true,
+            open_tunnelled_browser_in_embedded: default_open_tunnelled_browser_in_embedded(),
             tunnel_browser_start_url: default_tunnel_start_url(),
             tunnel_browser_command: String::new(),
             show_split_pane_labels: true,
@@ -2253,7 +2269,26 @@ fn hex_decode(data: &str) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{RendererPreference, UiSettings, clamp_sidebar_width};
+    use super::{
+        RendererPreference, UiSettings, clamp_sidebar_width, default_tunnelled_browser_embedded_for,
+    };
+
+    #[test]
+    fn tunnelled_browser_embedded_default_is_off_in_the_snap() {
+        assert!(!default_tunnelled_browser_embedded_for(true));
+        assert!(default_tunnelled_browser_embedded_for(false));
+    }
+
+    /// A stored `true` is kept whatever the environment: the snap default only
+    /// applies where no value is stored, and nothing is rewritten.
+    #[test]
+    fn stored_tunnelled_true_is_kept() {
+        let ui: UiSettings = toml::from_str("open_tunnelled_browser_in_embedded = true\n")
+            .expect("a stored value must parse");
+        assert!(ui.open_tunnelled_browser_in_embedded);
+        let rendered = toml::to_string(&ui).expect("serialize");
+        assert!(rendered.contains("open_tunnelled_browser_in_embedded = true"));
+    }
 
     /// Right-click paste is opt-in: a fresh install must default to `false`, so
     /// the long-standing native context menu stays the default behaviour

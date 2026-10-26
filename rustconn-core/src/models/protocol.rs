@@ -4068,10 +4068,28 @@ impl<'de> serde::Deserialize<'de> for WebBrowserMode {
     }
 }
 
-/// Unlike the enum itself, the *default* stays feature-conditional: a brand-new
-/// Web connection created on a build that cannot open a WebView should not start
-/// out asking for one. Nothing is lost either way — a default only applies where
-/// no stored value exists.
+impl WebBrowserMode {
+    /// The default mode for a new Web connection, decided from `is_snap`.
+    ///
+    /// Inside a snap WebKitGTK runs without its bubblewrap sandbox, so a snap
+    /// defaults to the system browser. Elsewhere the default is `Embedded` where
+    /// the build can open a WebView and `System` where it cannot. A pure function
+    /// so both answers are testable without touching the environment.
+    #[must_use]
+    pub const fn default_for(is_snap: bool) -> Self {
+        if is_snap || !cfg!(feature = "web-embedded") {
+            Self::System
+        } else {
+            Self::Embedded
+        }
+    }
+}
+
+/// Unlike the enum itself, the *default* is conditional: a brand-new Web
+/// connection created on a build that cannot open a WebView, or inside a snap
+/// (where the embedded browser is unsandboxed), should not start out asking for
+/// one. Nothing is lost either way — a default only applies where no stored
+/// value exists. See [`WebBrowserMode::default_for`].
 ///
 /// This doc comment is also what keeps `clippy::derivable_impls` quiet, which is
 /// why the `#[expect]` that used to sit here is gone: clippy skips a `Default`
@@ -4079,14 +4097,7 @@ impl<'de> serde::Deserialize<'de> for WebBrowserMode {
 /// impl is deliberate. Delete the comment and the lint comes back.
 impl Default for WebBrowserMode {
     fn default() -> Self {
-        #[cfg(feature = "web-embedded")]
-        {
-            Self::Embedded
-        }
-        #[cfg(not(feature = "web-embedded"))]
-        {
-            Self::System
-        }
+        Self::default_for(crate::snap::is_snap())
     }
 }
 
@@ -4242,6 +4253,29 @@ mod web_browser_mode_tests {
         assert!(
             rendered.contains("browser_mode = \"embedded\""),
             "saving must not downgrade the stored mode, got:\n{rendered}"
+        );
+    }
+
+    #[test]
+    fn default_for_snap_is_system() {
+        assert_eq!(WebBrowserMode::default_for(true), WebBrowserMode::System);
+    }
+
+    #[test]
+    fn default_for_outside_snap_follows_the_feature() {
+        let expected = if cfg!(feature = "web-embedded") {
+            WebBrowserMode::Embedded
+        } else {
+            WebBrowserMode::System
+        };
+        assert_eq!(WebBrowserMode::default_for(false), expected);
+    }
+
+    #[test]
+    fn default_matches_default_for_current_env() {
+        assert_eq!(
+            WebBrowserMode::default(),
+            WebBrowserMode::default_for(crate::snap::is_snap())
         );
     }
 
