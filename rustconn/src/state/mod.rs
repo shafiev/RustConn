@@ -2210,7 +2210,20 @@ impl AppState {
         // connection prompted for a passphrase the session already had.
         // Rebuild secret manager backends if secret settings changed
         if self.settings.secrets != settings.secrets {
+            // A change to the *preferred backend* (not merely a read-only or
+            // root-search toggle) must drop the process-global unlock marks the
+            // rebuild leaves behind: a stale Bitwarden session key would keep
+            // answering the fast path, and a cached global secret resolved from
+            // the old backend would be served for up to its TTL. Compared before
+            // the rebuild, and gated on the backend identity so an unrelated
+            // toggle does not re-lock an unlocked session (a speed regression).
+            let preferred_changed =
+                self.settings.secrets.preferred_backend != settings.secrets.preferred_backend;
             self.secret_manager.rebuild_from_settings(&settings.secrets);
+            if preferred_changed {
+                rustconn_core::secret::clear_bitwarden_session_state();
+                crate::vault_ops::invalidate_global_secret_cache();
+            }
         }
 
         // Keep the sync manager's settings copy in step (sync_dir, device

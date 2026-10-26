@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.24.0] - Unreleased
 
 ### Fixed
+- **Switching the preferred secret backend drops the old backend's unlock state (W1)** — rebuilding the secret-manager chain on a settings save cleared the per-connection credential cache but left Bitwarden's process-global unlock marks (the session key, the verify timestamp, the last-sync timestamp) and the global-secret cache in place. After switching the preferred backend away from Bitwarden, a stale session key kept answering the fast path and a global secret resolved from the old backend could be served for up to its cache TTL. The switch now clears the Bitwarden session state and the global-secret cache — but only when the preferred backend actually changes, so flipping an unrelated read-only or root-search toggle still keeps an unlocked session (no re-lock, no speed regression). (`rustconn-core/src/secret/bitwarden.rs`, `rustconn/src/state/mod.rs`)
 - **Tunnel askpass helper script is created atomically with 0700 (W4, review SEC-4)** — `write_askpass_script` created the helper with `File::create` and only chmodded it to 0700 afterwards, so for a brief window it existed world-readable and a symlink planted at its (random) path could have redirected the write. It now opens the file with `create_new` (O_EXCL) and mode 0700 set at open time, matching the tunnel secret file. The script holds no secret (only the name of the env var to read); this is defence-in-depth. (`rustconn-core/src/ssh_tunnel.rs`)
 
 ### Added

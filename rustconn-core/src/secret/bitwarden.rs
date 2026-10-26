@@ -238,6 +238,24 @@ pub fn clear_session_key() {
     clear_verified();
 }
 
+/// Clears every process-global Bitwarden unlock mark: the session key, the
+/// verify timestamp and the last-sync timestamp.
+///
+/// Call this when the user switches their preferred secret backend away from
+/// Bitwarden. [`SecretManager::rebuild_from_settings`](crate::secret::SecretManager::rebuild_from_settings)
+/// rebuilds the backend chain but leaves these process-global marks in place,
+/// so without this a stale session key would keep answering `is_unlocked_fast`
+/// and `sync_due` from the previous backend. Unlike [`sync_on_next_unlock`] —
+/// which clears the verify and sync marks but keeps the session for a fresh
+/// re-check — this also drops the session key, because the backend it unlocked
+/// is no longer the preferred one.
+pub fn clear_bitwarden_session_state() {
+    clear_session_key();
+    if let Ok(mut guard) = BW_LAST_SYNCED.write() {
+        *guard = None;
+    }
+}
+
 /// Stores the resolved `bw` CLI command path.
 ///
 /// Call this from the UI layer after detecting the correct binary path.
@@ -2439,9 +2457,9 @@ mod debug_tests {
 mod unlock_tests {
     use super::{
         BW_INVOCATION_TIMEOUT, BW_SESSION_STORE, BW_UNLOCK, BitwardenBackend, SYNC_TTL_SECS,
-        SecretBackend, SecretString, has_session_key, is_recently_verified, is_sync_due,
-        mark_synced, mark_verified, redact_session_keys, sync_due, sync_on_next_unlock,
-        with_unlock_lock_blocking,
+        SecretBackend, SecretString, clear_bitwarden_session_state, has_session_key,
+        is_recently_verified, is_sync_due, mark_synced, mark_verified, redact_session_keys,
+        sync_due, sync_on_next_unlock, with_unlock_lock_blocking,
     };
     use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -2800,6 +2818,36 @@ Invalid master password.";
         sync_on_next_unlock();
 
         assert!(!is_recently_verified());
+    }
+
+    /// Switching the preferred backend away from Bitwarden must drop every
+    /// process-global unlock mark, or a stale session would keep answering the
+    /// fast path and `sync_due` would stay satisfied from the old backend.
+    #[test]
+    fn clearing_session_state_drops_session_verify_and_sync_marks() {
+        let _globals = lock_globals();
+
+        set_global_session(Some("stale-session-after-switch"));
+        mark_verified();
+        mark_synced();
+        assert!(has_session_key(), "precondition: a session is stored");
+        assert!(is_recently_verified(), "precondition: verified mark set");
+        assert!(
+            !sync_due(),
+            "precondition: a recent sync satisfies sync_due"
+        );
+
+        clear_bitwarden_session_state();
+
+        assert!(!has_session_key(), "session key must be cleared");
+        assert!(!is_recently_verified(), "verify mark must be cleared");
+        assert!(
+            sync_due(),
+            "sync mark must be cleared so the new backend syncs on first use"
+        );
+
+        // Leave the globals clean for sibling tests sharing the lock.
+        set_global_session(None);
     }
 }
 
