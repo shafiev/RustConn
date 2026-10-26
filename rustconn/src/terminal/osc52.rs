@@ -185,8 +185,10 @@ enum State {
 /// as long as the reader does.
 ///
 /// What VTE is fed is *VTE-equivalent* to the raw stream, not byte-identical:
-/// it draws the same text and executes the same controls, and it dispatches
-/// the same OSC strings, minus the recognised OSC 52 clipboard offers. A
+/// on the ground and inside OSC strings it draws the same text, executes the
+/// same controls, and dispatches the same OSC strings, minus the recognised
+/// OSC 52 clipboard offers. The filter keeps no DCS state (see the module
+/// `ponytail`), so the claim does not extend to the body of a DCS string. A
 /// sequence the filter removes — an offer, a query, a string past
 /// [`MAX_OSC_BODY`], and an OSC string the stream ended inside while offers are
 /// honoured ([`finish`](Self::finish)) — is replaced by exactly one `CAN`.
@@ -196,14 +198,22 @@ enum State {
 /// gap, and an abandoned string would swallow the text. VTE ignores `CAN` on the
 /// ground and drops all of those with it (see [`CAN`]).
 ///
-/// Two more byte-level differences exist, neither visible to VTE:
+/// Two more byte-level differences exist. The first is invisible to VTE, the
+/// second is not inside a DCS string:
 ///
 /// * an OSC string abandoned for a new `ESC` sequence is released closed with
 ///   `CAN` as well, because the held `ESC` may be overtaken by a C0 control
 ///   that would otherwise land inside the string;
-/// * a C0 control that arrives while an `ESC` is held goes out ahead of it,
-///   which only matters on the ground, where VTE is — an abandoned string has
-///   been closed by then.
+/// * a C0 control that arrives while an `ESC` is held goes out ahead of it.
+///   That changes nothing on the ground, or in a CSI, SOS, PM or APC string,
+///   and an abandoned OSC string has been closed by then. In a DCS string it
+///   does: `ESC P … ESC NUL \` reaches VTE as `ESC P … NUL ESC \`, which VTE
+///   takes as DCS data followed by the terminator instead of an aborted DCS.
+///   The filter is on the ground while VTE is inside a DCS, so it cannot tell
+///   the two apart. This opens no capability the remote lacks (it can send a
+///   well-formed DCS directly) and does not bypass OSC 52 interception, since
+///   `]` after the held `ESC` still opens a string. Real applications do not
+///   end a DCS with `ESC <C0> \`. Keeping the order would need a DCS state.
 #[derive(Debug, Default)]
 pub struct Osc52Filter {
     state: State,

@@ -1139,8 +1139,10 @@ impl TerminalNotebook {
                 // is exactly where the raw chunk used to leak it.
                 let filtered = osc52_filter.push(&chunk, &mut sink).to_vec();
                 if let Some(terminal) = &live_terminal {
-                    // A chunk that held nothing but an offer filters to nothing,
-                    // and `feed` is not called on an empty slice: VTE has been
+                    // A chunk can filter to nothing while the filter holds back
+                    // the start of a sequence (a lone `ESC`, an OSC string that
+                    // is still open). A removed offer is not empty: it leaves a
+                    // `CAN`. `feed` is not called on an empty slice: VTE has been
                     // known to reach an `assert()` on degenerate input, and an
                     // assertion in a library takes the whole process down.
                     if !filtered.is_empty() {
@@ -1158,8 +1160,11 @@ impl TerminalNotebook {
                     handler(&filtered);
                 }
             }
-            // The stream can end inside an OSC string. Hand the remainder to VTE
-            // rather than dropping it with the filter.
+            // The stream can end inside a sequence. A lone `ESC` or `c2` is
+            // handed to VTE rather than dropped with the filter. An OSC string
+            // still open is not: with OSC 52 enabled `finish` replaces it with a
+            // `CAN`, so a later `BEL` or `ST` cannot complete it; with it
+            // disabled the fragment is released as it came.
             if let Some(terminal) = terminal.upgrade() {
                 hold.detach(&terminal);
                 let tail = osc52_filter.finish();
