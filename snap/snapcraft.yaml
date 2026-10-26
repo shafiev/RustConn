@@ -105,8 +105,10 @@ platforms:
 # build-packages/stage-packages, GTK 4.24 + libadwaita 1.10 from the platform).
 #
 # libadwaita: the platform ships libadwaita 1.10, so the GUI is built WITH
-# `--features adw-1-8` (which implies adw-1-6 and adw-1-7), exactly like the
-# Flatpak: AdwSpinner, AdwToggleGroup, AdwShortcutsDialog and friends. The
+# `--features adw-1-8` (which implies adw-1-6 and adw-1-7), the same libadwaita
+# widget tier as the Flatpak: AdwSpinner, AdwToggleGroup, AdwShortcutsDialog and
+# friends. The Flatpak builds `adw-1-10,vte-0-84,gtk-4-24`; the snap does not
+# enable the vte and gtk rungs. The
 # default (no-feature) build keeps the 1.5 fallbacks for Ubuntu 24.04 deb/AppImage
 # targets; the snap simply no longer needs them.
 #
@@ -301,10 +303,14 @@ parts:
       # through XWayland on a Wayland session and it is the client RemoteApp
       # needs. Ubuntu 26.04 also packages the SDL client (`freerdp3-sdl`); it is
       # a possible follow-up, but is deliberately not switched to here. The launcher finds
-      # it in $SNAP/usr/bin. Its dependencies are plain noble libraries (X11,
-      # Kerberos, ICU, CUPS, PulseAudio, libusb, FUSE, Opus); the one GTK-stack
-      # library it links, libcairo, is already dropped by the `prime:` block
-      # below in favour of the platform's copy.
+      # it in $SNAP/usr/bin. Most of its dependencies are plain Ubuntu libraries
+      # (Kerberos, ICU, CUPS, PulseAudio, libusb, FUSE, Opus). On core26 four
+      # of them are not staged here: libX11.so.6, libXext.so.6, libXfixes.so.3
+      # and libxml2.so.16 reach `xfreerdp3` only through the gpu-2604 wrapper,
+      # from the mesa-2604 content snap, so the snap depends on mesa-2604 being
+      # connected for the X11 client to start. The one GTK-stack library it
+      # links, libcairo, is already dropped by the `prime:` block below in
+      # favour of the platform's copy.
       - freerdp3-x11
     prime:
       # Drop the GTK4/GLib/rendering stack dragged in by libvte's dependencies.
@@ -361,8 +367,9 @@ parts:
       # the literal path as fallback so this can never silently become a no-op.
       SDK_LIB="${SNAPCRAFT_GNOME_SDK:-/snap/gnome-core26-sdk/current}/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}"
       export RUSTFLAGS="-L native=${SDK_LIB} ${RUSTFLAGS:-}"
-      # Single workspace build matching packaging/flatpak, including adw-1-8
-      # (the gnome-core26 platform provides libadwaita 1.10; adw-1-8 implies
+      # Single workspace build with adw-1-8, the same libadwaita widget tier as
+      # packaging/flatpak, which builds `adw-1-10,vte-0-84,gtk-4-24` (the
+      # gnome-core26 platform provides libadwaita 1.10; adw-1-8 implies
       # adw-1-7 and adw-1-6). Global LTO via --config keeps the binary small
       # (equivalent to the plugin's rust-use-global-lto).
       #
