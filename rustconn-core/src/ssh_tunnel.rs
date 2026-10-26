@@ -374,10 +374,23 @@ pub fn create_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
     spawn_tunnel(params, local_port, &["-L", &forward_spec], &remote_desc)
 }
 
-/// Creates a dynamic SOCKS tunnel by spawning `ssh -N -D <local_port> <jump_host>`.
+/// The `-D` value that binds a SOCKS proxy to IPv4 loopback.
+///
+/// A bare `-D <port>` follows the user's `GatewayPorts` setting, so with
+/// `GatewayPorts yes` in `~/.ssh/config` the proxy would listen on every
+/// interface and anyone on the network could route through the tunnel. An
+/// explicit bind address overrides that setting. It is the literal `127.0.0.1`,
+/// not `localhost`, so it is the address [`wait_for_tunnel_ready`] probes and the
+/// browsers are pointed at.
+fn loopback_socks_spec(port: u16) -> String {
+    format!("127.0.0.1:{port}")
+}
+
+/// Creates a dynamic SOCKS tunnel by spawning `ssh -N -D 127.0.0.1:<local_port> <jump_host>`.
 ///
 /// Unlike [`create_tunnel`], which forwards a single destination, this opens a
-/// local SOCKS5 proxy on a free port: any client pointed at
+/// local SOCKS5 proxy on a free port, bound to loopback only whatever
+/// `GatewayPorts` says: any client pointed at
 /// `socks5://127.0.0.1:<local_port>` reaches the network the jump host sits on.
 /// It is what an embedded Web connection uses to browse through an SSH host
 /// (issue: Ásbrú-style incognito browser). `remote_host`/`remote_port` on
@@ -392,8 +405,8 @@ pub fn create_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
 /// Returns an error if no free port is found or the SSH process fails to spawn.
 pub fn create_socks_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
     let local_port = find_free_port()?;
-    let port_str = local_port.to_string();
-    spawn_tunnel(params, local_port, &["-D", &port_str], "SOCKS proxy")
+    let spec = loopback_socks_spec(local_port);
+    spawn_tunnel(params, local_port, &["-D", &spec], "SOCKS proxy")
 }
 
 /// Checks the `[user@]host` destination handed to `tailscale ssh`.
@@ -517,7 +530,7 @@ fn tunnel_command_line(
 /// Shared spawn path for [`create_tunnel`] and [`create_socks_tunnel`].
 ///
 /// `forward_args` is the forwarding flag and its value (`["-L", spec]` or
-/// `["-D", port]`); `remote_desc` is a human-readable destination for the log.
+/// `["-D", "127.0.0.1:port"]`); `remote_desc` is a human-readable destination for the log.
 /// Everything else — jump-host port, identity, askpass, Flatpak known_hosts,
 /// `ExitOnForwardFailure`, stderr capture — is identical between the two.
 fn spawn_tunnel(
@@ -2098,14 +2111,14 @@ mod tailscale_tunnel_tests {
         let mut p = params(TunnelLauncher::OpenSsh, "admin@bastion.example.com");
         p.jump_port = 2222;
         p.identity_file = Some("/k".to_string());
-        let (program, args) = tunnel_command_line(&p, &["-D", "1080"], false);
+        let (program, args) = tunnel_command_line(&p, &["-D", &loopback_socks_spec(1080)], false);
         assert_eq!(program, "ssh");
         assert_eq!(
             args,
             strs(&[
                 "-N",
                 "-D",
-                "1080",
+                "127.0.0.1:1080",
                 "-p",
                 "2222",
                 "-i",
@@ -2125,7 +2138,7 @@ mod tailscale_tunnel_tests {
     fn tailscale_socks_command_line_puts_destination_first() {
         let mut p = params(TunnelLauncher::TailscaleSsh, "alice@my-server");
         p.jump_port = 2222; // ignored: the session passes no port either
-        let (program, args) = tunnel_command_line(&p, &["-D", "1080"], false);
+        let (program, args) = tunnel_command_line(&p, &["-D", &loopback_socks_spec(1080)], false);
         assert_eq!(program, "tailscale");
         assert_eq!(
             args,
@@ -2134,7 +2147,7 @@ mod tailscale_tunnel_tests {
                 "alice@my-server",
                 "-N",
                 "-D",
-                "1080",
+                "127.0.0.1:1080",
                 "-o",
                 "ConnectTimeout=8",
                 "-o",
@@ -2149,7 +2162,7 @@ mod tailscale_tunnel_tests {
     #[test]
     fn tailscale_command_line_with_askpass_omits_batchmode() {
         let p = params(TunnelLauncher::TailscaleSsh, "my-server");
-        let (_, args) = tunnel_command_line(&p, &["-D", "1080"], true);
+        let (_, args) = tunnel_command_line(&p, &["-D", &loopback_socks_spec(1080)], true);
         assert!(!args.contains(&"BatchMode=yes".to_string()), "{args:?}");
     }
 
@@ -2157,7 +2170,7 @@ mod tailscale_tunnel_tests {
     fn tailscale_command_line_keeps_caller_connect_timeout() {
         let mut p = params(TunnelLauncher::TailscaleSsh, "my-server");
         p.extra_args = strs(&["-o", "ConnectTimeout=3"]);
-        let (_, args) = tunnel_command_line(&p, &["-D", "1080"], false);
+        let (_, args) = tunnel_command_line(&p, &["-D", &loopback_socks_spec(1080)], false);
         assert!(!args.contains(&"ConnectTimeout=8".to_string()), "{args:?}");
         let timeout_at = args
             .iter()
@@ -2165,6 +2178,40 @@ mod tailscale_tunnel_tests {
             .expect("caller timeout kept");
         let forward_at = args.iter().position(|a| a == "-D").expect("forward flag");
         assert!(timeout_at > forward_at, "{args:?}");
+    }
+
+    #[test]
+    fn socks_tunnel_binds_to_loopback_for_both_launchers() {
+        let spec = loopback_socks_spec(1080);
+        for (launcher, jump_host) in [
+            (TunnelLauncher::OpenSsh, "admin@bastion.example.com"),
+            (TunnelLauncher::TailscaleSsh, "alice@my-server"),
+        ] {
+            for uses_askpass in [false, true] {
+                let p = params(launcher, jump_host);
+                let (_, args) = tunnel_command_line(&p, &["-D", &spec], uses_askpass);
+                assert!(
+                    args.windows(2)
+                        .any(|w| w[0] == "-D" && w[1] == "127.0.0.1:1080"),
+                    "{launcher:?} (askpass {uses_askpass}) must bind -D to loopback: {args:?}"
+                );
+                assert!(
+                    !args.contains(&"1080".to_string()),
+                    "{launcher:?} (askpass {uses_askpass}) must not pass a bare port: {args:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn loopback_socks_spec_is_ipv4_loopback_literal() {
+        let spec = loopback_socks_spec(1080);
+        assert_eq!(spec, "127.0.0.1:1080");
+        // Must stay the address `wait_for_tunnel_ready` probes: a `localhost` or
+        // `::1` here would let the proxy and the probe disagree.
+        let addr: std::net::SocketAddr = spec.parse().expect("a socket address");
+        assert!(addr.is_ipv4() && addr.ip().is_loopback());
+        assert_eq!(addr.port(), 1080);
     }
 
     #[test]
