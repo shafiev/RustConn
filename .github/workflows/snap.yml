@@ -27,18 +27,18 @@ jobs:
 
       - name: Install Snapcraft
         run: |
-          # core24 + the `gnome` extension are fully supported by stable Snapcraft.
-          # (We moved off core26 because the gnome extension — required for GTK4 —
-          # does not support core26 yet; see snapcraft#6185 and RustConn#174.)
+          # core26 + the `gnome` extension need Snapcraft >= 9.2 (the release that
+          # added core26 support to the extension); stable provides it.
+          # See RustConn#174.
           sudo snap install snapcraft --classic
           snapcraft --version
 
       - name: Build Snap
         id: build
         run: |
-          # The `gnome` extension pulls build-snaps (mesa-2404, gnome-46-2404-sdk)
+          # The `gnome` extension pulls build-snaps (mesa-2604, gnome-core26-sdk)
           # from the store during "Installing build-snaps". On the arm64 runner
-          # this intermittently fails with "Error installing snap 'mesa-2404'
+          # this intermittently fails with "Error installing snap 'mesa-2604'
           # from channel 'latest/stable'" (transient store/network flakiness).
           # Retry the whole pack a few times: snapcraft is incremental (no
           # `clean`), so a retry only re-runs the failed build-snap install.
@@ -64,7 +64,7 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y --no-install-recommends squashfs-tools
           }
-          sudo snap install core24 gnome-46-2404 mesa-2404
+          sudo snap install core26 gnome-core26 mesa-2604
           ./scripts/check-snap-runtime-libs.sh "${{ steps.build.outputs.snap }}"
 
       - name: Upload Snap artifact

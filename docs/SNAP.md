@@ -3,13 +3,14 @@
 RustConn is available as a Snap package with **strict confinement** for enhanced security.
 Both `rustconn` (GUI) and `rustconn-cli` are included.
 
-> **Build platform:** the snap is built on **core24** (Ubuntu 24.04 base) via the
-> `gnome-46-2404` extension, which provides GTK 4.14 and libadwaita 1.5. It uses
-> the libadwaita 1.5 cfg-gated fallbacks rather than the full 1.8 widget tier the
-> Flatpak ships. A 0.23.2 migration to core26 (for libadwaita 1.8 parity) was
-> reverted in 0.23.3 because the snapcraft `gnome` extension still rejects
-> `base: core26`; revisit once a snapcraft release lists core26 among the gnome
-> extension's supported bases (snapcraft#6185, issue #174).
+> **Build platform:** the snap is built on **core26** (Ubuntu 26.04 base) via the
+> snapcraft `gnome` extension, which provides the `gnome-core26` platform (GTK 4.24,
+> libadwaita 1.10) and takes GPU drivers from `mesa-2604`. The snap is built with
+> `adw-1-8`, so it gets the same libadwaita 1.8 widget tier the Flatpak ships.
+> Building needs Snapcraft 9.2 or newer, the first release whose `gnome` extension
+> accepts core26 (an earlier 0.23.2 attempt was reverted for exactly that reason;
+> issue #174). On first update, snapd downloads the `gnome-core26` and `mesa-2604`
+> platform snaps.
 
 ## Installation
 
@@ -146,16 +147,16 @@ client cannot do:
 - connections set to the External client mode, including **Smart sizing** and
   **Dynamic resolution**
 
-It is the X11 client — it runs through XWayland on a Wayland session. The Wayland
-client (`wlfreerdp3`) is deprecated upstream and Ubuntu 24.04 has no SDL client, so
-neither is bundled. Before 0.22.7 the snap had no external RDP client at all, and
+It is the X11 client — it runs through XWayland on a Wayland session, and it is the
+client RemoteApp needs. The Wayland client (`wlfreerdp3`) is deprecated upstream and
+is not bundled. Before 0.22.7 the snap had no external RDP client at all, and
 those connections could not be made.
 
-> When the snap moves to `base: core26` (its Ubuntu 26.04 archive), re-check
-> whether an `sdl-freerdp3` package exists there: the SDL3 client is the
-> upstream-preferred one (the Flatpak already bundles it), so prefer it over the
-> X11 client at that point. This is tracked alongside the core26 base move in
-> the `snap/snapcraft.yaml` base comment (gnome extension / snapcraft#6185).
+> The snap is on `base: core26` (Ubuntu 26.04), whose archive also packages the SDL3
+> client as `freerdp3-sdl` — the upstream-preferred client that the Flatpak already
+> bundles. The snap deliberately stays on `freerdp3-x11` for now; switching to the
+> SDL client is a possible follow-up that needs its own RemoteApp and
+> strict-confinement test.
 
 ### Available CLIs
 

@@ -100,13 +100,13 @@ Record bumps in CHANGELOG.md `### Changed` (e.g. `- Flatpak — FreeRDP 3.27.1�
 
 File: `snap/snapcraft.yaml`.
 
-1. **Base + gnome extension** — `base: core24` with the `gnome` extension
-   (gnome-46-2404, ships libadwaita 1.5 → snap builds WITHOUT `adw-1-8`). The gnome
-   extension is only available for core22/core24. **Flag if a core26 gnome extension
-   has shipped** — it would let the snap match the Flatpak's GNOME 50 / libadwaita 1.8
-   instead of trading polish for strict confinement (issue #174).
+1. **Base + gnome extension** — `base: core26` with the `gnome` extension
+   (gnome-core26 platform, libadwaita 1.10 → snap builds WITH `adw-1-8`; GPU drivers
+   from mesa-2604). Needs Snapcraft >= 9.2 (issue #174). **Flag if the platform
+   falls behind** the Flatpak's GNOME runtime in a way that blocks a feature.
 2. **Staged packages** — pinned `stage-packages` / `build-packages` (e.g. VTE,
-   waypipe, python3) against the core24 (noble) archive.
+   waypipe; Python comes from the gnome-core26 platform) against the core26
+   (Ubuntu 26.04) archive.
 
 > The `dependency-audit` hook automates all of the above (cargo + advisories + CLI +
 > flatpak + snap) on demand, and the `release-version` hook runs the same freshness

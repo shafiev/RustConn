@@ -6,8 +6,8 @@
 //! `vte.shell.postexec`, which the shell sets through OSC 133 when a command it ran
 //! at the prompt has returned, carrying that command's exit code.
 //!
-//! Three supported build targets still ship VTE 0.76 — Ubuntu 24.04 deb, the snap's
-//! `core24` platform and the noble-based AppImage — so the API is behind the
+//! Two supported build targets still ship VTE 0.76 — Ubuntu 24.04 deb and the
+//! noble-based AppImage — so the API is behind the
 //! `vte-0-78` feature and this module is the only file that says so. Callers just
 //! call [`connect_command_finished`] and get a working no-op on a build without it;
 //! its return value distinguishes "nothing was connected" from "connected and the

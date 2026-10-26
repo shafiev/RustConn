@@ -110,8 +110,8 @@ cargo build --release      # release, all crates
 | `adw-1-8` | — | libadwaita 1.8+ (AdwShortcutsDialog); enables `adw-1-7` |
 
 The default build targets **libadwaita 1.5** (the workspace floor, e.g.
-Ubuntu 24.04 LTS). The snap now builds on **core26** (gnome-core26 ships
-libadwaita 1.8) with `adw-1-8`. The `adw-1-*` flags each raise the required
+Ubuntu 24.04 LTS). The snap builds on **core26** (the gnome-core26 platform ships
+libadwaita 1.10) with `adw-1-8`. The `adw-1-*` flags each raise the required
 system libadwaita, so a build with one of them fails at the `libadwaita-sys`
 build script — not at the dependency solver — on a system below that version.
 `crate::spinner` is the single place that switches between `AdwSpinner` and

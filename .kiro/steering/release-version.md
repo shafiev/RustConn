@@ -35,7 +35,7 @@ Then perform ALL of the following steps:
    - **CLI downloads**: run `scripts/check-cli-versions.sh` (or read `rustconn-core/src/cli_download.rs`). For any outdated PINNED tool, update `pinned_version`, `download_url`, `aarch64_url`, and `checksum` (Static policy → fetch the new .sha256). Record under CHANGELOG.md `### Changed` as `- CLI downloads — Tool X.Y.Z→X.Y.W`.
    - **Flatpak** (`packaging/flatpak/*.yml` + keep `packaging/flathub/*.yml` in sync): check `org.gnome.Platform`/`org.gnome.Sdk` `runtime-version` (currently '50'), the `rust-stable` SDK extension, and bundled pinned source modules with `x-checker-data` (FreeRDP `freerdp-X.Y.Z.tar.xz`, cJSON). For any bump, update the version AND its `sha256`. Ensure flathub manifest FreeRDP version matches the local manifest (they can drift independently — sync flathub to local if behind).
    - **Nix** (`flake.nix`): version string must match workspace version (checked by `release.sh`). No dependency inputs to audit — uses nixpkgs unstable.
-   - **Snap** (`snap/snapcraft.yaml`): check `base` (core24) and the `gnome` extension (gnome-46-2404) — flag if a core26 gnome extension now exists (issue #174 context) — plus pinned `stage-packages`/`build-packages` drift.
+   - **Snap** (`snap/snapcraft.yaml`): check `base` (core26) and the `gnome` extension (gnome-core26 platform, mesa-2604; needs Snapcraft >= 9.2, issue #174) — plus pinned `stage-packages`/`build-packages` drift.
    - If everything is current, note 'dependencies up to date' and proceed.
 
 3. **Version strings — one command, not a walk through a list.**

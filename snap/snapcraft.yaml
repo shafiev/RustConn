@@ -1,5 +1,5 @@
 name: rustconn
-base: core24
+base: core26
 version: '0.23.21'
 title: RustConn
 summary: Manage remote connections easily
@@ -92,51 +92,42 @@ platforms:
 # NOTE: GTK4/libadwaita runtime (GTK, Pango, Cairo, gdk-pixbuf, graphene,
 # Mesa/GL, GNOME themes), the desktop-launch command-chain, the correct
 # XDG/D-Bus/fontconfig environment AND the matching AppArmor accesses are all
-# provided by the `gnome` extension via the gnome-46-2404 platform snap. We
-# therefore do NOT stage GTK here, do NOT define a custom launcher wrapper, and
-# do NOT hand-roll GTK environment variables — that earlier manual approach
-# (required while core26 had no gnome extension) is what broke startup under
-# strict confinement on Ubuntu 26.04 (issue #174). The extension is only
-# available for core22/core24, so we target core24 (Ubuntu 24.04 LTS); its VTE
-# 0.76 satisfies the app's `vte4 v0_76` requirement.
+# provided by the `gnome` extension via the gnome-core26 platform snap (build
+# side: gnome-core26-sdk; GPU drivers: the gpu-2604 content interface from
+# mesa-2604). We therefore do NOT stage GTK here, do NOT define a custom
+# launcher wrapper, and do NOT hand-roll GTK environment variables — the
+# earlier manual approach (from before the extension supported core26) is what
+# broke startup under strict confinement on Ubuntu 26.04 (issue #174).
 #
-# core26 was tried (v0.23.2) and reverted: the `gnome` extension still rejects
-# `base: core26` even on stable Snapcraft 9.1.3 ("Extension 'gnome' does not
-# support base: 'core26'"), despite Snapcraft 9.0 adding the core26 *base*. The
-# gnome-core26 *platform* snap exists, but the *extension* that wires it in does
-# not accept it yet — the gnome core26 extension is tracked in
-# https://github.com/canonical/snapcraft/issues/6185 ("placeholder task for
-# core26 support for the gnome extension", produced by the Desktop team after
-# the core26 base goes stable), and the RustConn side is RustConn#174.
+# History: core26 was tried in v0.23.2 and reverted because the `gnome`
+# extension rejected `base: core26`. Snapcraft 9.2 added core26 support to the
+# extension, so the snap is on core26 again (Ubuntu 26.04 LTS archive for
+# build-packages/stage-packages, GTK 4.24 + libadwaita 1.10 from the platform).
 #
-# What to change here once snapcraft#6185 lands (the gnome extension accepts
-# core26), in ONE commit, built and smoke-tested before release:
-#   1. `base: core24` → `base: core26` (this line only; the extension still
-#      resolves the right platform/SDK, so no `extensions:` edit is needed).
-#   2. The gnome-48-* platform core26 pairs with ships libadwaita >= 1.6, so the
-#      snap can finally build WITH `--features adw-1-8` like the Flatpak — add
-#      `adw-1-8` to the `--features '...'` list in override-build below and drop
-#      the "minus adw-1-8" caveat from the libadwaita note above and that
-#      comment. Verify the platform's actual libadwaita version first
-#      (`snap info gnome-48-*` / the extension docs) before assuming 1.8.
-#   3. Re-check the staged VTE: core26's archive is Ubuntu 26.04, so the
-#      build-packages/stage-packages VTE name may change
-#      (libvte-2.91-gtk4-* → whatever 26.04 ships); confirm the app's
-#      `vte4 v0_76`+ requirement is still met by the platform or the staged .deb.
-#   4. Re-check `freerdp3-x11` is still the package name on 26.04 (24.04 had no
-#      SDL client; 26.04 may, in which case prefer `sdl-freerdp3` — see the
-#      stage-packages note and docs/SNAP.md "External RDP client").
-#   5. Re-run the full strict-confinement smoke on 26.04 (issue #174 was a
-#      startup break under strict confinement with the manual pre-extension
-#      approach — the whole reason we are on the extension + core24 today).
-# Until all of that is verified, core24 (Ubuntu 24.04 LTS) stays the base.
+# libadwaita: the platform ships libadwaita 1.10, so the GUI is built WITH
+# `--features adw-1-8` (which implies adw-1-6 and adw-1-7), exactly like the
+# Flatpak: AdwSpinner, AdwToggleGroup, AdwShortcutsDialog and friends. The
+# default (no-feature) build keeps the 1.5 fallbacks for Ubuntu 24.04 deb/AppImage
+# targets; the snap simply no longer needs them.
 #
-# libadwaita: the core24 gnome platform (gnome-46-2404) ships libadwaita 1.5,
-# so the GUI is built WITHOUT `--features adw-1-8` (the 1.6/1.7/1.8 widgets are
-# behind cfg-features with full 1.5 fallbacks — AdwSpinner→GtkSpinner,
-# AdwToggleGroup→linked buttons, AdwShortcutsDialog→legacy dialog). The Flatpak
-# build keeps adw-1-8 (GNOME 50 runtime); the snap trades that polish for a
-# working strictly-confined app until the gnome extension supports core26.
+# Differences from core24 that this file accounts for:
+#   * The extension no longer adds the `gsettings` plug on core26, so the
+#     `rustconn` app declares it explicitly (same behaviour as on core24).
+#   * core26 ships no Python. The pip-installed Zero Trust CLIs (Azure `az`,
+#     Oracle `oci`) use the Python 3.14 of the gnome-core26 platform; see the
+#     note above the `rustconn` part for why no Python is staged here.
+#   * The extension adds a `gnome/cleanup` part that prunes from prime every
+#     shared library already supplied by gnome-core26-sdk / gtk-common-themes.
+#     It makes the manual `prime:` exclusion list on the `rustconn` part
+#     redundant; the list is kept as belt and braces (harmless, and it documents
+#     why the libvte dependency closure must not ship a second GTK stack). It can
+#     be dropped once a smoke test shows the extension cleanup alone is enough.
+#   * Part names must not contain `/`, and scriptlets use `craftctl` instead of
+#     `snapcraftctl`. This file uses neither a slash in a part name nor either
+#     command.
+# Still to do by hand before a release: the strict-confinement smoke test on a
+# real Ubuntu 26.04 session (issue #174 was a startup break under strict
+# confinement), with gnome-core26 and mesa-2604 installed.
 
 plugs:
   ssh-keys:
@@ -200,6 +191,10 @@ apps:
       - network
       - network-bind
       - network-status
+      # The gnome extension added this plug itself on core24 but no longer does
+      # on core26; declare it so GSettings keeps using the host settings
+      # database instead of a private one.
+      - gsettings
       - home
       - ssh-keys
       - serial-port
@@ -242,16 +237,31 @@ parts:
     prime:
       - -*
 
+  # NOTE: no Python part. core26 ships no Python and the Snapcraft migration
+  # guide suggests a `python-runtime` part (python3-minimal, python3.14-minimal,
+  # python3.14-venv, libpython3.14-*). We tried exactly that and it does not
+  # work next to the gnome extension: its `gnome/cleanup` part deletes from prime
+  # every `*.so` that also exists in gnome-core26-sdk, which emptied the staged
+  # `usr/lib/python3.14/lib-dynload` (_ssl, _hashlib, _ctypes, _sqlite3, ...) and
+  # left a $SNAP/usr/bin/python3 that shadows a working interpreter on PATH but
+  # cannot `import ssl`, so pip could not reach any index. The gnome-core26
+  # platform already ships a complete Python 3.14 (interpreter, stdlib,
+  # lib-dynload, pip/setuptools wheels) and its launcher appends
+  # $SNAP_DESKTOP_RUNTIME/usr/bin to PATH, so the `python3` that RustConn runs
+  # for the pip-installed Azure `az` / Oracle `oci` Zero Trust CLIs is the
+  # platform's. Do NOT stage python3 here again unless the cleanup is bypassed.
+
   rustconn:
     plugin: nil
     source: .
     after: [rust-deps]
     build-packages:
       # GTK4/libadwaita/GLib dev files also come from the gnome SDK (added by
-      # the `gnome` extension build environment); we keep the distro dev
-      # packages too so the workspace `cargo build` always resolves
-      # gtk4-4.0.pc / libadwaita-1.pc (noble ships GTK 4.14 + libadwaita 1.5,
-      # matching the gnome-46-2404 runtime). VTE for GTK4 is NOT in the SDK.
+      # the `gnome` extension build environment, GTK 4.24 + libadwaita 1.10);
+      # we keep the distro dev packages too so the workspace `cargo build`
+      # always resolves gtk4-4.0.pc / libadwaita-1.pc and so libvte's dev
+      # dependencies are satisfied. The SDK paths come first on
+      # PKG_CONFIG_PATH, so the SDK copy wins. VTE for GTK4 is NOT in the SDK.
       - libgtk-4-dev
       - libadwaita-1-dev
       - libvte-2.91-gtk4-dev
@@ -262,8 +272,9 @@ parts:
       - cmake
       - gettext
     stage-packages:
-      # VTE (GTK4 terminal widget) is NOT provided by the gnome-46-2404 platform
-      # at runtime, so it MUST be staged. But the .deb drags the whole GTK4 stack
+      # VTE (GTK4 terminal widget, 0.84 from the Ubuntu 26.04 archive) is NOT
+      # provided by the gnome-core26 platform at runtime, so it MUST be staged.
+      # But the .deb drags the whole GTK4 stack
       # (libgtk-4, GLib, Pango, Cairo, gdk-pixbuf, graphene, harfbuzz, librsvg)
       # as dependencies. Shipping a second copy of those is fatal: the platform's
       # libadwaita would load against OUR libgtk-4 (ABI mismatch → transparent
@@ -278,20 +289,18 @@ parts:
       - picocom
       - inetutils-telnet
       - waypipe
-      # python3 enables the pip-based Zero Trust CLIs (Azure `az`, Oracle `oci`)
-      # that the Components dialog installs at runtime. The Flatpak GNOME
-      # runtime ships Python; under snap we must stage it explicitly.
-      - python3
-      - python3-venv
+      # Python for the pip-based Zero Trust CLIs comes from the gnome-core26
+      # platform (see the note above this part), not from stage-packages.
       # FreeRDP's X11 client (`xfreerdp3`), the external RDP client for what the
       # embedded IronRDP client cannot do: the legacy RDP security layer and
       # TLS-only servers (e.g. Windows 2008 R2), RemoteApp, audio left on the
       # remote machine, RD Gateway, and the external client's Smart sizing and
       # Dynamic resolution switches (issues #341, #342). Without it those
       # connections had nowhere to fall back to in the snap. The X11 client
-      # rather than wlfreerdp3, which upstream deprecated (#340), or the SDL
-      # client, which noble does not package: it runs through XWayland on a
-      # Wayland session and it is the client RemoteApp needs. The launcher finds
+      # rather than wlfreerdp3, which upstream deprecated (#340): it runs
+      # through XWayland on a Wayland session and it is the client RemoteApp
+      # needs. Ubuntu 26.04 also packages the SDL client (`freerdp3-sdl`); it is
+      # a possible follow-up, but is deliberately not switched to here. The launcher finds
       # it in $SNAP/usr/bin. Its dependencies are plain noble libraries (X11,
       # Kerberos, ICU, CUPS, PulseAudio, libusb, FUSE, Opus); the one GTK-stack
       # library it links, libcairo, is already dropped by the `prime:` block
@@ -299,10 +308,13 @@ parts:
       - freerdp3-x11
     prime:
       # Drop the GTK4/GLib/rendering stack dragged in by libvte's dependencies.
-      # All of these are provided by the gnome-46-2404 platform; staging a second
+      # All of these are provided by the gnome-core26 platform; staging a second
       # copy causes the platform libadwaita/loaders to bind against our copies
       # (ABI mismatch → transparent window + broken icons). Keeping a single
       # instance of GTK, GLib and GObject across the whole process is mandatory.
+      # On core26 the extension's `gnome/cleanup` part prunes the same libraries
+      # (and more) after the fact; this list is now redundant and kept as an
+      # explicit, reviewable statement of intent.
       # libvte itself (libvte-2.91-gtk4.so) is intentionally NOT excluded.
       # The `usr/lib/*/...` wildcard matches the arch-triplet directory
       # (x86_64-linux-gnu on amd64, aarch64-linux-gnu on arm64) so the dedup
@@ -338,41 +350,40 @@ parts:
       # toolchain to do it. Keep this in sync with rust-deps' --default-toolchain.
       export RUSTUP_TOOLCHAIN=1.95
       # Pin pango to a single source at link time (issue #198). The gnome
-      # extension stages the gnome-46-2404 SDK's libpangoft2-1.0, but the
-      # build also has noble's libpango-1.0 in /usr/lib. On arm64 these two
-      # halves of pango diverge (the SDK libpangoft2 references
+      # extension stages the gnome-core26-sdk's libpangoft2-1.0, but the build
+      # also has the Ubuntu 26.04 libpango-1.0 in /usr/lib. On arm64 on core24
+      # these two halves of pango diverged (the SDK libpangoft2 referenced
       # pango_font_description_{get,set}_features, absent from the older noble
-      # libpango), so ld fails with "undefined reference" at link. Prepend the
+      # libpango), so ld failed with "undefined reference" at link. Prepend the
       # SDK arch-triplet lib dir to the rustc link search path so BOTH pango
-      # libs resolve from the SDK — the same copy used at runtime. amd64
-      # already aligns, making this a harmless no-op there.
-      SDK_LIB="/snap/gnome-46-2404-sdk/current/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}"
+      # libs resolve from the SDK — the same copy used at runtime. The SDK path
+      # comes from the extension's SNAPCRAFT_GNOME_SDK (gnome-core26-sdk), with
+      # the literal path as fallback so this can never silently become a no-op.
+      SDK_LIB="${SNAPCRAFT_GNOME_SDK:-/snap/gnome-core26-sdk/current}/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}"
       export RUSTFLAGS="-L native=${SDK_LIB} ${RUSTFLAGS:-}"
-      # Single workspace build matching packaging/flatpak (minus adw-1-8: the
-      # core24 gnome platform provides libadwaita 1.5, and the 1.6/1.7/1.8
-      # widgets have cfg-gated 1.5 fallbacks). Global LTO via --config keeps the
-      # binary small (equivalent to the plugin's rust-use-global-lto).
+      # Single workspace build matching packaging/flatpak, including adw-1-8
+      # (the gnome-core26 platform provides libadwaita 1.10; adw-1-8 implies
+      # adw-1-7 and adw-1-6). Global LTO via --config keeps the binary small
+      # (equivalent to the plugin's rust-use-global-lto).
       #
-      # web-embedded is dropped here (issue #244): it links libwebkitgtk-6.0.so.4
-      # and libjavascriptcoregtk-6.0.so.1, and NOTHING in the snap's runtime
-      # provides them — the gnome-46-2404 platform ships only the GTK3-flavoured
-      # libwebkit2gtk-4.1 (different soname), so the app died at the dynamic
-      # linker before main(). Staging WebKit ourselves is not a drop-in: the two
-      # libraries are ~120 MB, ICU is absent from both core24 and the platform,
-      # and WebKit's helper binaries are looked up at the compiled-in absolute
-      # path /usr/lib/<triplet>/webkitgtk-6.0 (no WEBKIT_EXEC_PATH override
-      # exists any more), which under strict confinement needs its own `layout:`
-      # bind — the same trick the gnome extension uses for webkit2gtk-4.1. Until
-      # that is built and tested, Web connections in the snap use the System or
-      # Custom browser mode; `browser_mode = "embedded"` falls back to the system
-      # browser with a warning. Every other feature of the default set is kept
-      # verbatim, so this list must be updated whenever `default` in
-      # rustconn/Cargo.toml changes.
+      # web-embedded is still dropped here (issue #244): it links
+      # libwebkitgtk-6.0.so.4 and libjavascriptcoregtk-6.0.so.1. On core24 the
+      # platform did not provide them, so the app died at the dynamic linker
+      # before main(). The gnome-core26 platform is built from the SDK, which
+      # stages libwebkitgtk-6.0-dev, and the core26 gnome extension adds a
+      # `layout:` bind for /usr/lib/<triplet>/webkitgtk-6.0, so embedded WebKit
+      # may now be possible. It has to be built and smoke-tested under strict
+      # confinement before the feature is enabled; until then Web connections in
+      # the snap use the System or Custom browser mode, and
+      # `browser_mode = "embedded"` falls back to the system browser with a
+      # warning. Every other feature of the default set is kept verbatim, so
+      # this list must be updated whenever `default` in rustconn/Cargo.toml
+      # changes.
       cargo build --release \
         --config 'profile.release.lto = true' \
         --config 'profile.release.codegen-units = 1' \
         --no-default-features \
-        --features 'tray,system-keyring,vnc-embedded,rdp-embedded,gfx-h264,rdp-audio,rd-gateway,wayland-native' \
+        --features 'tray,system-keyring,adw-1-8,vnc-embedded,rdp-embedded,gfx-h264,rdp-audio,rd-gateway,wayland-native' \
         -p rustconn
       cargo build --release \
         --config 'profile.release.lto = true' \

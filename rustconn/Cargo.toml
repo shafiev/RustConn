@@ -132,13 +132,12 @@ web-embedded = ["dep:webkit6", "rustconn-core/web-embedded"]
 # "retire it once no supported target is below 1.6" note below invites the
 # question every release. The binding constraint is **Ubuntu 24.04 LTS**, which
 # ships libadwaita 1.5.0 and is listed as the baseline tier in
-# packaging/obs/README.md. Its standard support runs to 2029. The snap's core24
-# gnome platform is the same story and is often cited as the only reason, which
-# makes a core26 GNOME extension look like the thing to wait for; it is not, and
-# checking it answers nothing while 24.04 is still a target.
-# NOT in `default`: Ubuntu 24.04 ships libadwaita 1.5.0 and the snap's core24
-# gnome-46-2404 platform ships 1.5, so the default build must stay on the v1_5
-# baseline. `crate::spinner` holds the single cfg that picks AdwSpinner over
+# packaging/obs/README.md. Its standard support runs to 2029. The snap used to
+# be cited as a second reason (its core24 platform shipped 1.5), but since the
+# move to core26 (gnome-core26, libadwaita 1.10) it builds with `adw-1-8`; the
+# 24.04 deb and AppImage are the only remaining reason.
+# NOT in `default`: Ubuntu 24.04 ships libadwaita 1.5.0, so the default build
+# must stay on the v1_5 baseline. `crate::spinner` holds the single cfg that picks AdwSpinner over
 # GtkSpinner; retire this feature once no supported target is below 1.6.
 adw-1-6 = ["libadwaita/v1_6"]
 # Enable libadwaita 1.7+ widgets (AdwWrapBox, AdwToggleGroup)
@@ -165,8 +164,9 @@ adw-1-10 = ["adw-1-8", "libadwaita/v1_10"]
 # deprecations fixed alongside this.
 #
 # GNOME 50 is the target platform, so 4.22 is included rather than left for later.
-# Every channel except the three on the `v4_14` floor — Ubuntu 24.04 deb, the snap's
-# core24 platform and the noble AppImage — already runs 4.18 or newer.
+# Every channel except the two on the `v4_14` floor — Ubuntu 24.04 deb and the
+# noble AppImage — already runs 4.18 or newer (the snap's gnome-core26 platform
+# ships GTK 4.24).
 gtk-4-18 = ["gtk4/v4_18"]
 gtk-4-20 = ["gtk-4-18", "gtk4/v4_20"]
 gtk-4-22 = ["gtk-4-20", "gtk4/v4_22"]
@@ -190,9 +190,10 @@ gtk-4-24 = ["gtk-4-22", "gtk4/v4_24"]
 # exit code of the command that just finished, which drives the Command monitoring
 # mode. See `crate::terminal::termprops`.
 #
-# NOT in `default`, and the reason is a build requirement rather than taste: three
-# channels ship VTE 0.76 — Ubuntu 24.04 deb, the snap's core24 platform, and the
-# noble-based AppImage. `system-deps` fails inside the build script rather than in
+# NOT in `default`, and the reason is a build requirement rather than taste: two
+# channels ship VTE 0.76 — Ubuntu 24.04 deb and the noble-based AppImage (the
+# snap stages VTE 0.84 from Ubuntu 26.04 but does not select this feature yet).
+# `system-deps` fails inside the build script rather than in
 # the dependency solver when the installed VTE is older, which is a much less
 # obvious error than a resolver conflict, so keep this opt-in per channel exactly
 # as `adw-1-8` is. `debian.rules` detects the version with pkg-config.
