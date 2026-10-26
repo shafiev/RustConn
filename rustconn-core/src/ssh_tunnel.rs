@@ -29,6 +29,10 @@ pub enum SshTunnelError {
         "Refusing a Tailscale SSH host or user name that is not a plain name (letters, digits, '.', '_', '-', ':')"
     )]
     UnsafeDestination,
+    /// The connection's type cannot host a SOCKS tunnel (see
+    /// [`supports_browser_tunnel`]).
+    #[error("This connection type cannot host a SOCKS tunnel")]
+    UnsupportedConnection,
 }
 
 /// Result type for SSH tunnel operations.
@@ -164,20 +168,36 @@ pub enum SocksTunnelRoute {
 /// The single gate behind "Open Browser via Tunnel" (issue #397): SSH/SFTP go
 /// through OpenSSH, Tailscale SSH through `tailscale ssh`; every other Zero
 /// Trust provider stays unsupported.
+///
+/// A Zero Trust connection is accepted only when its `provider` and its
+/// `provider_config` both say Tailscale SSH. The two can disagree on imported or
+/// hand-edited data; the session itself runs from `provider_config`, so trusting
+/// either field alone would offer a tunnel the other part of the code refuses.
 #[must_use]
 pub fn socks_tunnel_route(conn: &crate::models::Connection) -> Option<SocksTunnelRoute> {
-    use crate::models::{ProtocolConfig, ZeroTrustProviderConfig};
+    use crate::models::{ProtocolConfig, ZeroTrustProvider, ZeroTrustProviderConfig};
 
     match &conn.protocol_config {
         ProtocolConfig::Ssh(_) | ProtocolConfig::Sftp(_) => Some(SocksTunnelRoute::OpenSsh),
-        ProtocolConfig::ZeroTrust(zt) => match &zt.provider_config {
-            ZeroTrustProviderConfig::TailscaleSsh(cfg) => Some(SocksTunnelRoute::TailscaleSsh {
-                destination: cfg.destination(conn.username.as_deref()),
-            }),
+        ProtocolConfig::ZeroTrust(zt) => match (zt.provider, &zt.provider_config) {
+            (ZeroTrustProvider::TailscaleSsh, ZeroTrustProviderConfig::TailscaleSsh(cfg)) => {
+                Some(SocksTunnelRoute::TailscaleSsh {
+                    destination: cfg.destination(conn.username.as_deref()),
+                })
+            }
             _ => None,
         },
         _ => None,
     }
+}
+
+/// Whether "Open Browser via Tunnel" can work for `conn`.
+///
+/// The one question both the sidebar menu and the action handler ask, so the
+/// item is shown exactly when [`socks_tunnel_route`] has a route.
+#[must_use]
+pub fn supports_browser_tunnel(conn: &crate::models::Connection) -> bool {
+    socks_tunnel_route(conn).is_some()
 }
 
 /// Parameters for creating an SSH tunnel.
@@ -2332,6 +2352,99 @@ mod tailscale_tunnel_tests {
                 }),
             );
             assert_eq!(route(&conn), None, "{provider:?} must stay unsupported");
+        }
+    }
+
+    fn zero_trust_conn(
+        provider: ZeroTrustProvider,
+        provider_config: ZeroTrustProviderConfig,
+    ) -> Connection {
+        Connection::new(
+            "zt".to_string(),
+            String::new(),
+            0,
+            ProtocolConfig::ZeroTrust(ZeroTrustConfig {
+                provider,
+                provider_config,
+                custom_args: Vec::new(),
+            }),
+        )
+    }
+
+    fn tailscale_config() -> ZeroTrustProviderConfig {
+        ZeroTrustProviderConfig::TailscaleSsh(TailscaleSshConfig {
+            host: "my-server".to_string(),
+            username: None,
+        })
+    }
+
+    fn other_config(provider: ZeroTrustProvider) -> ZeroTrustProviderConfig {
+        ZeroTrustProviderConfig::from_wizard_fields(
+            provider,
+            Some("echo hi"),
+            Some("x"),
+            Some("y"),
+            Some("z"),
+        )
+    }
+
+    #[test]
+    fn socks_tunnel_route_allows_tailscale_when_provider_and_config_agree() {
+        let conn = zero_trust_conn(ZeroTrustProvider::TailscaleSsh, tailscale_config());
+        assert_eq!(
+            socks_tunnel_route(&conn),
+            Some(SocksTunnelRoute::TailscaleSsh {
+                destination: "my-server".to_string()
+            })
+        );
+        assert!(supports_browser_tunnel(&conn));
+    }
+
+    #[test]
+    fn socks_tunnel_route_refuses_provider_config_mismatch() {
+        // Provider says Tailscale SSH, the config belongs to another provider.
+        for &other in ZeroTrustProvider::all() {
+            if other == ZeroTrustProvider::TailscaleSsh {
+                continue;
+            }
+            let conn = zero_trust_conn(ZeroTrustProvider::TailscaleSsh, other_config(other));
+            assert_eq!(socks_tunnel_route(&conn), None, "config of {other:?}");
+            assert!(!supports_browser_tunnel(&conn), "config of {other:?}");
+        }
+        // Config says Tailscale SSH, the provider is another one.
+        for &other in ZeroTrustProvider::all() {
+            if other == ZeroTrustProvider::TailscaleSsh {
+                continue;
+            }
+            let conn = zero_trust_conn(other, tailscale_config());
+            assert_eq!(socks_tunnel_route(&conn), None, "provider {other:?}");
+            assert!(!supports_browser_tunnel(&conn), "provider {other:?}");
+        }
+    }
+
+    #[test]
+    fn supports_browser_tunnel_matches_route_for_all_protocols() {
+        let supported = [
+            Connection::new_ssh("a".into(), "h".into(), 22),
+            Connection::new_sftp("a".into(), "h".into(), 22),
+            tailscale_conn(None, None, &[]),
+        ];
+        for conn in &supported {
+            assert!(supports_browser_tunnel(conn), "{:?}", conn.protocol_config);
+            assert!(socks_tunnel_route(conn).is_some());
+        }
+        let unsupported = [
+            Connection::new_rdp("a".into(), "h".into(), 3389),
+            Connection::new_vnc("a".into(), "h".into(), 5900),
+            Connection::new_telnet("a".into(), "h".into(), 23),
+            zero_trust_conn(
+                ZeroTrustProvider::AwsSsm,
+                other_config(ZeroTrustProvider::AwsSsm),
+            ),
+        ];
+        for conn in &unsupported {
+            assert!(!supports_browser_tunnel(conn), "{:?}", conn.protocol_config);
+            assert!(socks_tunnel_route(conn).is_none());
         }
     }
 

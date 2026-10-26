@@ -116,7 +116,10 @@ pub fn show_context_menu_for_connection_item(
     let is_group = item.is_group();
     let protocol = item.protocol();
     let is_ssh = protocol == "ssh" || protocol == "sftp";
-    let can_tunnel_browser = crate::window::types::protocol_supports_browser_tunnel(&protocol);
+    // From the core predicate the "Open Browser via Tunnel" action itself uses,
+    // set on the row when it was built; the protocol string cannot tell a
+    // Zero Trust connection whose provider and config disagree.
+    let can_tunnel_browser = item.browser_tunnel();
     let is_connected = item.status() == "connected";
     let conn_id = item.id();
     // A connection is in a split when it carries a split-pane colour (>= 0);

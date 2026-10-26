@@ -49,6 +49,7 @@ fn build_connection_item(
         conn.icon.as_deref().unwrap_or(""),
     );
     item.set_description(conn.description.as_deref().unwrap_or(""));
+    item.set_browser_tunnel(rustconn_core::ssh_tunnel::supports_browser_tunnel(conn));
     if let Some(indicators) = sidebar.row_indicators(&id) {
         item.set_is_recording(indicators.recording);
         item.set_external_session(indicators.external_session);

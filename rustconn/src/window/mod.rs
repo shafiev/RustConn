@@ -2417,6 +2417,7 @@ impl MainWindow {
                     &conn.host,
                 );
                 item.set_description(conn.description.as_deref().unwrap_or(""));
+                item.set_browser_tunnel(rustconn_core::ssh_tunnel::supports_browser_tunnel(conn));
                 store.append(&item);
             }
         } else {
@@ -2466,6 +2467,9 @@ impl MainWindow {
                         &conn.host,
                     );
                     item.set_description(conn.description.as_deref().unwrap_or(""));
+                    item.set_browser_tunnel(rustconn_core::ssh_tunnel::supports_browser_tunnel(
+                        conn,
+                    ));
                     store.append(&item);
                 }
             }

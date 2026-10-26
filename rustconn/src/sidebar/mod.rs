@@ -2068,6 +2068,11 @@ mod imp {
         /// session count is greater than zero.
         #[property(get, set)]
         external_session: RefCell<bool>,
+        /// Whether this connection can host a SOCKS tunnel for "Open Browser
+        /// via Tunnel". Set from `rustconn_core::ssh_tunnel::supports_browser_tunnel`
+        /// when the row is built, so the menu and the action share one predicate.
+        #[property(get, set)]
+        browser_tunnel: RefCell<bool>,
         /// Split-pane color index, or `-1` when the connection is not part of
         /// a split (Phase 2, R6.2). Drives a small filled-square marker in the
         /// sidebar row tinted with the matching split pane color; the square
@@ -2098,6 +2103,7 @@ mod imp {
                 has_dynamic_folder: RefCell::default(),
                 is_recording: RefCell::default(),
                 external_session: RefCell::default(),
+                browser_tunnel: RefCell::default(),
                 // -1 = not in a split; keep the stored default consistent with
                 // the `split_color` ParamSpec default so a fresh row never
                 // shows a (blue, index 0) split marker before joining a split.

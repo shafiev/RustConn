@@ -293,14 +293,6 @@ pub fn get_protocol_string(config: &rustconn_core::ProtocolConfig) -> String {
     }
 }
 
-/// Whether the sidebar offers "Open Browser via Tunnel" for a row with this
-/// protocol string. Mirrors `rustconn_core::ssh_tunnel::socks_tunnel_route`
-/// for the sidebar, which only carries the string (issue #397).
-#[must_use]
-pub fn protocol_supports_browser_tunnel(protocol: &str) -> bool {
-    matches!(protocol, "ssh" | "sftp" | "zerotrust:tailscale")
-}
-
 /// Whether `protocol` (as returned by [`get_protocol_string`]) matches any of
 /// the `protocol:` / `protocols:` filter names, case-insensitively.
 ///
@@ -318,52 +310,6 @@ pub fn protocol_matches_filter(protocol: &str, filter_names: &[&str]) -> bool {
                     .strip_prefix(name.as_str())
                     .is_some_and(|rest| rest.starts_with(':')))
     })
-}
-
-#[cfg(test)]
-mod browser_tunnel_gate_tests {
-    use rustconn_core::models::{
-        Connection, ProtocolConfig, ZeroTrustConfig, ZeroTrustProvider, ZeroTrustProviderConfig,
-    };
-
-    use super::{get_protocol_string, protocol_supports_browser_tunnel};
-
-    #[test]
-    fn browser_tunnel_menu_gate_matches_core_route() {
-        let mut conns = vec![
-            Connection::new_ssh("a".into(), "h".into(), 22),
-            Connection::new_sftp("a".into(), "h".into(), 22),
-            Connection::new_rdp("a".into(), "h".into(), 3389),
-            Connection::new_vnc("a".into(), "h".into(), 5900),
-            Connection::new_telnet("a".into(), "h".into(), 23),
-        ];
-        for &provider in ZeroTrustProvider::all() {
-            conns.push(Connection::new(
-                "zt".into(),
-                String::new(),
-                0,
-                ProtocolConfig::ZeroTrust(ZeroTrustConfig {
-                    provider,
-                    provider_config: ZeroTrustProviderConfig::from_wizard_fields(
-                        provider,
-                        Some("echo hi"),
-                        Some("x"),
-                        Some("y"),
-                        Some("z"),
-                    ),
-                    custom_args: Vec::new(),
-                }),
-            ));
-        }
-        for c in &conns {
-            let protocol = get_protocol_string(&c.protocol_config);
-            assert_eq!(
-                protocol_supports_browser_tunnel(&protocol),
-                rustconn_core::ssh_tunnel::socks_tunnel_route(c).is_some(),
-                "menu gate and core route disagree for {protocol}"
-            );
-        }
-    }
 }
 
 #[cfg(test)]

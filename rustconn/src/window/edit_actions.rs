@@ -1019,9 +1019,15 @@ impl MainWindow {
             .get_connection(jump_id)
             .ok_or_else(|| crate::i18n::i18n("the SSH connection it tunnels through is gone"))?;
 
-        if let Some(rustconn_core::ssh_tunnel::SocksTunnelRoute::TailscaleSsh { destination }) =
-            rustconn_core::ssh_tunnel::socks_tunnel_route(jump_conn)
-        {
+        // The same gate the sidebar uses: a connection that cannot host a tunnel
+        // is refused here rather than run through `ssh` as if it were plain SSH.
+        let Some(route) = rustconn_core::ssh_tunnel::socks_tunnel_route(jump_conn) else {
+            return Err(
+                rustconn_core::ssh_tunnel::SshTunnelError::UnsupportedConnection.to_string(),
+            );
+        };
+
+        if let rustconn_core::ssh_tunnel::SocksTunnelRoute::TailscaleSsh { destination } = route {
             // Same `tailscale ssh <dest>` the session runs: tailnet identity, no key,
             // no cached password, no port (issue #397).
             return Ok(rustconn_core::ssh_tunnel::SshTunnelParams {
@@ -1354,15 +1360,17 @@ impl MainWindow {
         sidebar: &SharedSidebar,
         connection_id: Uuid,
     ) {
-        // Only connections `socks_tunnel_route` accepts (SSH/SFTP, Tailscale SSH)
-        // can host a SOCKS tunnel.
+        // Only connections `supports_browser_tunnel` accepts (SSH/SFTP, Tailscale
+        // SSH with a matching provider and config) can host a SOCKS tunnel.
         let (can_tunnel, prefer_embedded, start_url, browser_command) = {
             let Ok(state_ref) = state.try_borrow() else {
                 return;
             };
+            // `None` = the connection is gone; that case falls through so
+            // `socks_tunnel_params_for` reports it as such.
             let can_tunnel = state_ref
                 .get_connection(connection_id)
-                .is_some_and(|c| rustconn_core::ssh_tunnel::socks_tunnel_route(c).is_some());
+                .map(rustconn_core::ssh_tunnel::supports_browser_tunnel);
             let ui = &state_ref.settings().ui;
             (
                 can_tunnel,
@@ -1371,7 +1379,17 @@ impl MainWindow {
                 ui.tunnel_browser_command.trim().to_string(),
             )
         };
-        if !can_tunnel {
+        if can_tunnel == Some(false) {
+            // The menu only offers the item for connections the same predicate
+            // accepts, so this is a stale row or a direct action call.
+            tracing::debug!(
+                %connection_id,
+                "open-browser-via-tunnel on a connection that cannot host a tunnel"
+            );
+            crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
+                "Could not open the SSH tunnel: {}",
+                &[&rustconn_core::ssh_tunnel::SshTunnelError::UnsupportedConnection.to_string()],
+            ));
             return;
         }
         // Only consulted by the embedded path; a build without it browses external.
