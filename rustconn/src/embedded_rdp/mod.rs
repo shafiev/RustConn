@@ -333,12 +333,6 @@ pub struct EmbeddedRdpWidget {
     /// Save Files button (shown when files available on remote clipboard)
     #[cfg(feature = "rdp-embedded")]
     save_files_button: Button,
-    /// File transfer progress callback
-    #[cfg(feature = "rdp-embedded")]
-    on_file_progress: Rc<RefCell<Option<Box<dyn Fn(f64, &str) + 'static>>>>,
-    /// File transfer complete callback
-    #[cfg(feature = "rdp-embedded")]
-    on_file_complete: Rc<RefCell<Option<Box<dyn Fn(usize, &str) + 'static>>>>,
     /// Connection generation counter to track stale callbacks
     /// Incremented on each connect() call to invalidate old polling loops
     connection_generation: Rc<RefCell<u64>>,
@@ -836,10 +830,6 @@ impl EmbeddedRdpWidget {
             file_transfer: Rc::new(RefCell::new(ClipboardFileTransfer::new())),
             #[cfg(feature = "rdp-embedded")]
             save_files_button: save_files_button.clone(),
-            #[cfg(feature = "rdp-embedded")]
-            on_file_progress: Rc::new(RefCell::new(None)),
-            #[cfg(feature = "rdp-embedded")]
-            on_file_complete: Rc::new(RefCell::new(None)),
             connection_generation: Rc::new(RefCell::new(0)),
             widget_id: {
                 use std::sync::atomic::{AtomicU64, Ordering};
@@ -1547,8 +1537,6 @@ impl EmbeddedRdpWidget {
         let file_transfer = self.file_transfer.clone();
         let file_offer_active = self.file_offer_active.clone();
         let ironrdp_tx = self.ironrdp_command_tx.clone();
-        let on_progress = self.on_file_progress.clone();
-        let on_complete = self.on_file_complete.clone();
         let status_label = self.status_label.clone();
         let save_btn = button.clone();
 
@@ -1585,8 +1573,6 @@ impl EmbeddedRdpWidget {
             let file_transfer_clone = file_transfer.clone();
             let file_offer_active_clone = file_offer_active.clone();
             let ironrdp_tx_clone = ironrdp_tx.clone();
-            let on_progress_clone = on_progress.clone();
-            let _on_complete_clone = on_complete.clone();
             let status_label_clone = status_label.clone();
             let save_btn_clone = save_btn.clone();
 
@@ -1715,31 +1701,9 @@ impl EmbeddedRdpWidget {
                     // Show progress
                     status_label_clone.set_text(&i18n("Downloading files…"));
                     status_label_clone.set_visible(true);
-
-                    if let Some(ref callback) = *on_progress_clone.borrow() {
-                        callback(0.0, "Starting download…");
-                    }
                 },
             );
         });
-    }
-
-    /// Connects a callback for file transfer progress updates
-    #[cfg(feature = "rdp-embedded")]
-    pub fn connect_file_progress<F>(&self, callback: F)
-    where
-        F: Fn(f64, &str) + 'static,
-    {
-        *self.on_file_progress.borrow_mut() = Some(Box::new(callback));
-    }
-
-    /// Connects a callback for file transfer completion
-    #[cfg(feature = "rdp-embedded")]
-    pub fn connect_file_complete<F>(&self, callback: F)
-    where
-        F: Fn(usize, &str) + 'static,
-    {
-        *self.on_file_complete.borrow_mut() = Some(Box::new(callback));
     }
 
     /// Connects a callback for reconnect button clicks
