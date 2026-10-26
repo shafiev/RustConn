@@ -979,6 +979,15 @@ impl MainWindow {
     ///
     /// `on_ready` receives `Err(message)` when the connection is gone, the state
     /// is momentarily busy, or `ssh` fails to establish the proxy.
+    ///
+    /// Known limitations (shared with the Web `tunnel_via` path):
+    /// - There is no "connecting" feedback during the wait (up to ~10 s), and a
+    ///   second request for the same connection raises a second tunnel and browser.
+    /// - Quitting while the worker waits for the port leaves its `ssh -N` running,
+    ///   because the tunnel is not registered anywhere until `on_ready` runs and
+    ///   `spawn_tunnel` sets neither a process group nor a parent-death signal.
+    // ponytail: no per-connection in-flight guard or spinner; add one if repeat
+    // clicks show up in practice. Orphan-on-quit needs PDEATHSIG in rustconn-pty-sys.
     fn raise_socks_tunnel_async<C>(state: &SharedAppState, jump_id: Uuid, on_ready: C)
     where
         C: FnOnce(Result<rustconn_core::ssh_tunnel::SshTunnel, String>) + 'static,
@@ -994,6 +1003,13 @@ impl MainWindow {
             move || Self::spawn_socks_tunnel(&params),
             on_ready,
         );
+    }
+
+    /// The translated reason shown when a connection cannot host a SOCKS tunnel
+    /// (mirrors `SshTunnelError::UnsupportedConnection`, whose text is English
+    /// because `rustconn-core` has no locale).
+    fn unsupported_tunnel_reason() -> String {
+        crate::i18n::i18n("This connection type cannot host a SOCKS tunnel")
     }
 
     /// Builds the [`rustconn_core::ssh_tunnel::SshTunnelParams`] for a SOCKS tunnel to `jump_id`, reading
@@ -1022,9 +1038,7 @@ impl MainWindow {
         // The same gate the sidebar uses: a connection that cannot host a tunnel
         // is refused here rather than run through `ssh` as if it were plain SSH.
         let Some(route) = rustconn_core::ssh_tunnel::socks_tunnel_route(jump_conn) else {
-            return Err(
-                rustconn_core::ssh_tunnel::SshTunnelError::UnsupportedConnection.to_string(),
-            );
+            return Err(Self::unsupported_tunnel_reason());
         };
 
         if let rustconn_core::ssh_tunnel::SocksTunnelRoute::TailscaleSsh { destination } = route {
@@ -1388,7 +1402,7 @@ impl MainWindow {
             );
             crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
                 "Could not open the SSH tunnel: {}",
-                &[&rustconn_core::ssh_tunnel::SshTunnelError::UnsupportedConnection.to_string()],
+                &[&Self::unsupported_tunnel_reason()],
             ));
             return;
         }
