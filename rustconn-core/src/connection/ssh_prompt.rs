@@ -100,7 +100,7 @@ mod tests {
     /// Keyboard-interactive prompts come from the server's PAM stack, not from
     /// OpenSSH, so they lack the `user@host's password:` shape. ESXi (issue #364)
     /// is the canonical case: `(root@host) Password:`. These must still match —
-    /// the askpass shell helper in `rustconn` mirrors exactly this behavior.
+    /// the askpass shell helper in `crate::ssh_askpass` mirrors exactly this behavior.
     #[test]
     fn matches_pam_keyboard_interactive_prompts() {
         assert!(looks_like_password_prompt(

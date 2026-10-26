@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 use rustconn_core::connection::{check_port, ssh_inheritance};
+use rustconn_core::ssh_askpass::{self, AskpassSlot};
 use secrecy::SecretString;
 use uuid::Uuid;
 
@@ -16,42 +17,6 @@ use super::protocols::{
 };
 use crate::state::SharedAppState;
 use crate::utils::spawn_blocking_with_callback;
-
-/// Environment variable carrying the target account password to the outer
-/// OpenSSH process. Nested proxy hops explicitly clear it before starting SSH.
-const TARGET_PASSWORD_ENV: &str = "_RC_TGT_PW_FILE";
-
-/// Environment variable carrying the jump host (bastion) password to the
-/// `SSH_ASKPASS` helper. Intentionally obscure to reduce exposure in
-/// `/proc/<pid>/environ`, matching the SSH tunnel askpass convention.
-const JUMP_HOST_PW_ENV: &str = "_RC_JH_PW_FILE";
-
-/// Returns the path to the prompt-aware helper for the target account password.
-fn target_password_askpass_script() -> Option<std::path::PathBuf> {
-    askpass_script_for_env(TARGET_PASSWORD_ENV)
-}
-
-/// Returns the path to a reusable `SSH_ASKPASS` helper that reads the jump
-/// host secret-file path from the given env var name.
-///
-/// The script holds no secret — only the env var name — so it is safe to keep
-/// for the process lifetime and share across sessions. The password is written
-/// directly from `SecretString` to a randomized mode-0600 runtime file; the env
-/// carries only its path, and the helper opens and reads it. It deliberately does
-/// not unlink the file (that would break a second, keyboard-interactive
-/// invocation — see `askpass_script_contents`, issue #382); cleanup is handled by
-/// `watch_child_exit` on ssh-child exit.
-/// The script itself is placed in `$XDG_RUNTIME_DIR` (mode 0700) to avoid `/tmp`
-/// symlink races on a fixed filename, falling back to a randomized temp path.
-/// Created once (mode 0700) and cached per env var name; returns `None` if
-/// creation fails.
-///
-/// For the legacy single-hop case (env var `_RC_JH_PW_FILE`), the script is the
-/// same singleton as before. For multi-hop (issue #203), each deeper hop gets
-/// its own script reading `_RC_JH_PW_FILE_1`, `_RC_JH_PW_FILE_2`, etc.
-fn jump_host_askpass_script() -> Option<std::path::PathBuf> {
-    askpass_script_for_env(JUMP_HOST_PW_ENV)
-}
 
 /// Points the session's Backspace and Delete keys at what this host expects.
 ///
@@ -160,224 +125,6 @@ fn parse_jump_host_for_control(jump_host: &str) -> (String, u16) {
 
     let port = port_str.and_then(|p| p.parse().ok()).unwrap_or(22);
     (host.to_string(), port)
-}
-
-/// Builds a helper that releases a credential only for an account-password prompt.
-///
-/// The matcher mirrors [`rustconn_core::looks_like_password_prompt`]
-/// (the terminal-watcher matcher): the shell `case` is **exclusion-first, then a broad
-/// positive match**. It lowercases the prompt, rejects the prompts that must never receive
-/// the account password — host-key confirmation, private-key passphrases, OTP/verification
-/// challenges, and password-*change* prompts (`old`/`current`/`new`/`retype`/`confirm`/
-/// `verify`/`repeat`, incl. uk/ru) — and only then accepts any account-password prompt.
-///
-/// Unlike the old `*"'s password:"*`-only glob, the positive branch accepts the
-/// server-/PAM-defined keyboard-interactive forms (`Password:`, ESXi's
-/// `(root@host) Password:`, localized `пароль:`/`passwort:`/`密码：`/`パスワード:` …),
-/// which is why issue #364 (ESXi via a jump host) was failing.
-///
-/// POSIX `sh` note: `tr '[:upper:]' '[:lower:]'` folds **ASCII only**, so the ASCII
-/// branches match against the folded copy `$lc`, while non-ASCII suffixes match against
-/// the **raw** `$prompt`. To stay case-insensitive without Unicode folding, the localized
-/// suffixes that have an uppercase first letter are matched by their first-letter-agnostic
-/// tail (e.g. `*ароль:` catches both `Пароль:` and `пароль:`); CJK/Kana suffixes are
-/// caseless and matched whole.
-///
-/// Re-invocation: the helper **reads** the secret file (`exec 3<` + `cat`) and
-/// must NOT delete it. OpenSSH counts `NumberOfPasswordPrompts` per *method*, so a
-/// server offering both `keyboard-interactive` and `password` runs this script
-/// **twice** against the same `$secret_file` path (the env-var name is fixed; only
-/// the path's value is per-connection). An in-script `rm -f` after the first read
-/// left the second invocation with no file → an empty password → `Permission
-/// denied` (issue
-/// [#382](https://github.com/totoshko88/RustConn/issues/382), a regression from
-/// the keyboard-interactive support added in #364). Cleanup is owned elsewhere:
-/// every secret-file path is registered in `cleanup_paths` and removed by
-/// `watch_child_exit` when the ssh child exits, and the file lives in a
-/// user-private tmpfs dir (`$XDG_RUNTIME_DIR`, mode 0600) — never world-writable
-/// `/tmp` — so the in-script delete bought no extra security.
-fn askpass_script_contents(env_var_name: &str) -> String {
-    format!(
-        "#!/bin/sh\n\
-         prompt=\"${{1-}}\"\n\
-         lc=$(printf '%s' \"$prompt\" | tr '[:upper:]' '[:lower:]')\n\
-         case \"$lc\" in\n\
-         \x20\x20# Not the account password — stay silent (passphrase, host-key, OTP, change).\n\
-         \x20\x20*passphrase*|*\"verification code\"*|*\"(current)\"*|\\\n\
-         \x20\x20*\"old password\"*|*\"current password\"*|*\"new password\"*|\\\n\
-         \x20\x20*\"retype password\"*|*\"retype new password\"*|*\"confirm password\"*|\\\n\
-         \x20\x20*\"verify password\"*|*\"repeat password\"*)\n\
-         \x20\x20\x20\x20exit 1 ;;\n\
-         esac\n\
-         case \"$prompt\" in\n\
-         \x20\x20# Localized password-change prompts (non-ASCII, matched raw, first-letter-agnostic).\n\
-         \x20\x20*\"тарий пароль\"*|*\"тарый пароль\"*|*\"овий пароль\"*|*\"овый пароль\"*)\n\
-         \x20\x20\x20\x20exit 1 ;;\n\
-         esac\n\
-         case \"$lc\" in\n\
-         \x20\x20# OpenSSH `password` auth + ASCII PAM/keyboard-interactive account prompts.\n\
-         \x20\x20*\"'s password:\"*|*\"password:\"|*\"password: \"|*\"pass:\"|*\"pass: \"|\\\n\
-         \x20\x20*\"passwort:\"|*\"passwort: \"|*\"kennwort:\"|*\"kennwort: \"|\\\n\
-         \x20\x20*\"mot de passe:\"|*\"mot de passe :\")\n\
-         \x20\x20\x20\x20_rc_emit=1 ;;\n\
-         \x20\x20*) _rc_emit=0 ;;\n\
-         esac\n\
-         if [ \"$_rc_emit\" = 0 ]; then\n\
-         \x20\x20case \"$prompt\" in\n\
-         \x20\x20\x20\x20# Non-ASCII account prompts, matched raw (first-letter-agnostic where cased).\n\
-         \x20\x20\x20\x20*\"ontraseña:\"|*\"enha:\"|*\"ароль:\"|*\"ароль: \"|*\"asło:\"|*\"eslo:\"|\\\n\
-         \x20\x20\x20\x20*\"achtwoord:\"|*\"ösenord:\"|*\"dgangskode:\"|\\\n\
-         \x20\x20\x20\x20*\"密码:\"|*\"密码：\"|*\"密碼:\"|*\"密碼：\"|\\\n\
-         \x20\x20\x20\x20*\"パスワード:\"|*\"パスワード：\"|*\"비밀번호:\"|*\"비밀번호：\")\n\
-         \x20\x20\x20\x20\x20\x20_rc_emit=1 ;;\n\
-         \x20\x20esac\n\
-         fi\n\
-         [ \"$_rc_emit\" = 1 ] || exit 1\n\
-         secret_file=\"${{{env_var_name}}}\"\n\
-         [ -n \"$secret_file\" ] || exit 1\n\
-         exec 3<\"$secret_file\" || exit 1\n\
-         cat <&3\n"
-    )
-}
-
-/// Creates (or returns cached) an askpass script that prints the value of
-/// `env_var_name`. Each unique env var gets its own on-disk script so that
-/// nested ProxyCommand hops read their own password (issue #203).
-fn askpass_script_for_env(env_var_name: &str) -> Option<std::path::PathBuf> {
-    use std::sync::Mutex;
-    static SCRIPTS: std::sync::OnceLock<
-        Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
-    > = std::sync::OnceLock::new();
-    let cache = SCRIPTS.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
-    let mut map = cache.lock().ok()?;
-
-    if let Some(path) = map.get(env_var_name) {
-        return Some(path.clone());
-    }
-
-    // Shared resolver: `$XDG_RUNTIME_DIR` on Linux, `$TMPDIR` on macOS. When a
-    // user-private directory exists the script gets a stable per-env name so a
-    // reconnect reuses it; only when the resolver declines (a Linux box with no
-    // runtime dir) do we fall back to a randomized `temp_dir()` path to avoid a
-    // fixed name in world-writable `/tmp`.
-    let path = match rustconn_core::secret_file_dir() {
-        Some(dir) => {
-            if env_var_name == TARGET_PASSWORD_ENV {
-                dir.join("rustconn-target-askpass.sh")
-            } else if env_var_name == JUMP_HOST_PW_ENV {
-                dir.join("rustconn-jh-askpass.sh")
-            } else {
-                // Unique file per hop index: rustconn-jh-askpass-1.sh, etc.
-                let suffix = env_var_name
-                    .strip_prefix("_RC_JH_PW_FILE_")
-                    .unwrap_or(env_var_name);
-                dir.join(format!("rustconn-jh-askpass-{suffix}.sh"))
-            }
-        }
-        None => std::env::temp_dir().join(format!("rc-askpass-{}.sh", Uuid::new_v4())),
-    };
-
-    let script = askpass_script_contents(env_var_name);
-    if let Err(e) = std::fs::write(&path, script.as_bytes()) {
-        tracing::error!(error = %e, "Failed to create SSH askpass script");
-        return None;
-    }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)) {
-            tracing::error!(error = %e, "Failed to chmod SSH askpass script");
-            return None;
-        }
-    }
-
-    map.insert(env_var_name.to_string(), path.clone());
-    Some(path)
-}
-
-fn create_askpass_secret_file(password: &SecretString) -> std::io::Result<std::path::PathBuf> {
-    use secrecy::ExposeSecret;
-    use std::io::Write;
-
-    // Shared resolver: `$XDG_RUNTIME_DIR` on Linux, `$TMPDIR` on macOS (which has
-    // no runtime dir). Only when it declines — a Linux box with no runtime dir,
-    // unusual — do we accept the weaker `temp_dir()` so a password can still be
-    // delivered rather than dropped.
-    let directory = rustconn_core::secret_file_dir().unwrap_or_else(std::env::temp_dir);
-    let path = directory.join(format!("rustconn-askpass-secret-{}", Uuid::new_v4()));
-    let mut options = std::fs::OpenOptions::new();
-    options.create_new(true).write(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-
-    let mut file = options.open(&path)?;
-    if let Err(error) = file.write_all(password.expose_secret().as_bytes()) {
-        drop(file);
-        let _ = std::fs::remove_file(&path);
-        return Err(error);
-    }
-    drop(file);
-    Ok(path)
-}
-
-/// Builds the per-child askpass environment for one SSH launch.
-///
-/// Concurrency invariant (why this cannot race between simultaneous sessions):
-/// the environment is returned as a plain `Vec` and applied only to the one
-/// child process spawned for this connection (through `build_child_env` →
-/// the VTE spawn's env vector). Nothing here touches the *process-global*
-/// environment — there is deliberately no `std::env::set_var`, which Rust 2024
-/// forbids anyway. Although the variable *names* are fixed (`_RC_TGT_PW_FILE`,
-/// `_RC_JH_PW_FILE`), their *values* are freshly randomised secret-file paths
-/// from `create_askpass_secret_file`, so two connections opened at the same time
-/// each carry their own file in their own child environment and cannot read each
-/// other's password. Keep it that way: never promote these to a global set.
-fn ssh_askpass_env(
-    jump_host_passwords: &[(String, SecretString)],
-    target_password: Option<(&SecretString, &std::path::Path)>,
-) -> (Vec<zeroize::Zeroizing<String>>, Vec<std::path::PathBuf>) {
-    let mut env = Vec::with_capacity(jump_host_passwords.len() + 3);
-    let mut cleanup_paths = Vec::with_capacity(jump_host_passwords.len() + 1);
-    for (env_name, password) in jump_host_passwords {
-        match create_askpass_secret_file(password) {
-            Ok(path) => {
-                env.push(zeroize::Zeroizing::new(format!(
-                    "{env_name}={}",
-                    path.display()
-                )));
-                cleanup_paths.push(path);
-            }
-            Err(error) => {
-                tracing::error!(%error, "Failed to create jump host askpass secret file");
-            }
-        }
-    }
-    if let Some((password, script)) = target_password {
-        match create_askpass_secret_file(password) {
-            Ok(path) => {
-                env.push(zeroize::Zeroizing::new(format!(
-                    "{TARGET_PASSWORD_ENV}={}",
-                    path.display()
-                )));
-                cleanup_paths.push(path);
-                env.push(zeroize::Zeroizing::new(format!(
-                    "SSH_ASKPASS={}",
-                    script.display()
-                )));
-                env.push(zeroize::Zeroizing::new(
-                    "SSH_ASKPASS_REQUIRE=force".to_string(),
-                ));
-            }
-            Err(error) => {
-                tracing::error!(%error, "Failed to create target askpass secret file");
-            }
-        }
-    }
-    (env, cleanup_paths)
 }
 
 /// Resolves the identity file for a connection that authenticates with a key
@@ -555,7 +302,7 @@ fn build_ssh_command_args(
     Vec<String>,
     bool,
     Option<String>,
-    Vec<(String, SecretString)>,
+    Vec<(AskpassSlot, SecretString)>,
     bool,
 ) {
     let rustconn_core::ProtocolConfig::Ssh(ssh_config) = &conn.protocol_config else {
@@ -1020,9 +767,9 @@ fn build_ssh_command_args(
     // identity files. Fix: replace -J with -o ProxyCommand that passes
     // UserKnownHostsFile and identity to the jump host SSH process.
     // Passwords to deliver to each hop via per-hop SSH_ASKPASS (issue #191/#203).
-    // Each entry: (env_var_name, password). Set only when askpass helpers are
+    // Each entry: (slot, password). Set only when askpass helpers are
     // successfully wired into ProxyCommand.
-    let mut jump_host_passwords: Vec<(String, SecretString)> = Vec::new();
+    let mut jump_host_passwords: Vec<(AskpassSlot, SecretString)> = Vec::new();
 
     let jump_host_str = if jump_hosts.is_empty() {
         None
@@ -1051,7 +798,7 @@ fn build_ssh_command_args(
         // starting its own ssh process; the outer helper remains target-only.
         let any_hop_has_password = hop_passwords.iter().any(Option::is_some);
         let askpass_script = if hop_passwords.first().is_some_and(Option::is_some) {
-            jump_host_askpass_script()
+            ssh_askpass::helper_script(AskpassSlot::JumpHost(0)).ok()
         } else {
             None
         };
@@ -1091,8 +838,7 @@ fn build_ssh_command_args(
                     jump_hosts.len(),
                 ));
                 if let Some(Some(pw)) = hop_passwords.first() {
-                    let env_name = rustconn_core::ssh_tunnel::jump_host_pw_env_name(0);
-                    jump_host_passwords.push((env_name, pw.clone()));
+                    jump_host_passwords.push((AskpassSlot::JumpHost(0), pw.clone()));
                 }
             } else {
                 proxy_parts.extend(rustconn_core::ssh_tunnel::askpass_disabled_proxy_prefix(
@@ -1181,9 +927,7 @@ fn build_ssh_command_args(
                     .enumerate()
                     .map(|(rel_idx, pw_opt)| {
                         if pw_opt.is_some() {
-                            let env_name =
-                                rustconn_core::ssh_tunnel::jump_host_pw_env_name(rel_idx + 1);
-                            askpass_script_for_env(&env_name)
+                            ssh_askpass::helper_script(AskpassSlot::JumpHost(rel_idx + 1)).ok()
                         } else {
                             None
                         }
@@ -1196,9 +940,7 @@ fn build_ssh_command_args(
                     hop_passwords[1..].iter().zip(&inner_askpass).enumerate()
                 {
                     if let (Some(pw), Some(_script)) = (pw_opt, script_opt) {
-                        let env_name =
-                            rustconn_core::ssh_tunnel::jump_host_pw_env_name(rel_idx + 1);
-                        jump_host_passwords.push((env_name, pw.clone()));
+                        jump_host_passwords.push((AskpassSlot::JumpHost(rel_idx + 1), pw.clone()));
                     }
                 }
 
@@ -1775,11 +1517,11 @@ fn start_ssh_connection_internal(
         // added only for the strict password-only launch plan and is consumed
         // by the prompt-aware outer OpenSSH helper, never by VTE output.
         let target_askpass_script = if target_askpass_allowed {
-            target_password_askpass_script()
+            ssh_askpass::helper_script(AskpassSlot::Target).ok()
         } else {
             None
         };
-        let (askpass_env, askpass_cleanup_paths) = ssh_askpass_env(
+        let (askpass_env, askpass_cleanup_paths) = ssh_askpass::child_env(
             &jump_host_passwords,
             cached_password
                 .as_ref()
@@ -2152,11 +1894,11 @@ pub fn reconnect_ssh_in_place(
         apply_ssh_erase_mode(notebook, session_id, &conn);
         // Same auth-scoped environment as the initial launch.
         let target_askpass_script = if target_askpass_allowed {
-            target_password_askpass_script()
+            ssh_askpass::helper_script(AskpassSlot::Target).ok()
         } else {
             None
         };
-        let (askpass_env, askpass_cleanup_paths) = ssh_askpass_env(
+        let (askpass_env, askpass_cleanup_paths) = ssh_askpass::child_env(
             &jump_host_passwords,
             cached_password
                 .as_ref()
@@ -2310,24 +2052,6 @@ pub fn reconnect_ssh_in_place(
 mod tests {
     use super::*;
 
-    fn run_askpass_script(prompt: &str) -> (std::process::Output, std::path::PathBuf) {
-        let secret_path =
-            std::env::temp_dir().join(format!("rustconn-askpass-test-secret-{}", Uuid::new_v4()));
-        std::fs::write(&secret_path, b"test-account-password")
-            .expect("test secret file must be writable");
-        let output = std::process::Command::new("sh")
-            .args([
-                "-c",
-                &askpass_script_contents("_RC_TEST_PW_FILE"),
-                "rustconn-askpass-test",
-                prompt,
-            ])
-            .env("_RC_TEST_PW_FILE", &secret_path)
-            .output()
-            .expect("test askpass script must run");
-        (output, secret_path)
-    }
-
     fn jump_shape(hop_count: usize) -> JumpAuthShape {
         // A neutral baseline: identity-only, no password/Flatpak/PKCS#11.
         JumpAuthShape {
@@ -2400,139 +2124,6 @@ mod tests {
             ]
         );
         assert_eq!(ids, vec![None, Some(reference_id)]);
-    }
-
-    #[test]
-    fn askpass_secret_file_is_owner_only_and_not_an_environment_value() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let secret = SecretString::new("file-only-secret".to_string().into());
-        let path = create_askpass_secret_file(&secret).expect("secret file must be created");
-        let metadata = std::fs::metadata(&path).expect("secret file metadata must exist");
-        assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
-        assert_eq!(
-            std::fs::read(&path).expect("secret file must be readable"),
-            b"file-only-secret"
-        );
-        std::fs::remove_file(path).expect("test secret file must be removed");
-    }
-
-    #[test]
-    fn askpass_helper_releases_password_only_for_account_prompt() {
-        // Every account-password prompt the helper must answer: OpenSSH's own
-        // `password` auth, PAM/keyboard-interactive forms (ESXi, generic PAM,
-        // Dropbear), and the localized variants mirrored from the Rust matcher.
-        // Issue #364: ESXi authenticates via keyboard-interactive, so its prompt
-        // is `(root@host) Password:` — the old `'s password:`-only glob missed it.
-        for accepted_prompt in [
-            "alice@example.com's password: ",
-            "Password: ",
-            "Password:",
-            "(root@esxi.example.com) Password: ", // ESXi via jump host (#364)
-            "root@192.0.2.10's password:",
-            "Пароль: ",
-            "Passwort:",
-            "密码：",
-        ] {
-            let (accepted, accepted_secret_path) = run_askpass_script(accepted_prompt);
-            assert!(
-                accepted.status.success(),
-                "should accept account prompt: {accepted_prompt:?}"
-            );
-            assert_eq!(
-                accepted.stdout, b"test-account-password",
-                "wrong output for: {accepted_prompt:?}"
-            );
-            // The helper must READ, never delete: OpenSSH re-invokes it per
-            // auth method (keyboard-interactive + password), so the file has to
-            // survive the first read (issue #382). Cleanup is owned by
-            // `watch_child_exit`, not by the script.
-            assert!(
-                accepted_secret_path.exists(),
-                "secret file must survive a read for: {accepted_prompt:?}"
-            );
-            assert_eq!(
-                std::fs::read(&accepted_secret_path).expect("secret file must still be readable"),
-                b"test-account-password",
-                "secret content must be intact after a read for: {accepted_prompt:?}"
-            );
-            std::fs::remove_file(&accepted_secret_path)
-                .expect("test secret file must be removed by the test");
-        }
-
-        // Prompts that must NEVER receive the account password: key passphrase,
-        // host-key confirmation, OTP/verification, password-change (any stage),
-        // and sudo (sudo asks for the *local* password, not the SSH account).
-        for rejected_prompt in [
-            "Enter passphrase for key '/home/alice/.ssh/id_ed25519': ",
-            "The authenticity of host cannot be established. Continue connecting (yes/no)? ",
-            "Verification code: ",
-            "Password expired. Enter new password: ",
-            "(current) UNIX password: ",
-            "Old Password: ",
-            "Retype new password: ",
-            "Confirm password: ",
-            "Старий пароль: ",
-            "[sudo] password for alice: ",
-            "",
-        ] {
-            let (rejected, rejected_secret_path) = run_askpass_script(rejected_prompt);
-            assert!(
-                !rejected.status.success(),
-                "must reject prompt: {rejected_prompt:?}"
-            );
-            assert!(
-                rejected.stdout.is_empty(),
-                "leaked password for: {rejected_prompt:?}"
-            );
-            std::fs::remove_file(rejected_secret_path)
-                .expect("rejected prompt must leave the test file for owner cleanup");
-        }
-    }
-
-    /// Regression for issue
-    /// [#382](https://github.com/totoshko88/RustConn/issues/382): OpenSSH counts
-    /// `NumberOfPasswordPrompts` per *method*, so a server offering both
-    /// `keyboard-interactive` and `password` runs the one askpass helper **twice**
-    /// against the same secret-file path. The helper must emit the password on
-    /// every invocation; the old in-script `rm -f` consumed the file on the first
-    /// read, so the second produced an empty password and `Permission denied`.
-    ///
-    /// Checked for the target env var and a jump-hop env var, since both share
-    /// `askpass_script_contents` — a fix to one must hold for the other.
-    #[test]
-    fn askpass_helper_survives_repeated_invocations() {
-        for env_var in [TARGET_PASSWORD_ENV, JUMP_HOST_PW_ENV, "_RC_JH_PW_FILE_1"] {
-            let secret_path =
-                std::env::temp_dir().join(format!("rustconn-askpass-reinvoke-{}", Uuid::new_v4()));
-            std::fs::write(&secret_path, b"persistent-secret")
-                .expect("test secret file must be writable");
-            let script = askpass_script_contents(env_var);
-
-            // Two invocations with the SAME env/path, as OpenSSH does for a
-            // keyboard-interactive + password server.
-            for round in 1..=2 {
-                let output = std::process::Command::new("sh")
-                    .args(["-c", &script, "rustconn-askpass-test", "Password: "])
-                    .env(env_var, &secret_path)
-                    .output()
-                    .expect("test askpass script must run");
-                assert!(
-                    output.status.success(),
-                    "invocation {round} failed for {env_var}"
-                );
-                assert_eq!(
-                    output.stdout, b"persistent-secret",
-                    "invocation {round} emitted the wrong password for {env_var}"
-                );
-                assert!(
-                    secret_path.exists(),
-                    "secret file deleted after invocation {round} for {env_var} (#382)"
-                );
-            }
-
-            std::fs::remove_file(&secret_path).expect("test secret file must be removed");
-        }
     }
 
     // ── P2a: assemble_hop_passwords (pure, fake resolver) ─────────────────

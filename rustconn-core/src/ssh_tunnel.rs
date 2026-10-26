@@ -9,7 +9,7 @@ use std::net::TcpListener;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 
-use secrecy::{ExposeSecret, SecretString};
+use secrecy::SecretString;
 use thiserror::Error;
 
 use crate::models::{SshAuthMethod, SshConfig};
@@ -175,7 +175,7 @@ pub(crate) fn create_tunnel_askpass_script() -> Result<std::path::PathBuf, Strin
     // Read the secret from the owner-only file whose path the env var carries,
     // rather than echoing the env value directly — the env is visible in
     // `/proc/<pid>/environ`, the file is not. Mirrors the target/jump-host
-    // helper in `rustconn/src/window/protocols_ssh.rs::askpass_script_contents`.
+    // helper in `crate::ssh_askpass::script_contents`.
     write_askpass_script(&format!(
         "#!/bin/sh\n\
          secret_file=\"${{{TUNNEL_ASKPASS_ENV_VAR}}}\"\n\
@@ -243,8 +243,9 @@ fn write_askpass_script(script: &str) -> Result<std::path::PathBuf, String> {
 /// Writes `password` to a fresh owner-only (mode 0600) file and returns its path.
 ///
 /// The file lives in `$XDG_RUNTIME_DIR` (tmpfs) when available, falling back to
-/// the system temp dir only when no runtime dir exists — the same resolver the
-/// GUI's askpass secret files use. The caller owns the path and must remove it
+/// the system temp dir only when no runtime dir exists — it is written by the
+/// same function as the GUI's askpass secret files
+/// ([`crate::ssh_askpass`]). The caller owns the path and must remove it
 /// (`SshTunnel`'s `Drop` does, zeroizing first). The password reaches the SSH
 /// askpass helper through this file, never through the process environment.
 ///
@@ -254,32 +255,17 @@ fn write_askpass_script(script: &str) -> Result<std::path::PathBuf, String> {
 pub(crate) fn create_tunnel_secret_file(
     password: &SecretString,
 ) -> Result<std::path::PathBuf, String> {
-    use std::io::Write;
+    use crate::ssh_askpass::AskpassError;
 
-    let directory = crate::secret_file_dir().unwrap_or_else(std::env::temp_dir);
-    let path = directory.join(format!(
-        "rc-tun-secret-{}",
-        uuid::Uuid::new_v4().as_hyphenated()
-    ));
-
-    let mut options = std::fs::OpenOptions::new();
-    options.create_new(true).write(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-
-    let mut file = options
-        .open(&path)
-        .map_err(|e| format!("Failed to create tunnel secret file: {e}"))?;
-    if let Err(e) = file.write_all(password.expose_secret().as_bytes()) {
-        drop(file);
-        let _ = std::fs::remove_file(&path);
-        return Err(format!("Failed to write tunnel secret file: {e}"));
-    }
-    drop(file);
-    Ok(path)
+    crate::ssh_askpass::create_prefixed_secret_file("rc-tun-secret-", password).map_err(|error| {
+        match error {
+            AskpassError::CreateSecretFile(e) => {
+                format!("Failed to create tunnel secret file: {e}")
+            }
+            AskpassError::WriteSecretFile(e) => format!("Failed to write tunnel secret file: {e}"),
+            other => other.to_string(),
+        }
+    })
 }
 
 /// Cleans up a temporary askpass script or secret file, zeroizing its content
@@ -1231,7 +1217,10 @@ fn build_nested_proxy_command_inner(
 /// the same refusal by a cheaper route.
 #[must_use]
 pub fn askpass_disabled_proxy_prefix(hop_count: usize) -> Vec<String> {
-    let mut prefix = vec!["env".to_string(), "_RC_TGT_PW_FILE=".to_string()];
+    let mut prefix = vec![
+        "env".to_string(),
+        format!("{}=", crate::ssh_askpass::TARGET_PASSWORD_ENV),
+    ];
     prefix.extend((0..hop_count).map(|index| format!("{}=", jump_host_pw_env_name(index))));
     prefix.push("SSH_ASKPASS=".to_string());
     prefix.push("SSH_ASKPASS_REQUIRE=".to_string());
@@ -1260,7 +1249,10 @@ pub fn askpass_proxy_prefix(
     active_hop_index: usize,
     hop_count: usize,
 ) -> Vec<String> {
-    let mut prefix = vec!["env".to_string(), "_RC_TGT_PW_FILE=".to_string()];
+    let mut prefix = vec![
+        "env".to_string(),
+        format!("{}=", crate::ssh_askpass::TARGET_PASSWORD_ENV),
+    ];
     prefix.extend(
         (0..hop_count)
             .filter(|index| *index != active_hop_index)
@@ -1833,8 +1825,17 @@ mod tests {
             .mode()
             & 0o777;
         let body = std::fs::read_to_string(&path).expect("secret file readable");
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .expect("secret file name is UTF-8")
+            .to_string();
         cleanup_askpass_script(&path);
 
+        assert!(
+            name.starts_with("rc-tun-secret-"),
+            "tunnel secret files keep their prefix: {name}"
+        );
         assert_eq!(
             mode, 0o600,
             "secret file must be readable only by its owner"

@@ -84,6 +84,7 @@ pub mod snap;
 pub mod snippet;
 pub mod split;
 pub mod ssh_agent;
+pub mod ssh_askpass;
 pub mod ssh_tunnel;
 pub mod sync;
 pub mod template;

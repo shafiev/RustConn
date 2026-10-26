@@ -743,7 +743,7 @@ impl SshAgentManager {
     ///
     /// A passphrase goes to `ssh-add`'s askpass helper through a mode-0600,
     /// `create_new`, randomly named file from `create_tunnel_secret_file`, the
-    /// same rule as the SSH tunnel and the GUI's `protocols_ssh` askpass:
+    /// same rule as every askpass secret file (`crate::ssh_askpass`):
     /// `$XDG_RUNTIME_DIR` (tmpfs) on Linux, the per-user `$TMPDIR` on macOS,
     /// and `std::env::temp_dir()` (`/tmp`) only on a Linux session without a
     /// runtime dir. In the last two cases the file is on a real disk, where the
@@ -778,9 +778,12 @@ impl SshAgentManager {
             // the helper is its one-shot variant, because ssh-add asks again
             // after a wrong passphrase and only an empty answer stops it.
             let script_path = create_one_shot_askpass_script().map_err(AgentError::AddKeyFailed)?;
-            // ponytail: temp_dir fallback kept for parity with every askpass
-            // path; drop it in 0.24 for all of them at once, when the GUI
-            // helper moves to core (K1).
+            // ponytail: temp_dir fallback kept by decision (K1, 0.24): one
+            // resolver for every askpass secret file, `ssh_askpass::secret_dir`;
+            // refusing would break su/sudo/container sessions, and a private
+            // /tmp subdir adds a DoS vector and no secrecy over 0600 O_EXCL
+            // random names. Follow-ups: tunnel scripts to the runtime dir,
+            // atomic GUI script.
             let secret_path = match create_tunnel_secret_file(pass) {
                 Ok(path) => path,
                 Err(e) => {
