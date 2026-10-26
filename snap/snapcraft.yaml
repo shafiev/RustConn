@@ -53,9 +53,10 @@ description: |
   SPICE is not available in the snap: no viewer is bundled, and strict
   confinement cannot start one from the host.
 
-  Web connections open in your system browser or a browser command of your
-  choice; the in-tab WebKitGTK browser is available in the Flatpak and
-  distribution packages only.
+  Web connections open in an embedded WebKitGTK tab, your system browser, or a
+  browser command of your choice. In the snap, embedded web content runs without
+  WebKit's own bubblewrap sandbox (WebKit turns it off inside snaps) and is
+  confined only by the snap's strict confinement; see the snap documentation.
 
 grade: stable
 confinement: strict
@@ -127,9 +128,15 @@ platforms:
 #   * Part names must not contain `/`, and scriptlets use `craftctl` instead of
 #     `snapcraftctl`. This file uses neither a slash in a part name nor either
 #     command.
+#   * The embedded web browser (`web-embedded`, WebKitGTK 6.0, issue #244) is
+#     on. WebKit comes from the gnome-core26 platform, not from this snap, and
+#     the core26 `gnome` extension adds the `layout:` bind WebKit needs for its
+#     helper processes; see the comment above `cargo build` below.
 # Still to do by hand before a release: the strict-confinement smoke test on a
 # real Ubuntu 26.04 session (issue #174 was a startup break under strict
-# confinement), with gnome-core26 and mesa-2604 installed.
+# confinement), with gnome-core26 and mesa-2604 installed, and an embedded Web
+# connection (the page renders, cookies survive a restart, the SSH SOCKS tunnel
+# works) under strict confinement.
 
 plugs:
   ssh-keys:
@@ -367,30 +374,44 @@ parts:
       # the literal path as fallback so this can never silently become a no-op.
       SDK_LIB="${SNAPCRAFT_GNOME_SDK:-/snap/gnome-core26-sdk/current}/usr/lib/${CRAFT_ARCH_TRIPLET_BUILD_FOR}"
       export RUSTFLAGS="-L native=${SDK_LIB} ${RUSTFLAGS:-}"
-      # Single workspace build with adw-1-8, the same libadwaita widget tier as
-      # packaging/flatpak, which builds `adw-1-10,vte-0-84,gtk-4-24` (the
-      # gnome-core26 platform provides libadwaita 1.10; adw-1-8 implies
-      # adw-1-7 and adw-1-6). Global LTO via --config keeps the binary small
-      # (equivalent to the plugin's rust-use-global-lto).
+      # Single workspace build: the crate's default features plus adw-1-8, the
+      # same libadwaita widget tier as packaging/flatpak, which builds
+      # `adw-1-10,vte-0-84,gtk-4-24` (the gnome-core26 platform provides
+      # libadwaita 1.10; adw-1-8 implies adw-1-7 and adw-1-6). Global LTO via
+      # --config keeps the binary small (equivalent to the plugin's
+      # rust-use-global-lto).
       #
-      # web-embedded is still dropped here (issue #244): it links
-      # libwebkitgtk-6.0.so.4 and libjavascriptcoregtk-6.0.so.1. On core24 the
-      # platform did not provide them, so the app died at the dynamic linker
-      # before main(). The gnome-core26 platform is built from the SDK, which
-      # stages libwebkitgtk-6.0-dev, and the core26 gnome extension adds a
-      # `layout:` bind for /usr/lib/<triplet>/webkitgtk-6.0, so embedded WebKit
-      # may now be possible. It has to be built and smoke-tested under strict
-      # confinement before the feature is enabled; until then Web connections in
-      # the snap use the System or Custom browser mode, and
-      # `browser_mode = "embedded"` falls back to the system browser with a
-      # warning. Every other feature of the default set is kept verbatim, so
-      # this list must be updated whenever `default` in rustconn/Cargo.toml
-      # changes.
+      # Default features are used on purpose instead of a hand-written list: a
+      # new default feature then reaches the snap without anyone remembering to
+      # copy it here, and one that needs a library missing from the runtime is
+      # caught by scripts/check-snap-runtime-libs.sh. To drop a default feature
+      # from the snap, go back to `--no-default-features` with an explicit list
+      # and say here why.
+      #
+      # That set includes web-embedded (issue #244): the app links
+      # libwebkitgtk-6.0.so.4 and libjavascriptcoregtk-6.0.so.1. They are not
+      # staged by this snap; they come from the gnome-core26 platform (WebKitGTK
+      # 2.52, updated with the platform). WebKit looks up its helper processes
+      # (WebKitWebProcess, WebKitNetworkProcess, the injected bundle) at the
+      # compiled-in /usr/lib/<triplet>/webkitgtk-6.0, and the core26 `gnome`
+      # extension adds the `layout:` bind for that path, so this file adds none.
+      # If WebKit cannot spawn a helper it aborts the whole RustConn process.
+      #
+      # SECURITY: inside any snap (SNAP, SNAP_NAME and SNAP_REVISION set) WebKit
+      # itself skips its bubblewrap sandbox and spawns its web and network
+      # processes unsandboxed. They run under this snap's strict-confinement
+      # profile with every plug the app has (home, ssh-keys, the *-credentials
+      # personal-files, password-manager-service, network, network-bind and the
+      # x11 plug the extension adds), so a compromised page has the same access
+      # as RustConn itself. WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS
+      # is deliberately NOT set: it would change nothing here and only suggest
+      # that a sandbox had been in use. The trade-off needs the maintainer's
+      # explicit approval before a release; see docs/SNAP.md, "Embedded web
+      # browser (WebKitGTK)".
       cargo build --release \
         --config 'profile.release.lto = true' \
         --config 'profile.release.codegen-units = 1' \
-        --no-default-features \
-        --features 'tray,system-keyring,adw-1-8,vnc-embedded,rdp-embedded,gfx-h264,rdp-audio,rd-gateway,wayland-native' \
+        --features adw-1-8 \
         -p rustconn
       cargo build --release \
         --config 'profile.release.lto = true' \

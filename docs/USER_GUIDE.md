@@ -1723,7 +1723,8 @@ tunnelled browser in the embedded browser**:
 
 - **On** (default) — the in-app WebKit browser opens in a tab, and the tunnel
   stays up only as long as that tab. Available in builds that ship the embedded
-  browser.
+  browser; in the snap this carries the sandbox caveat described under the
+  Web connection's known limitations.
 - **Off**, or a build without the embedded browser — an external Chromium-based
   browser (Chromium, Chrome, Brave, Vivaldi, Edge) launches with `--proxy-server`
   in an isolated throwaway profile, so a browser you already have open cannot
@@ -2005,7 +2006,7 @@ Available via the "⋯" menu → "Open in System Browser" — opens the current 
 - WebKitGTK does not support WebCodecs (needed for Selkies/WebRTC streaming)
 - No DRM/EME content (Widevine not available in WebKitGTK)
 - Embedded mode is Linux-only (requires WebKitGTK 6.0)
-- Not available in the snap package: the embedded browser is not enabled in the snap build yet, pending a strict-confinement test against the WebKitGTK 6.0 of the gnome-core26 platform (issue [#244](https://github.com/totoshko88/RustConn/issues/244)). Web connections there use System or Custom mode; a connection saved with Embedded mode falls back to the system browser.
+- In the snap package the embedded browser is available since 0.24.0 (issue [#244](https://github.com/totoshko88/RustConn/issues/244)), using the WebKitGTK 6.0 of the gnome-core26 platform. WebKit turns its own bubblewrap sandbox off inside a snap, so the web content is confined only by the snap's strict confinement and has the same access as RustConn itself. See [Snap — Embedded web browser](SNAP.md#embedded-web-browser-webkitgtk); use System or Custom mode for a connection where that matters.
 
 **Context menu actions:**
 - **Copy ▸ Host / Username / Password** — copies the URL or stored credentials to the clipboard; the password auto-clears after 30 seconds (see [Copy Menu](#copy-menu))

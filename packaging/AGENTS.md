@@ -51,8 +51,10 @@ first.
 - Snap is on `core26` with the `gnome` extension (platform `gnome-core26`, GPU
   `mesa-2604`) and builds with `adw-1-8`. It needs Snapcraft >= 9.2, the first
   release whose `gnome` extension accepts core26 (issue #174). It still trails
-  the Flatpak's GNOME runtime by a release or two, and `web-embedded` stays off
-  until WebKitGTK 6.0 is smoke-tested under strict confinement (issue #244).
+  the Flatpak's GNOME runtime by a release or two. It builds the default
+  features plus `adw-1-8`, so `web-embedded` is on: WebKitGTK 6.0 comes from the
+  platform, and WebKit skips its bubblewrap sandbox inside snaps (issue #244,
+  `docs/SNAP.md`).
 - OBS needs the version in four places with four different syntaxes:
   `rustconn.spec` (`Version:` plus a `%changelog` entry), `rustconn.dsc` and
   `debian.dsc` (`Version: X.Y.Z-1`, plus tar filenames), and `_service`
