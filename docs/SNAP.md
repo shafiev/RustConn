@@ -139,15 +139,27 @@ for core26.
 RustConn sets no `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` for the snap: inside a
 snap WebKit already runs without its sandbox, so the variable would change nothing.
 
-If that matters for a connection:
+Because of that, **the snap uses the system browser unless you opt in to the embedded
+one**, on this device:
 
-- set the Web connection's browser mode to **System** or **Custom**, so the page opens
-  in your host browser, which has its own sandbox;
-- turn off Settings → Interface → Connections → **Open tunnelled browser in the
-  embedded browser**. It is on by default, so *Open Browser via Tunnel* opens the
-  embedded browser unless you do; with it off, an external Chromium-based browser
-  is launched as before;
-- or use the Flatpak or a native package.
+- New Web connections, mRemoteNG and CSV imports, and the connection dialog's
+  **Mode** list default to **System**. *Open Browser via Tunnel* defaults to an
+  external Chromium-based browser.
+- The embedded browser is used only after you switch on Settings → Interface →
+  Connections → **Allow the embedded browser** (the row exists only in the snap). The
+  choice is stored in this device's `config.toml` (`snap_embedded_browser_allowed`) and
+  is never synced, exported or written into a connection.
+- A Web connection already stored as **Embedded** (for example synced from a Flatpak or
+  native install) is not rewritten. Until you opt in, it opens in the system browser
+  here, and a one-time notice with an **Open Settings** button says so. Other devices
+  keep opening it embedded.
+- A Web connection that tunnels through SSH cannot use the system browser (it cannot
+  take the proxy), so until you opt in it shows a message instead of opening.
+  *Open Browser via Tunnel* needs the opt-in or an external Chromium-based browser;
+  the snap usually cannot reach a host one, and with neither it shows a message and
+  opens nothing. The tunnelled-browser switch only applies once the embedded browser
+  is allowed.
+- Or use the Flatpak or a native package, which keep web content in a sandbox.
 
 Embedded browser cookies and cache live under the snap's user data (see
 [Data Locations](#data-locations)).

@@ -1239,6 +1239,19 @@ pub struct UiSettings {
     /// A stored value is never rewritten.
     #[serde(default = "default_open_tunnelled_browser_in_embedded")]
     pub open_tunnelled_browser_in_embedded: bool,
+    /// Allow the embedded WebKit browser in the snap (device-local opt-in).
+    ///
+    /// Inside a snap WebKitGTK runs without its bubblewrap sandbox, so the
+    /// embedded browser is used there only after the user turns this on. Ignored
+    /// outside a snap. It lives in `config.toml` only: settings are never synced
+    /// or exported, unlike the connections whose stored `browser_mode` is left
+    /// untouched. Default `false`, including for every config written before the
+    /// field existed.
+    #[serde(default)]
+    pub snap_embedded_browser_allowed: bool,
+    /// The one-time "the embedded browser is off in the snap" notice was shown.
+    #[serde(default)]
+    pub snap_browser_notice_shown: bool,
     /// Start page for the "Open Browser via Tunnel" SSH action.
     ///
     /// The browser (embedded or external) opens here so it is visible the
@@ -1303,6 +1316,36 @@ pub struct UiSettings {
 }
 
 impl UiSettings {
+    /// Whether the embedded browser may be used, decided from `is_snap`.
+    ///
+    /// Always allowed outside a snap; inside one only after the device-local
+    /// opt-in [`Self::snap_embedded_browser_allowed`]. Pure so both answers are
+    /// testable without the environment.
+    #[must_use]
+    pub const fn embedded_browser_allowed_on(&self, is_snap: bool) -> bool {
+        !is_snap || self.snap_embedded_browser_allowed
+    }
+
+    /// [`Self::embedded_browser_allowed_on`] for the running environment.
+    #[must_use]
+    pub fn embedded_browser_allowed(&self) -> bool {
+        self.embedded_browser_allowed_on(crate::snap::is_snap())
+    }
+
+    /// Claims the one-time "embedded browser is off in the snap" notice.
+    ///
+    /// Returns `true` the first time (and records it), `false` afterwards. The
+    /// caller saves the settings when this returns `true`.
+    #[must_use]
+    pub const fn take_snap_browser_notice(&mut self) -> bool {
+        if self.snap_browser_notice_shown {
+            false
+        } else {
+            self.snap_browser_notice_shown = true;
+            true
+        }
+    }
+
     /// The sidebar width to apply: the saved value when it lies in
     /// `SIDEBAR_WIDTH_MIN..=SIDEBAR_WIDTH_MAX`, otherwise
     /// [`SIDEBAR_WIDTH_DEFAULT`] (unset, hand-edited, or > 500 from the old
@@ -1405,6 +1448,8 @@ impl Default for UiSettings {
             window_title_shows_path: false,
             double_click_opens_new_session: false,
             open_tunnelled_browser_in_embedded: default_open_tunnelled_browser_in_embedded(),
+            snap_embedded_browser_allowed: false,
+            snap_browser_notice_shown: false,
             tunnel_browser_start_url: default_tunnel_start_url(),
             tunnel_browser_command: String::new(),
             show_split_pane_labels: true,
@@ -2277,6 +2322,54 @@ mod tests {
     fn tunnelled_browser_embedded_default_is_off_in_the_snap() {
         assert!(!default_tunnelled_browser_embedded_for(true));
         assert!(default_tunnelled_browser_embedded_for(false));
+    }
+
+    #[test]
+    fn embedded_browser_allowed_on_matrix() {
+        let mut ui = UiSettings::default();
+        for flag in [false, true] {
+            ui.snap_embedded_browser_allowed = flag;
+            // Outside a snap the flag is ignored.
+            assert!(ui.embedded_browser_allowed_on(false));
+            // Inside one it is the whole decision.
+            assert_eq!(ui.embedded_browser_allowed_on(true), flag);
+        }
+    }
+
+    /// A `[ui]` table written before 0.24 has neither key: both load `false`
+    /// (so the snap starts gated) and the stored tunnelled toggle is untouched.
+    #[test]
+    fn old_config_without_new_keys_loads_gated() {
+        let ui: UiSettings = toml::from_str("open_tunnelled_browser_in_embedded = true\n")
+            .expect("a pre-0.24 [ui] table must parse");
+        assert!(!ui.snap_embedded_browser_allowed);
+        assert!(!ui.snap_browser_notice_shown);
+        assert!(ui.open_tunnelled_browser_in_embedded);
+        assert!(!ui.embedded_browser_allowed_on(true));
+        assert!(ui.embedded_browser_allowed_on(false));
+    }
+
+    #[test]
+    fn snap_flags_round_trip() {
+        let ui = UiSettings {
+            snap_embedded_browser_allowed: true,
+            snap_browser_notice_shown: true,
+            ..UiSettings::default()
+        };
+        let rendered = toml::to_string(&ui).expect("serialize");
+        let back: UiSettings = toml::from_str(&rendered).expect("parse");
+        assert!(back.snap_embedded_browser_allowed);
+        assert!(back.snap_browser_notice_shown);
+    }
+
+    #[test]
+    fn take_snap_browser_notice_is_one_time() {
+        let mut ui = UiSettings::default();
+        assert!(!ui.snap_browser_notice_shown);
+        assert!(ui.take_snap_browser_notice());
+        assert!(ui.snap_browser_notice_shown);
+        assert!(!ui.take_snap_browser_notice());
+        assert!(!ui.take_snap_browser_notice());
     }
 
     /// A stored `true` is kept whatever the environment: the snap default only

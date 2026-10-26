@@ -4083,6 +4083,21 @@ impl WebBrowserMode {
             Self::Embedded
         }
     }
+
+    /// The mode a launch should use when the embedded browser may not be allowed.
+    ///
+    /// `Embedded` becomes `System` while `embedded_allowed` is `false` (the snap,
+    /// until the user opts in on this device); every other mode is unchanged.
+    /// Takes `self` by value and returns a new value: the caller decides for one
+    /// launch and never writes the result back, so a stored (possibly synced)
+    /// connection keeps its mode.
+    #[must_use]
+    pub const fn effective(self, embedded_allowed: bool) -> Self {
+        match self {
+            Self::Embedded if !embedded_allowed => Self::System,
+            other => other,
+        }
+    }
 }
 
 /// Unlike the enum itself, the *default* is conditional: a brand-new Web
@@ -4253,6 +4268,57 @@ mod web_browser_mode_tests {
         assert!(
             rendered.contains("browser_mode = \"embedded\""),
             "saving must not downgrade the stored mode, got:\n{rendered}"
+        );
+    }
+
+    #[test]
+    fn effective_gates_only_embedded() {
+        for allowed in [true, false] {
+            assert_eq!(
+                WebBrowserMode::System.effective(allowed),
+                WebBrowserMode::System
+            );
+            assert_eq!(
+                WebBrowserMode::Custom.effective(allowed),
+                WebBrowserMode::Custom
+            );
+        }
+        assert_eq!(
+            WebBrowserMode::Embedded.effective(true),
+            WebBrowserMode::Embedded
+        );
+        assert_eq!(
+            WebBrowserMode::Embedded.effective(false),
+            WebBrowserMode::System
+        );
+    }
+
+    /// The gate is a per-launch decision: the stored config, and a connection
+    /// serialized the way sync and export carry it, still say `embedded`.
+    #[test]
+    fn gating_does_not_touch_the_stored_mode() {
+        let config: WebConfig = toml::from_str("browser_mode = \"embedded\"\n")
+            .expect("a stored embedded browser_mode must parse");
+        let decided = config.browser_mode.effective(false);
+        assert_eq!(decided, WebBrowserMode::System);
+
+        assert_eq!(config.browser_mode, WebBrowserMode::Embedded);
+        let rendered = toml::to_string(&config).expect("WebConfig must serialize");
+        assert!(
+            rendered.contains("browser_mode = \"embedded\""),
+            "the gate must not rewrite the stored mode, got:\n{rendered}"
+        );
+
+        let conn = crate::models::Connection::new(
+            "synced".to_string(),
+            "https://example.com".to_string(),
+            443,
+            ProtocolConfig::Web(config),
+        );
+        let json = serde_json::to_string(&conn).expect("Connection must serialize");
+        assert!(
+            json.contains("\"browser_mode\":\"embedded\""),
+            "the synced copy must keep the stored mode, got:\n{json}"
         );
     }
 

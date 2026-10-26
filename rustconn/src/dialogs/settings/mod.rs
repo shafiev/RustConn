@@ -140,6 +140,8 @@ pub struct SettingsDialog {
     double_click_opens_new_session: adw::SwitchRow,
     // "Open Browser via Tunnel" target: embedded vs external browser
     open_tunnelled_browser_in_embedded: adw::SwitchRow,
+    // Device-local opt-in for the embedded browser in the snap (row hidden elsewhere)
+    snap_embedded_browser_allowed: adw::SwitchRow,
     // "Open Browser via Tunnel" start page (issue: tunnelled browser start URL)
     tunnel_start_url_row: adw::EntryRow,
     // Presets dropdown for the tunnel start page (fills the entry)
@@ -297,6 +299,7 @@ impl SettingsDialog {
             renderer_row,
             sidebar_row_margin_row,
             sidebar_font_size_row,
+            snap_embedded_browser_allowed,
         ) = create_ui_page();
         mark("ui_page");
 
@@ -748,6 +751,7 @@ impl SettingsDialog {
             renderer_row,
             sidebar_row_margin_row,
             sidebar_font_size_row,
+            snap_embedded_browser_allowed,
             ssh_agent_status_label,
             ssh_agent_socket_label,
             ssh_agent_start_button,
@@ -1331,6 +1335,7 @@ impl SettingsDialog {
             &self.renderer_row,
             &self.sidebar_row_margin_row,
             &self.sidebar_font_size_row,
+            &self.snap_embedded_browser_allowed,
             &settings.ui,
             &conn_refs,
         );
@@ -1524,6 +1529,7 @@ impl SettingsDialog {
         let renderer_row_clone = self.renderer_row.clone();
         let sidebar_row_margin_row_clone = self.sidebar_row_margin_row.clone();
         let sidebar_font_size_row_clone = self.sidebar_font_size_row.clone();
+        let snap_embedded_browser_allowed_clone = self.snap_embedded_browser_allowed.clone();
         let connections_clone = self.connections.clone();
         let keybindings_overrides_clone = self.keybindings_overrides.clone();
 
@@ -1757,6 +1763,7 @@ impl SettingsDialog {
                 &renderer_row_clone,
                 &sidebar_row_margin_row_clone,
                 &sidebar_font_size_row_clone,
+                &snap_embedded_browser_allowed_clone,
                 &conn_refs,
             );
             // Preserve smart folders visibility (managed by toolbar toggle, not settings dialog)
@@ -1775,6 +1782,8 @@ impl SettingsDialog {
                 // the file already holds rather than rewriting it.
                 ui.color_tabs_by_protocol = cur.ui.color_tabs_by_protocol;
                 ui.show_protocol_filters = cur.ui.show_protocol_filters;
+                // Runtime-managed flag (set when the one-time snap notice is shown)
+                ui.snap_browser_notice_shown = cur.ui.snap_browser_notice_shown;
                 // A file-based startup action (an RDP/.vv file passed on the CLI)
                 // has no dropdown slot — it shares index 0 with "Do nothing" — so
                 // a Settings round-trip would otherwise collapse it to None.

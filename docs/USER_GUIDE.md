@@ -1729,10 +1729,12 @@ URL. Other Zero Trust providers are not supported yet.
 Where it opens is a global setting — Settings → Interface → Connections → **Open
 tunnelled browser in the embedded browser**:
 
-- **On** (default) — the in-app WebKit browser opens in a tab, and the tunnel
-  stays up only as long as that tab. Available in builds that ship the embedded
-  browser; in the snap this carries the sandbox caveat described under the
-  Web connection's known limitations.
+- **On** (default, except in the snap) — the in-app WebKit browser opens in a tab,
+  and the tunnel stays up only as long as that tab. Available in builds that ship
+  the embedded browser. In the snap the switch is **off** by default and has no
+  effect until you also turn on **Allow the embedded browser** (a snap-only row
+  just above it), because the snap's embedded browser runs without a sandbox; see
+  the Web connection's known limitations.
 - **Off**, or a build without the embedded browser — an external Chromium-based
   browser (Chromium, Chrome, Brave, Vivaldi, Edge) launches with `--proxy-server`
   in an isolated throwaway profile, so a browser you already have open cannot
@@ -1763,7 +1765,10 @@ first Chromium binary found on `PATH`. So if your default browser is Chrome or
 Brave, that is what opens. When the default is Firefox or another browser that
 cannot take a command-line proxy, RustConn uses an installed Chromium binary
 instead; if none exists, it opens the embedded browser (which can always tunnel)
-and shows a toast suggesting you install a Chromium-based browser.
+and shows a toast suggesting you install a Chromium-based browser. In the snap
+the embedded browser is not used for this fallback unless you allowed it; without
+a Chromium browser RustConn shows a toast and opens nothing, since the system
+browser cannot be pointed at the tunnel.
 
 If the tunnel cannot be raised, RustConn shows a toast and opens nothing — it
 never falls back to browsing directly, so traffic meant for the tunnel does not
@@ -1901,11 +1906,13 @@ Web connections store website URLs and can open them in three browser modes depe
 
 | Mode | Description | Default |
 |------|-------------|---------|
-| **Embedded** | Built-in WebKitGTK 6.0 browser in a notebook tab (Linux only) | Yes (Linux) |
-| **System** | Opens URL in the default system browser via GTK4 `UriLauncher` (portal-aware, works in Flatpak) | Fallback / other platforms |
+| **Embedded** | Built-in WebKitGTK 6.0 browser in a notebook tab (Linux only) | Yes (Linux, except the snap) |
+| **System** | Opens URL in the default system browser via GTK4 `UriLauncher` (portal-aware, works in Flatpak) | Default in the snap; fallback / other platforms |
 | **Custom** | Opens URL with a user-defined browser command | Manual |
 
 Configure the browser mode in the connection dialog's protocol tab.
+
+**Snap:** the embedded browser runs without a sandbox there, so it is used only after you switch on Settings → Interface → Connections → **Allow the embedded browser** on that device. Until then a connection stored as Embedded (for example synced from a Flatpak or native install) opens in the system browser, with a one-time notice; its stored mode is not changed and other devices still open it embedded.
 
 **Creating a Web connection:**
 1. Click "New Connection" → select **Web** protocol
