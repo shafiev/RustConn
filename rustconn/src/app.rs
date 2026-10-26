@@ -883,9 +883,39 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
                     .await
                 });
                 match unlock {
-                    Ok(Ok(_)) => {
+                    Ok(Ok(backend)) => {
                         tracing::info!("Bitwarden vault unlocked at startup");
+                        // Signal readiness FIRST — the UI shows the vault as
+                        // unlocked without waiting for the sync below.
                         let _ = tx.send(true);
+                        // Then warm the vault in the background, on this
+                        // thread's still-live runtime (dropped when the closure
+                        // ends). `auto_unlock` no longer syncs on the critical
+                        // path (#353: it cost ~6 s to a ready vault); this keeps
+                        // the local copy fresh so the first retrieve finds
+                        // nothing to do. `sync_if_due` is gated AND serialized,
+                        // so a connect made the instant this starts does not run
+                        // a second `bw sync` beside it. Bounded like the unlock.
+                        let synced = rt.block_on(async {
+                            tokio::time::timeout(
+                                std::time::Duration::from_secs(30),
+                                backend.sync_if_due(),
+                            )
+                            .await
+                        });
+                        match synced {
+                            Ok(Ok(())) => {
+                                tracing::debug!("Bitwarden: background startup sync complete");
+                            }
+                            Ok(Err(e)) => {
+                                tracing::warn!("Bitwarden: background startup sync failed: {e}");
+                            }
+                            Err(_) => {
+                                tracing::warn!(
+                                    "Bitwarden: background startup sync timed out after 30s"
+                                );
+                            }
+                        }
                     }
                     Ok(Err(e)) => {
                         tracing::warn!("Bitwarden auto-unlock at startup failed: {e}");
