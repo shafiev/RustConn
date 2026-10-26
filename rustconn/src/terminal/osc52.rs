@@ -119,6 +119,10 @@ const C1_ST: u8 = 0x9c;
 const CAN: u8 = 0x18;
 /// `SUB` — likewise.
 const SUB: u8 = 0x1a;
+/// `U+FFFD`, which is how VTE draws a malformed UTF-8 prefix.
+const REPLACEMENT: [u8; 3] = [0xef, 0xbf, 0xbd];
+/// `DEL` — ignored by VTE wherever it turns up.
+const DEL: u8 = 0x7f;
 /// `BEL` — xterm accepts it as an OSC terminator and most `printf` recipes use it.
 const BEL: u8 = 0x07;
 
@@ -170,11 +174,20 @@ enum State {
 /// state between chunks. One filter therefore belongs to one stream, and lives
 /// as long as the reader does.
 ///
-/// Bytes are never dropped unless they belong to a recognised OSC 52 clipboard
-/// offer or to an OSC string the stream ended in the middle of while offers are
-/// honoured ([`finish`](Self::finish)), and they keep their order with one
-/// exception: a C0 control that arrives while an `ESC` is held goes out ahead
-/// of it, which VTE cannot tell apart.
+/// What VTE is fed is *VTE-equivalent* to the raw stream, not byte-identical:
+/// it draws the same text and dispatches the same OSC strings, minus the
+/// recognised OSC 52 clipboard offers (and an OSC string the stream ended in
+/// the middle of while offers are honoured, [`finish`](Self::finish)). Three
+/// byte-level differences exist, none visible to VTE:
+///
+/// * an OSC string that is abandoned for a new escape sequence or a C1 `OSC`
+///   is released closed with `CAN`, so it cannot outlive the sequence that
+///   replaced it if that one is removed;
+/// * a `c2` that turns out to be a malformed UTF-8 prefix is released as
+///   `U+FFFD`, so it cannot pair with a later `9d` into a C1 `OSC`;
+/// * a C0 control that arrives while an `ESC` is held goes out ahead of it,
+///   which only matters on the ground, where VTE is — an abandoned string has
+///   been closed by then.
 #[derive(Debug, Default)]
 pub struct Osc52Filter {
     state: State,
@@ -258,11 +271,22 @@ impl Osc52Filter {
                     self.pending.push(byte);
                     self.state = State::Osc;
                 } else {
-                    // An ordinary character (or another C1 control, which this
-                    // filter has no use for). Classify this byte again, because
-                    // `c2 c2 9d` and `c2 ESC ]` each hold a sequence of their own.
-                    self.out.append(&mut self.pending);
+                    // `c2` + a continuation byte is an ordinary character (or
+                    // another C1 control, which this filter has no use for).
+                    // `c2` + anything else is a malformed prefix, which VTE
+                    // draws as `U+FFFD`: say so here instead of passing the bare
+                    // `c2` on. Otherwise a `9d` that arrives after a sequence the
+                    // filter removes would pair up with it in VTE's decoder and
+                    // form a C1 `OSC` the filter never saw.
+                    if (0x80..0xc0).contains(&byte) {
+                        self.out.append(&mut self.pending);
+                    } else {
+                        self.pending.clear();
+                        self.out.extend_from_slice(&REPLACEMENT);
+                    }
                     self.state = State::Ground;
+                    // Classify this byte again, because `c2 c2 9d` and
+                    // `c2 ESC ]` each hold a sequence of their own.
                     self.step(byte, sink);
                 }
             }
@@ -270,6 +294,12 @@ impl Osc52Filter {
                 if byte == INTRODUCER_7BIT {
                     self.pending.push(byte);
                     self.state = State::Osc;
+                } else if byte == ESC {
+                    // `ESC ESC` is one `ESC` to VTE: the second restarts the
+                    // sequence. Passing the first on would leave VTE with an
+                    // `ESC` of its own whenever the second begins an offer the
+                    // filter removes, and that `ESC` would eat the next
+                    // character drawn. So the held `ESC` simply stays.
                 } else if is_transparent_in_escape(byte) {
                     // VTE runs this control (or ignores `DEL`) and stays in its
                     // `ESC` state, so the filter stays too, with the `ESC` still
@@ -305,17 +335,20 @@ impl Osc52Filter {
                 _ => self.push_body(byte),
             },
             State::OscEscape => {
-                if byte == TERMINATOR_7BIT {
+                if byte == DEL {
+                    // VTE ignores `DEL` in every state, `ST_ESC` included, so
+                    // `ESC DEL \` still ends the string. Dropping it is
+                    // invisible to VTE and keeps the lookahead `ESC` unclassified.
+                } else if byte == TERMINATOR_7BIT {
                     self.push_body(ESC);
                     self.push_body(byte);
                     self.finish_sequence(sink);
                 } else {
                     // The string was abandoned mid-flight. Pass on what was
-                    // collected — leaving an unterminated OSC in the stream
-                    // would make VTE swallow every byte after it as body — and
-                    // treat the `ESC` as the start of the next sequence, with
-                    // this byte as its second half (VTE's `ST_ESC` does the same).
-                    self.abandon();
+                    // collected, closed with `CAN`, and treat the `ESC` as the
+                    // start of the next sequence, with this byte as its second
+                    // half (VTE's `ST_ESC` does the same).
+                    self.abandon_closed();
                     self.pending.push(ESC);
                     self.state = State::Escape;
                     self.step(byte, sink);
@@ -329,7 +362,7 @@ impl Osc52Filter {
                 }
                 C1_OSC => {
                     // A new OSC replaces the one in progress.
-                    self.abandon();
+                    self.abandon_closed();
                     self.pending.extend_from_slice(&[C1_LEAD, byte]);
                     self.state = State::Osc;
                 }
@@ -358,6 +391,20 @@ impl Osc52Filter {
         self.state = State::Ground;
     }
 
+    /// [`abandon`](Self::abandon), and ends the released fragment with `CAN`.
+    ///
+    /// For the abandons where the byte that ended the string in VTE (`ESC` of
+    /// the next sequence, or `c2 9d`) is *not* released with it, because it
+    /// belongs to a sequence the filter may still remove. Left open, the
+    /// fragment would hold VTE in its string state: it would swallow whatever
+    /// is drawn next, and dispatch fragment and text together at the next `BEL`
+    /// or `ST` — an OSC 52 the filter never saw. `CAN` ends the string in VTE
+    /// without a dispatch, which is what the original bytes did.
+    fn abandon_closed(&mut self) {
+        self.abandon();
+        self.out.push(CAN);
+    }
+
     /// Collects one body byte, and gives up on a string that outgrew the cap.
     fn push_body(&mut self, byte: u8) {
         if self.pending.len() >= MAX_OSC_BODY {
@@ -381,8 +428,8 @@ impl Osc52Filter {
             return;
         }
 
-        // Disabled: byte-for-byte what the stream looked like before this filter
-        // existed, which is what VTE — and RustConn — do with the sequence today.
+        // Disabled: the sequence goes to VTE as it came, which is what VTE — and
+        // RustConn — do with it today.
         if !enabled() {
             self.out.extend_from_slice(&sequence);
             return;
@@ -596,14 +643,17 @@ mod tests {
 
     #[test]
     fn a_doubled_escape_starts_a_second_sequence() {
-        // `ESC ESC ] 52 …` is a lone `ESC` followed by a perfectly good OSC, the
-        // way xterm reads it: the leading byte goes to VTE and the offer is still
-        // honoured, rather than one greedy sequence swallowing the pair.
+        // `ESC ESC ] 52 …` is one `ESC` to VTE, whose second `ESC` restarts the
+        // sequence, and a perfectly good OSC: the offer is honoured, and no `ESC`
+        // is left behind to eat the `A` that follows it.
         let mut stream = b"\x1b".to_vec();
         stream.extend_from_slice(&offer("yank"));
+        stream.push(b'A');
         let (fed, writes) = run(&stream);
         assert_eq!(writes, ["yank"]);
-        assert_eq!(fed, b"\x1b");
+        assert_eq!(fed, b"A");
+        // Anything else, and the one `ESC` goes on with it.
+        assert_eq!(run(b"\x1b\x1b[2J").0, b"\x1b[2J");
     }
 
     #[test]
@@ -616,9 +666,12 @@ mod tests {
         stream.extend_from_slice(b"\x1b[2J");
         let (fed, writes) = run(&stream);
         assert_eq!(writes, Vec::<String>::new());
-        // Nothing lost and nothing reordered: the fragment plus the CSI that
-        // replaced it comes out as it went in.
-        assert_eq!(fed, stream);
+        // Nothing lost: the fragment, closed with `CAN`, then the CSI that
+        // replaced it.
+        let mut expected = format!("\x1b]52;c;{payload}").into_bytes();
+        expected.push(0x18);
+        expected.extend_from_slice(b"\x1b[2J");
+        assert_eq!(fed, expected);
     }
 
     #[test]
@@ -644,7 +697,9 @@ mod tests {
             // The bytes VTE would otherwise see after it are not swallowed.
             let mut after = stream.clone();
             after.extend_from_slice(b"\x18text");
-            assert_eq!(run(&after).0, after);
+            let fed = run(&after).0;
+            assert_vte_equivalent(&after, &fed, true);
+            assert!(fed.ends_with(b"text"), "{after:?} lost its tail: {fed:?}");
         }
     }
 
@@ -707,12 +762,13 @@ mod tests {
             assert_eq!(fed, [control, control].concat().as_bytes());
         }
         // The same after an abandoned string: `ST_ESC` falls through to `ESC`.
+        // The abandoned fragment is closed with `CAN` before the control.
         let mut stream = b"\x1b]0;x\x1b\x01]52;c;".to_vec();
         stream.extend_from_slice(payload.as_bytes());
-        stream.push(0x07);
+        stream.extend_from_slice(b"\x07visible");
         let (fed, writes) = run(&stream);
         assert_eq!(writes, ["hello"]);
-        assert_eq!(fed, b"\x1b]0;x\x01");
+        assert_eq!(fed, b"\x1b]0;x\x18\x01visible");
     }
 
     #[test]
@@ -949,9 +1005,9 @@ mod tests {
         let mut stream = b"\x1b]0;x".to_vec();
         stream.extend_from_slice(b"\xc2\x9d52;c;");
         stream.extend_from_slice(glib::base64_encode(b"hello").as_bytes());
-        stream.push(0x07);
+        stream.extend_from_slice("\x07\u{276f} visible".as_bytes());
         let (fed, writes) = run(&stream);
-        assert_eq!(fed, b"\x1b]0;x");
+        assert_eq!(fed, "\x1b]0;x\x18\u{276f} visible".as_bytes());
         assert_eq!(writes, ["hello"]);
     }
 
@@ -959,8 +1015,9 @@ mod tests {
     fn an_offer_right_after_an_abandoned_string_is_still_honoured() {
         let mut stream = b"\x1b]0;x".to_vec();
         stream.extend_from_slice(&offer("hello"));
+        stream.extend_from_slice("\u{276f} visible".as_bytes());
         let (fed, writes) = run(&stream);
-        assert_eq!(fed, b"\x1b]0;x");
+        assert_eq!(fed, "\x1b]0;x\x18\u{276f} visible".as_bytes());
         assert_eq!(writes, ["hello"]);
     }
 
@@ -995,6 +1052,33 @@ mod tests {
         assert_eq!(writes, ["after"]);
     }
 
+    /// Streams where a sequence the filter removes follows an abandoned string
+    /// or a dangling `c2`: the bytes that ended the string in VTE travel with
+    /// the removed sequence, so the filter has to end it itself. `hello` is
+    /// `aGVsbG8=` in base64.
+    fn review_streams() -> Vec<Vec<u8>> {
+        let hello = glib::base64_encode(b"hello");
+        vec![
+            b"\x1b]52;c;QUFB\x1b]52;c;Qg==\x07\x07".to_vec(),
+            format!("\x1b]52;c;{hello}\x1b\0\\").into_bytes(),
+            format!("\x1b]52;c;{hello}\x1b\x01\\").into_bytes(),
+            b"\x1b]52;c;?\x1b\x07".to_vec(),
+            b"\x1b]52;c;?\x1b\0\\".to_vec(),
+            format!("\u{9d}52;c;{hello}\x1b]52;c;{hello}\x07\x07").into_bytes(),
+            format!("\x1b]0;x\u{9d}52;c;{hello}\x07").into_bytes(),
+            format!("\x1b]0;x\x1b\x01]52;c;{hello}\x07").into_bytes(),
+            format!("\x1b]0;x\x1b\x01\x1b]52;c;{hello}\x07").into_bytes(),
+            format!("\u{9d}52;c;{hello}\u{9d}52;c;{hello}\u{9c}\u{9c}").into_bytes(),
+            // A bare `c2` before a removed sequence, then a bare `9d`.
+            [
+                &b"\xc2\x1b]52;c;QQ==\x07\x9d52;c;"[..],
+                hello.as_bytes(),
+                b"\x07",
+            ]
+            .concat(),
+        ]
+    }
+
     /// Streams that exercise every transition of the filter.
     fn corpus() -> Vec<Vec<u8>> {
         let hello = glib::base64_encode(b"hello");
@@ -1027,6 +1111,10 @@ mod tests {
                 corpus.push(around);
             }
         }
+        // The streams from the review of 2a135c36, each followed by a prompt.
+        for stream in review_streams() {
+            corpus.push([stream.as_slice(), "\u{276f} ".as_bytes()].concat());
+        }
         let mut aborted = b"\x1b]52;c;".to_vec();
         aborted.extend_from_slice(hello.as_bytes());
         aborted.push(0x18);
@@ -1036,8 +1124,7 @@ mod tests {
     }
 
     /// Streams where a C0 control meets a held `ESC` or ignored controls sit in
-    /// a string: with the setting off, the control still goes out ahead of the
-    /// `ESC`, so these are checked for chunking alone, not for identity.
+    /// a string.
     fn escape_corpus() -> Vec<Vec<u8>> {
         let hello = glib::base64_encode(b"hello");
         let mut corpus = vec![
@@ -1051,6 +1138,7 @@ mod tests {
             corpus.push(format!("\x1b]5{noise}2;c;{hello}{noise}\x07").into_bytes());
             corpus.push(format!("\x1b{noise}]52;c;{hello}\x1b\\ after").into_bytes());
             corpus.push(format!("\x1b]0;x\x1b{noise}]52;c;{hello}\x07").into_bytes());
+            corpus.push(format!("\x1b]52;c;{hello}\x1b{noise}\\ after").into_bytes());
             corpus.push(format!("\u{9d}52;{noise}c;{hello}\u{9c}").into_bytes());
         }
         corpus
@@ -1070,11 +1158,215 @@ mod tests {
         (fed, writes)
     }
 
+    /// A model of the part of VTE's input path the filter has to agree with, for
+    /// the tests to compare a stream before and after filtering.
+    ///
+    /// It is a model and not a port: UTF-8 decoding as `process_incoming_utf8`
+    /// does it (a malformed prefix is `U+FFFD`, and the byte that broke it is
+    /// read again), then the `GROUND` / `ESCAPE` / `OSC_STRING` / `ST_ESC`
+    /// states of `Parser::feed` and `feed_to_state` (VTE 0.76–0.84, see
+    /// `.agents/tasks/osc52-c1/vte-analysis.md`). CSI, DCS and the rest are not
+    /// modelled: `ESC` + anything but `]` simply ends in `GROUND` with that
+    /// byte consumed. Both sides of every comparison go through the same
+    /// model, so what it leaves out cannot hide a difference the filter makes.
+    mod vte_model {
+        /// What the parser did on the ground.
+        #[derive(Debug, PartialEq, Eq)]
+        pub enum Event {
+            /// A character was drawn.
+            Print(u32),
+            /// A C0 or C1 control was executed.
+            Exec(u32),
+        }
+
+        /// What a stream did to the parser.
+        #[derive(Debug, Default, PartialEq, Eq)]
+        pub struct Outcome {
+            /// Drawn characters and executed controls, in order.
+            pub events: Vec<Event>,
+            /// The payload of every OSC string that was dispatched.
+            pub osc: Vec<Vec<u32>>,
+            /// The stream ended inside an OSC string.
+            pub in_string: bool,
+        }
+
+        #[derive(Clone, Copy)]
+        enum State {
+            Ground,
+            Escape,
+            OscString,
+            StEscape,
+        }
+
+        const REPLACEMENT: u32 = 0xfffd;
+
+        /// Decodes `bytes` as VTE does: UTF-8 in, code points out.
+        fn decode(bytes: &[u8]) -> Vec<u32> {
+            let mut cps = Vec::new();
+            let (mut need, mut acc, mut min) = (0u8, 0u32, 0u32);
+            for &byte in bytes {
+                let mut again = Some(byte);
+                while let Some(byte) = again.take() {
+                    if need > 0 {
+                        if byte & 0xc0 == 0x80 {
+                            acc = acc << 6 | u32::from(byte & 0x3f);
+                            need -= 1;
+                            if need == 0 {
+                                let valid = acc >= min
+                                    && acc <= 0x10_ffff
+                                    && !(0xd800..0xe000).contains(&acc);
+                                cps.push(if valid { acc } else { REPLACEMENT });
+                            }
+                        } else {
+                            // The byte broke the character: `U+FFFD`, and the
+                            // byte is read again from the start.
+                            need = 0;
+                            cps.push(REPLACEMENT);
+                            again = Some(byte);
+                        }
+                    } else {
+                        match byte {
+                            0x00..=0x7f => cps.push(u32::from(byte)),
+                            0xc2..=0xdf => (need, acc, min) = (1, u32::from(byte & 0x1f), 0x80),
+                            0xe0..=0xef => (need, acc, min) = (2, u32::from(byte & 0x0f), 0x800),
+                            0xf0..=0xf4 => (need, acc, min) = (3, u32::from(byte & 0x07), 0x1_0000),
+                            _ => cps.push(REPLACEMENT),
+                        }
+                    }
+                }
+            }
+            if need > 0 {
+                cps.push(REPLACEMENT);
+            }
+            cps
+        }
+
+        /// Runs `bytes` through the model.
+        pub fn run(bytes: &[u8]) -> Outcome {
+            let mut outcome = Outcome::default();
+            let mut state = State::Ground;
+            let mut body = Vec::new();
+            for cp in decode(bytes) {
+                let mut again = Some(cp);
+                while let Some(cp) = again.take() {
+                    match cp {
+                        // `DEL` is ignored in every state.
+                        0x7f => {}
+                        // `CAN` abandons whatever is open and is ignored; `SUB`
+                        // abandons it and is executed.
+                        0x18 => state = State::Ground,
+                        0x1a => {
+                            state = State::Ground;
+                            outcome.events.push(Event::Exec(cp));
+                        }
+                        // C1 `OSC` starts a string, whatever the state.
+                        0x9d => {
+                            state = State::OscString;
+                            body.clear();
+                        }
+                        // Every C1 but `ST` and `OSC` ends what is open.
+                        0x80..=0x9b | 0x9e | 0x9f => {
+                            state = State::Ground;
+                            outcome.events.push(Event::Exec(cp));
+                        }
+                        _ => match state {
+                            State::Ground => match cp {
+                                0x1b => state = State::Escape,
+                                0x9c => {}
+                                0x00..=0x1f => outcome.events.push(Event::Exec(cp)),
+                                _ => outcome.events.push(Event::Print(cp)),
+                            },
+                            State::Escape => match cp {
+                                0x5d => {
+                                    state = State::OscString;
+                                    body.clear();
+                                }
+                                0x1b => {}
+                                0x00..=0x1f => outcome.events.push(Event::Exec(cp)),
+                                _ => state = State::Ground,
+                            },
+                            State::OscString => match cp {
+                                0x07 | 0x9c => {
+                                    outcome.osc.push(std::mem::take(&mut body));
+                                    state = State::Ground;
+                                }
+                                0x1b => state = State::StEscape,
+                                0x00..=0x1f => {}
+                                _ => body.push(cp),
+                            },
+                            State::StEscape => {
+                                if cp == 0x5c {
+                                    outcome.osc.push(std::mem::take(&mut body));
+                                    state = State::Ground;
+                                } else {
+                                    // The string is dropped and the byte is
+                                    // read as the one after an `ESC`.
+                                    state = State::Escape;
+                                    again = Some(cp);
+                                }
+                            }
+                        },
+                    }
+                }
+            }
+            outcome.in_string = matches!(state, State::OscString | State::StEscape);
+            outcome
+        }
+    }
+
+    /// Checks that `filtered` is what VTE should be fed for `raw`: the same text
+    /// and controls, the same OSC strings but for the clipboard offers the
+    /// filter took (all of them, or none while the setting is off), and no
+    /// string left open that the raw stream did not leave open.
+    fn check_vte_equivalence(raw: &[u8], filtered: &[u8], enabled: bool) -> Result<(), String> {
+        let (raw_out, filtered_out) = (vte_model::run(raw), vte_model::run(filtered));
+        if raw_out.events != filtered_out.events {
+            return Err(format!(
+                "ground events differ: {:?} vs {:?}",
+                raw_out.events, filtered_out.events
+            ));
+        }
+        if filtered_out.in_string && !raw_out.in_string {
+            return Err("the filtered stream ends inside a string".to_owned());
+        }
+        if !enabled {
+            if raw_out.osc != filtered_out.osc {
+                return Err(format!(
+                    "dispatched strings differ: {:?} vs {:?}",
+                    raw_out.osc, filtered_out.osc
+                ));
+            }
+            return Ok(());
+        }
+        // The filtered stream dispatches a subsequence of the raw stream's
+        // strings, and every one it dropped is a `52;c;` clipboard offer.
+        let offer: Vec<u32> = "52;c;".chars().map(u32::from).collect();
+        let mut kept = filtered_out.osc.iter().peekable();
+        for payload in &raw_out.osc {
+            if kept.peek() == Some(&payload) {
+                kept.next();
+            } else if !payload.starts_with(&offer) {
+                return Err(format!("the filter dropped {payload:?}"));
+            }
+        }
+        if let Some(extra) = kept.next() {
+            return Err(format!(
+                "the filter let through {extra:?}, not in the raw stream"
+            ));
+        }
+        Ok(())
+    }
+
+    /// [`check_vte_equivalence`] as an assertion.
+    fn assert_vte_equivalent(raw: &[u8], filtered: &[u8], enabled: bool) {
+        if let Err(why) = check_vte_equivalence(raw, filtered, enabled) {
+            panic!("{why} (enabled = {enabled})\n raw: {raw:?}\n fed: {filtered:?}");
+        }
+    }
+
     #[test]
     fn every_split_of_the_corpus_matches_the_whole_feed() {
-        let exact = corpus().into_iter().map(|stream| (stream, true));
-        let reordering = escape_corpus().into_iter().map(|stream| (stream, false));
-        for (stream, exact) in exact.chain(reordering) {
+        for stream in corpus().into_iter().chain(escape_corpus()) {
             for enabled in [true, false] {
                 let whole = feed_chunks(enabled, vec![&stream]);
                 assert_eq!(
@@ -1089,23 +1381,35 @@ mod tests {
                         "split at {split} differs for {stream:?} (enabled = {enabled})"
                     );
                 }
+                assert_vte_equivalent(&stream, &whole.0, enabled);
                 if !enabled {
                     assert!(whole.1.is_empty());
-                    if exact {
-                        assert_eq!(whole.0, stream, "the disabled filter altered {stream:?}");
-                    } else {
-                        let (mut got, mut want) = (whole.0, stream.clone());
-                        got.sort_unstable();
-                        want.sort_unstable();
-                        assert_eq!(got, want, "the disabled filter lost bytes of {stream:?}");
-                    }
                 }
             }
         }
     }
 
+    #[test]
+    fn the_vte_model_agrees_with_what_the_analysis_says_of_vte() {
+        use vte_model::{Event::Print, run};
+        // `❯ ` is three bytes of one character, and nothing is a string.
+        let prompt = run("\u{276f} ".as_bytes());
+        assert_eq!(prompt.events, [Print(0x276f), Print(0x20)]);
+        assert!(prompt.osc.is_empty() && !prompt.in_string);
+        // A bare `9d` is `U+FFFD`; `c2 9d` opens a string that `c2 9c` ends.
+        assert_eq!(run(b"\x9d").events, [Print(0xfffd)]);
+        let title = run(b"\xc2\x9d0;t\xc2\x9c");
+        assert_eq!(title.osc, [[0x30, 0x3b, 0x74]]);
+        // `ESC` + anything but `\` drops the string; `CAN` does too.
+        assert!(run(b"\x1b]0;x\x1b[").osc.is_empty());
+        assert!(!run(b"\x1b]0;x\x18").in_string);
+        assert!(run(b"\x1b]0;x").in_string);
+        // A `c2` with no continuation is `U+FFFD`, and the next byte is read again.
+        assert_eq!(run(b"\xc2A").events, [Print(0xfffd), Print(0x41)]);
+    }
+
     proptest::proptest! {
-        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(256))]
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(512))]
 
         #[test]
         fn chunking_never_changes_the_result(
@@ -1128,14 +1432,23 @@ mod tests {
             }
             chunks.push(&alphabet[start..]);
             proptest::prop_assert_eq!(run_with(chunks), whole.clone());
-            if !enabled {
-                // A control may pass a held `ESC`, so compare the bytes, not
-                // their order.
-                let (mut got, mut want) = (whole.0, alphabet.clone());
-                got.sort_unstable();
-                want.sort_unstable();
-                proptest::prop_assert_eq!(got, want);
-            }
+            proptest::prop_assert!(whole.1.is_empty() || enabled);
+        }
+
+        #[test]
+        fn the_filtered_stream_is_what_vte_would_have_made_of_the_raw_one(
+            alphabet in proptest::collection::vec(
+                proptest::sample::select(ALPHABET.to_vec()),
+                0..64,
+            ),
+            enabled in proptest::bool::ANY,
+        ) {
+            let (fed, _) = feed_chunks(enabled, vec![&alphabet]);
+            proptest::prop_assert!(
+                check_vte_equivalence(&alphabet, &fed, enabled).is_ok(),
+                "{:?}",
+                check_vte_equivalence(&alphabet, &fed, enabled)
+            );
         }
 
         #[test]
@@ -1151,24 +1464,27 @@ mod tests {
             points.sort_unstable();
             let mut filter = Osc52Filter::default();
             let mut sink = |_: &str| {};
-            let (mut fed, mut released, mut start) = (0, 0, 0);
+            let (mut released, mut start) = (Vec::new(), 0);
             for point in points.into_iter().chain([alphabet.len()]) {
-                let chunk = &alphabet[start..point];
+                released.extend_from_slice(filter.push(&alphabet[start..point], &mut sink));
                 start = point;
-                fed += chunk.len();
-                released += filter.push(chunk, &mut sink).len();
                 // Only an open string, a lone `ESC` or a lone `c2` may be held.
+                // Anything else has reached VTE, which has made the same of it
+                // as of the raw bytes so far.
                 if filter.state == State::Ground {
-                    proptest::prop_assert_eq!(released, fed);
+                    proptest::prop_assert_eq!(
+                        vte_model::run(&released),
+                        vte_model::run(&alphabet[..start])
+                    );
                 }
             }
         }
     }
 
     /// Bytes that make the filter's sequences turn up often in generated input.
-    const ALPHABET: [u8; 21] = [
-        0x1b, b']', b'\\', 0x07, 0x18, 0x1a, 0xc2, 0x9c, 0x9d, 0x9b, 0xe2, 0xa0, b'5', b'2', b';',
-        b'c', b'A', b'=', 0x01, 0x7f, 0x0a,
+    const ALPHABET: [u8; 23] = [
+        0x1b, b']', b'\\', 0x07, 0x18, 0x1a, 0xc2, 0x9c, 0x9d, 0x9b, 0xe2, 0xa0, 0xaf, b'5', b'2',
+        b';', b'c', b'A', b'=', b'?', 0x01, 0x7f, 0x0a,
     ];
 
     /// What one `push` hands back for `bytes`, with no `finish`, so a held byte
@@ -1202,6 +1518,113 @@ mod tests {
         for enabled in [false, true] {
             assert_eq!(pushed_once(enabled, stream), stream, "enabled = {enabled}");
         }
+    }
+
+    /// The result of filtering `stream` and putting the output through the VTE
+    /// model: what it dispatched and drew, and the offers the filter took.
+    fn filtered_outcome(enabled: bool, stream: &[u8]) -> (vte_model::Outcome, Vec<String>) {
+        let (fed, writes) = feed_chunks(enabled, vec![stream]);
+        assert_vte_equivalent(stream, &fed, enabled);
+        (vte_model::run(&fed), writes)
+    }
+
+    /// The code points of an ASCII payload, as the VTE model reports them.
+    fn payload(text: &str) -> Vec<u32> {
+        text.chars().map(u32::from).collect()
+    }
+
+    #[test]
+    fn a_removed_sequence_cannot_leave_an_abandoned_string_open() {
+        // Both strings are cut short by the second `ESC ]`, which the filter then
+        // removes as an offer. VTE must still see the first one end, or it keeps
+        // collecting the prompt and dispatches fragment and prompt at a `BEL`.
+        let prompt = "\u{276f} ";
+        let stream = format!("\x1b]52;c;QUFB\x1b]52;c;Qg==\x07\x07{prompt}");
+        let drawn: Vec<_> = prompt.chars().map(u32::from).collect();
+
+        let (on, writes) = filtered_outcome(true, stream.as_bytes());
+        assert_eq!(writes, ["B"]);
+        assert!(on.osc.is_empty(), "VTE was handed an OSC 52: {:?}", on.osc);
+        assert!(!on.in_string);
+        let printed: Vec<_> = on
+            .events
+            .iter()
+            .filter_map(|event| match event {
+                vte_model::Event::Print(cp) => Some(*cp),
+                vte_model::Event::Exec(_) => None,
+            })
+            .collect();
+        assert_eq!(printed, drawn, "the prompt was swallowed");
+
+        // Off: the offer is VTE's to dispatch, and nothing else is.
+        let (off, writes) = filtered_outcome(false, stream.as_bytes());
+        assert!(writes.is_empty() && !off.in_string);
+        assert_eq!(off.osc, [payload("52;c;Qg==")]);
+        assert_eq!(off.events, on.events);
+    }
+
+    #[test]
+    fn a_control_after_an_abandoned_string_cannot_turn_it_into_a_dispatch() {
+        // `ESC NUL \` and `ESC BEL` after the fragment are discarded by VTE. The
+        // filter holds the `ESC` and passes the control, so unless the fragment
+        // is closed first the control would land inside the string and the `ST`
+        // or `BEL` would dispatch it.
+        let hello = glib::base64_encode(b"hello");
+        let cases = [
+            format!("\x1b]52;c;{hello}\x1b\0\\"),
+            format!("\x1b]52;c;{hello}\x1b\x01\\"),
+            "\x1b]52;c;?\x1b\x07".to_owned(),
+            "\x1b]52;c;?\x1b\0\\".to_owned(),
+        ];
+        for case in cases {
+            let stream = format!("{case}\u{276f} ");
+            for enabled in [true, false] {
+                let (outcome, writes) = filtered_outcome(enabled, stream.as_bytes());
+                assert!(writes.is_empty(), "{case:?} was taken as an offer");
+                assert!(
+                    outcome.osc.is_empty(),
+                    "{case:?} (enabled = {enabled}) dispatched {:?}",
+                    outcome.osc
+                );
+                assert!(!outcome.in_string, "{case:?} left a string open");
+            }
+        }
+    }
+
+    #[test]
+    fn a_dangling_c2_cannot_pair_with_a_later_9d() {
+        // `c2` is followed by an `ESC` that starts a sequence the filter removes,
+        // and a bare `9d` follows it. In VTE `c2` is `U+FFFD` and `9d` another;
+        // handed over bare, `c2` would meet `9d` in VTE's decoder and open an OSC.
+        let hello = glib::base64_encode(b"hello");
+        let stream = [
+            &b"\xc2\x1b]52;c;QQ==\x07\x9d52;c;"[..],
+            hello.as_bytes(),
+            "\x07\u{276f} ".as_bytes(),
+        ]
+        .concat();
+        let (fed, writes) = feed_chunks(true, vec![&stream]);
+        assert_eq!(writes, ["A"]);
+        assert!(
+            fed.starts_with(&[0xef, 0xbf, 0xbd]),
+            "the bare c2 was passed on: {fed:?}"
+        );
+        for enabled in [true, false] {
+            let (outcome, writes) = filtered_outcome(enabled, &stream);
+            assert_eq!(writes.len(), usize::from(enabled));
+            assert!(!outcome.in_string);
+            // The second sequence is text, as it is in the raw stream.
+            assert_eq!(
+                outcome.osc.len(),
+                usize::from(!enabled),
+                "enabled = {enabled}"
+            );
+        }
+        // A `c2` that does start a character is left alone, and a lone one at
+        // the end of the stream is released by `finish`.
+        assert_eq!(pushed_once(true, b"a\xc2\xa0b"), b"a\xc2\xa0b");
+        assert_eq!(pushed_once(true, b"a\xc2Ab"), b"a\xef\xbf\xbdAb");
+        assert_eq!(run(b"a\xc2").0, b"a\xc2");
     }
 
     #[test]
