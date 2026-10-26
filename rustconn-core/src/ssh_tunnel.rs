@@ -406,6 +406,14 @@ fn loopback_socks_spec(port: u16) -> String {
     format!("127.0.0.1:{port}")
 }
 
+/// The forwarding flag pair [`create_socks_tunnel`] hands to [`spawn_tunnel`].
+///
+/// One helper for the spawn and for the tests that pin its shape, so a change
+/// back to a bare `-D <port>` is seen by the tests instead of only by a reviewer.
+fn socks_forward_args(port: u16) -> [String; 2] {
+    ["-D".to_string(), loopback_socks_spec(port)]
+}
+
 /// Creates a dynamic SOCKS tunnel by spawning `ssh -N -D 127.0.0.1:<local_port> <jump_host>`.
 ///
 /// Unlike [`create_tunnel`], which forwards a single destination, this opens a
@@ -425,8 +433,8 @@ fn loopback_socks_spec(port: u16) -> String {
 /// Returns an error if no free port is found or the SSH process fails to spawn.
 pub fn create_socks_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
     let local_port = find_free_port()?;
-    let spec = loopback_socks_spec(local_port);
-    spawn_tunnel(params, local_port, &["-D", &spec], "SOCKS proxy")
+    let [flag, spec] = socks_forward_args(local_port);
+    spawn_tunnel(params, local_port, &[&flag, &spec], "SOCKS proxy")
 }
 
 /// Checks the `[user@]host` destination handed to `tailscale ssh`.
@@ -2096,6 +2104,17 @@ mod tailscale_tunnel_tests {
         }
     }
 
+    /// The command line `create_socks_tunnel` would run for `port`, built from
+    /// the same forwarding pair it passes to `spawn_tunnel`.
+    fn socks_command_line(
+        p: &SshTunnelParams,
+        port: u16,
+        uses_askpass: bool,
+    ) -> (&'static str, Vec<String>) {
+        let [flag, spec] = socks_forward_args(port);
+        tunnel_command_line(p, &[&flag, &spec], uses_askpass)
+    }
+
     fn strs(v: &[&str]) -> Vec<String> {
         v.iter().map(ToString::to_string).collect()
     }
@@ -2131,7 +2150,7 @@ mod tailscale_tunnel_tests {
         let mut p = params(TunnelLauncher::OpenSsh, "admin@bastion.example.com");
         p.jump_port = 2222;
         p.identity_file = Some("/k".to_string());
-        let (program, args) = tunnel_command_line(&p, &["-D", &loopback_socks_spec(1080)], false);
+        let (program, args) = socks_command_line(&p, 1080, false);
         assert_eq!(program, "ssh");
         assert_eq!(
             args,
@@ -2158,7 +2177,7 @@ mod tailscale_tunnel_tests {
     fn tailscale_socks_command_line_puts_destination_first() {
         let mut p = params(TunnelLauncher::TailscaleSsh, "alice@my-server");
         p.jump_port = 2222; // ignored: the session passes no port either
-        let (program, args) = tunnel_command_line(&p, &["-D", &loopback_socks_spec(1080)], false);
+        let (program, args) = socks_command_line(&p, 1080, false);
         assert_eq!(program, "tailscale");
         assert_eq!(
             args,
@@ -2182,7 +2201,7 @@ mod tailscale_tunnel_tests {
     #[test]
     fn tailscale_command_line_with_askpass_omits_batchmode() {
         let p = params(TunnelLauncher::TailscaleSsh, "my-server");
-        let (_, args) = tunnel_command_line(&p, &["-D", &loopback_socks_spec(1080)], true);
+        let (_, args) = socks_command_line(&p, 1080, true);
         assert!(!args.contains(&"BatchMode=yes".to_string()), "{args:?}");
     }
 
@@ -2190,7 +2209,7 @@ mod tailscale_tunnel_tests {
     fn tailscale_command_line_keeps_caller_connect_timeout() {
         let mut p = params(TunnelLauncher::TailscaleSsh, "my-server");
         p.extra_args = strs(&["-o", "ConnectTimeout=3"]);
-        let (_, args) = tunnel_command_line(&p, &["-D", &loopback_socks_spec(1080)], false);
+        let (_, args) = socks_command_line(&p, 1080, false);
         assert!(!args.contains(&"ConnectTimeout=8".to_string()), "{args:?}");
         let timeout_at = args
             .iter()
@@ -2202,14 +2221,13 @@ mod tailscale_tunnel_tests {
 
     #[test]
     fn socks_tunnel_binds_to_loopback_for_both_launchers() {
-        let spec = loopback_socks_spec(1080);
         for (launcher, jump_host) in [
             (TunnelLauncher::OpenSsh, "admin@bastion.example.com"),
             (TunnelLauncher::TailscaleSsh, "alice@my-server"),
         ] {
             for uses_askpass in [false, true] {
                 let p = params(launcher, jump_host);
-                let (_, args) = tunnel_command_line(&p, &["-D", &spec], uses_askpass);
+                let (_, args) = socks_command_line(&p, 1080, uses_askpass);
                 assert!(
                     args.windows(2)
                         .any(|w| w[0] == "-D" && w[1] == "127.0.0.1:1080"),
