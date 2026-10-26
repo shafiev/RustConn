@@ -735,6 +735,12 @@ pub struct PortForward {
 
 impl PortForward {
     /// Builds the SSH command-line argument for this port forward rule
+    ///
+    /// The local port is deliberately passed without a bind address: a forward
+    /// the user wrote follows OpenSSH's `GatewayPorts` (default `no`, so loopback),
+    /// exactly like a hand-typed `ssh -L/-D`. Only the forwards RustConn creates
+    /// for itself (jump-host tunnels, the browser SOCKS proxy) are pinned to
+    /// `127.0.0.1`.
     #[must_use]
     pub fn to_ssh_arg(&self) -> Vec<String> {
         match self.direction {

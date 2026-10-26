@@ -3416,6 +3416,8 @@ Standalone window for managing SSH port-forwarding tunnels that run independentl
 6. Optionally enable **Auto-start** (tunnel starts when RustConn launches) and **Auto-reconnect** (tunnel restarts if the SSH process exits unexpectedly)
 7. Click **Save**
 
+> **Bind address:** the rules you write here are passed to `ssh` exactly as typed, so they follow OpenSSH's `GatewayPorts` setting (default `no`, loopback only), like a hand-typed `ssh -L` or `-D`. With `GatewayPorts yes` in `~/.ssh/config` they listen on all interfaces. The tunnels RustConn creates for itself (jump hosts for RDP/VNC/SPICE, the browser SOCKS proxy) are always bound to `127.0.0.1`.
+
 **Manage Tunnels:**
 
 The tunnel manager window shows two groups:

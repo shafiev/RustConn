@@ -3,7 +3,8 @@
 //! Used by RDP, VNC, SPICE, and Telnet connections that have a
 //! `jump_host_id` configured. Creates an `ssh -L` local port forward
 //! in the background and returns the local port for the client to
-//! connect to.
+//! connect to. The local end is bound to `127.0.0.1` explicitly, so
+//! `GatewayPorts yes` cannot expose it on other interfaces.
 
 use std::net::TcpListener;
 use std::process::{Child, Command, Stdio};
@@ -375,7 +376,10 @@ pub fn find_free_port() -> SshTunnelResult<u16> {
     Ok(port)
 }
 
-/// Creates an SSH tunnel by spawning `ssh -N -L local_port:remote:remote_port`.
+/// Creates an SSH tunnel by spawning `ssh -N -L 127.0.0.1:local_port:remote:remote_port`.
+///
+/// The local end listens on IPv4 loopback only, whatever `GatewayPorts` says
+/// (see [`loopback_bind_spec`]); every consumer dials `127.0.0.1`.
 ///
 /// The tunnel runs in the background. The caller must keep the returned
 /// [`SshTunnel`] alive for the duration of the connection — dropping it
@@ -386,23 +390,23 @@ pub fn find_free_port() -> SshTunnelResult<u16> {
 /// Returns an error if no free port is found or the SSH process fails to spawn.
 pub fn create_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunnel> {
     let local_port = find_free_port()?;
-    let forward_spec = format!(
-        "{}:{}:{}",
-        local_port, params.remote_host, params.remote_port
-    );
+    let [flag, spec] = local_forward_args(local_port, &params.remote_host, params.remote_port);
     let remote_desc = format!("{}:{}", params.remote_host, params.remote_port);
-    spawn_tunnel(params, local_port, &["-L", &forward_spec], &remote_desc)
+    spawn_tunnel(params, local_port, &[&flag, &spec], &remote_desc)
 }
 
-/// The `-D` value that binds a SOCKS proxy to IPv4 loopback.
+/// The local bind (`127.0.0.1:<port>`) of a `-D` or `-L` forward RustConn creates itself.
 ///
-/// A bare `-D <port>` follows the user's `GatewayPorts` setting, so with
-/// `GatewayPorts yes` in `~/.ssh/config` the proxy would listen on every
-/// interface and anyone on the network could route through the tunnel. An
+/// A bare `-D <port>` or `-L <port>:host:port` follows the user's `GatewayPorts`
+/// setting, so with `GatewayPorts yes` in `~/.ssh/config` the forwarded port would
+/// listen on every interface and anyone on the network could use the tunnel. An
 /// explicit bind address overrides that setting. It is the literal `127.0.0.1`,
 /// not `localhost`, so it is the address [`wait_for_tunnel_ready`] probes and the
-/// browsers are pointed at.
-fn loopback_socks_spec(port: u16) -> String {
+/// clients are pointed at.
+///
+/// Forwards the user writes themselves (`PortForward`) are not routed through
+/// here on purpose: they keep following `GatewayPorts`.
+fn loopback_bind_spec(port: u16) -> String {
     format!("127.0.0.1:{port}")
 }
 
@@ -411,7 +415,21 @@ fn loopback_socks_spec(port: u16) -> String {
 /// One helper for the spawn and for the tests that pin its shape, so a change
 /// back to a bare `-D <port>` is seen by the tests instead of only by a reviewer.
 fn socks_forward_args(port: u16) -> [String; 2] {
-    ["-D".to_string(), loopback_socks_spec(port)]
+    ["-D".to_string(), loopback_bind_spec(port)]
+}
+
+/// The forwarding flag pair [`create_tunnel`] hands to [`spawn_tunnel`].
+///
+/// Same reasoning as [`socks_forward_args`]: pinned by tests so a change back to
+/// a bare `-L <port>:host:port` is caught.
+fn local_forward_args(local_port: u16, remote_host: &str, remote_port: u16) -> [String; 2] {
+    [
+        "-L".to_string(),
+        format!(
+            "{}:{remote_host}:{remote_port}",
+            loopback_bind_spec(local_port)
+        ),
+    ]
 }
 
 /// Creates a dynamic SOCKS tunnel by spawning `ssh -N -D 127.0.0.1:<local_port> <jump_host>`.
@@ -2115,6 +2133,17 @@ mod tailscale_tunnel_tests {
         tunnel_command_line(p, &[&flag, &spec], uses_askpass)
     }
 
+    /// The command line `create_tunnel` would run for `port`, built from the
+    /// same forwarding pair it passes to `spawn_tunnel`.
+    fn local_forward_command_line(
+        p: &SshTunnelParams,
+        port: u16,
+        uses_askpass: bool,
+    ) -> (&'static str, Vec<String>) {
+        let [flag, spec] = local_forward_args(port, &p.remote_host, p.remote_port);
+        tunnel_command_line(p, &[&flag, &spec], uses_askpass)
+    }
+
     fn strs(v: &[&str]) -> Vec<String> {
         v.iter().map(ToString::to_string).collect()
     }
@@ -2242,8 +2271,60 @@ mod tailscale_tunnel_tests {
     }
 
     #[test]
-    fn loopback_socks_spec_is_ipv4_loopback_literal() {
-        let spec = loopback_socks_spec(1080);
+    fn openssh_local_forward_command_line_binds_loopback() {
+        // Outside Flatpak there is no known_hosts override to add.
+        if crate::flatpak::is_flatpak() {
+            return;
+        }
+        let mut p = params(TunnelLauncher::OpenSsh, "admin@bastion.example.com");
+        p.remote_host = "rdp.internal".to_string();
+        p.remote_port = 3389;
+        let (program, args) = local_forward_command_line(&p, 40000, false);
+        assert_eq!(program, "ssh");
+        assert_eq!(
+            args,
+            strs(&[
+                "-N",
+                "-L",
+                "127.0.0.1:40000:rdp.internal:3389",
+                "-o",
+                "ConnectTimeout=8",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ExitOnForwardFailure=yes",
+                "admin@bastion.example.com",
+            ])
+        );
+    }
+
+    #[test]
+    fn local_forward_binds_to_loopback_for_both_launchers() {
+        for (launcher, jump_host) in [
+            (TunnelLauncher::OpenSsh, "admin@bastion.example.com"),
+            (TunnelLauncher::TailscaleSsh, "alice@my-server"),
+        ] {
+            for uses_askpass in [false, true] {
+                let mut p = params(launcher, jump_host);
+                p.remote_host = "10.0.0.5".to_string();
+                p.remote_port = 5900;
+                let (_, args) = local_forward_command_line(&p, 40001, uses_askpass);
+                assert!(
+                    args.windows(2)
+                        .any(|w| w[0] == "-L" && w[1] == "127.0.0.1:40001:10.0.0.5:5900"),
+                    "{launcher:?} (askpass {uses_askpass}) must bind -L to loopback: {args:?}"
+                );
+                assert!(
+                    !args.iter().any(|a| a.starts_with("40001:")),
+                    "{launcher:?} (askpass {uses_askpass}) must not pass a bare port: {args:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn loopback_bind_spec_is_ipv4_loopback_literal() {
+        let spec = loopback_bind_spec(1080);
         assert_eq!(spec, "127.0.0.1:1080");
         // Must stay the address `wait_for_tunnel_ready` probes: a `localhost` or
         // `::1` here would let the proxy and the probe disagree.
