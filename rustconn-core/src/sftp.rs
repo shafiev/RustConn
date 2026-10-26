@@ -679,10 +679,63 @@ pub fn ensure_ssh_agent() -> Option<SshAgentInfo> {
     })
 }
 
+/// The SHA256 fingerprint of a key path's **public** half, read without a
+/// passphrase, or `None` when it cannot be determined cheaply.
+///
+/// Tries the key file itself first (an OpenSSH private key carries its public
+/// key in the clear, even when encrypted — A2), then a sibling `<path>.pub`.
+/// A `None` simply means the agent fast path is skipped and `ssh-add` is used,
+/// so this never blocks loading.
+fn fingerprint_for_key_path(key_path: &std::path::Path) -> Option<String> {
+    if let Ok(contents) = std::fs::read_to_string(key_path)
+        && let Ok(info) = crate::ssh_agent::inspect_key_file(&contents)
+        && let Some(pk) = info.public_key
+    {
+        return Some(pk.fingerprint);
+    }
+    // Fall back to a sibling .pub (present for keys generated the usual way,
+    // and the only source for a legacy PEM this crate does not parse).
+    let pub_path = {
+        let mut p = key_path.as_os_str().to_os_string();
+        p.push(".pub");
+        std::path::PathBuf::from(p)
+    };
+    let pub_line = std::fs::read_to_string(&pub_path).ok()?;
+    crate::ssh_agent::PublicKeyInfo::from_pub_line(pub_line.trim())
+        .ok()
+        .map(|pk| pk.fingerprint)
+}
+
+/// Whether the running agent already holds the key at `key_path`.
+///
+/// Compares the key's public fingerprint (A2) against the agent's identities
+/// read over the native protocol (A1). A `false` on any uncertainty (no
+/// fingerprint, no agent, a query error) so the caller falls through to the
+/// normal `ssh-add` path — the fast path only ever *removes* a redundant
+/// spawn, never blocks a real one.
+fn agent_already_holds_key(key_path: &std::path::Path) -> bool {
+    let Some(fingerprint) = fingerprint_for_key_path(key_path) else {
+        return false;
+    };
+    let manager = crate::ssh_agent::SshAgentManager::from_env();
+    // Bounded, not `get_status()`: the native A1 path answers in under a
+    // millisecond, but if it cannot and the query falls back to `ssh-add -l`,
+    // a broken or launchd-throttled agent must not hang this call (some GUI
+    // callers run it on the main thread). A timeout error reads as "not held",
+    // so the caller falls through to the normal `ssh-add` add.
+    match manager.get_status_timeout(std::time::Duration::from_secs(3)) {
+        Ok(status) => status.keys.iter().any(|k| k.fingerprint == fingerprint),
+        Err(_) => false,
+    }
+}
+
 /// Loads one SSH private key into the running ssh-agent, the single `ssh-add`
 /// path for the whole app (A3).
 ///
-/// Runs `ssh-add <key_path>` with no stdin, output discarded, host
+/// First checks whether the agent already holds the key (by public
+/// fingerprint, over the native protocol — no passphrase, no process) and
+/// returns `Ok(())` at once if so. Otherwise runs `ssh-add <key_path>` with no
+/// stdin, output discarded, host
 /// `SSH_ASKPASS` stripped (it may name a helper absent in the Flatpak sandbox)
 /// and the agent environment applied through [`apply_agent_env`]. This is the
 /// one place the spawn lives: the GUI's mc/file-manager launch paths and the
@@ -701,6 +754,16 @@ pub fn ensure_ssh_agent() -> Option<SshAgentInfo> {
 /// no agent socket is set — `ssh-add` is still tried, because the socket may be
 /// at a non-standard path the environment does not advertise.
 pub fn ensure_identity_loaded(key_path: &std::path::Path) -> Result<(), String> {
+    // A3 fast path: if the agent already holds this key, there is nothing to
+    // add and no process to spawn. The public fingerprint is read without a
+    // passphrase (A2), and the agent is queried over the native wire protocol
+    // (A1), so an already-loaded key costs one round trip and zero processes —
+    // the common case before an mc/SFTP launch on a key loaded at connect time.
+    if agent_already_holds_key(key_path) {
+        tracing::debug!(?key_path, "SSH key already in agent; skipping ssh-add");
+        return Ok(());
+    }
+
     if !is_ssh_agent_available() {
         tracing::warn!(
             "SSH_AUTH_SOCK not set or agent not running; ssh-add may still work \
@@ -1158,5 +1221,33 @@ mod tests {
             };
         }
         assert!(ensure_key_in_agent(&conn, &[]));
+    }
+
+    #[test]
+    fn fingerprint_is_read_from_a_sibling_pub_file() {
+        // The A3 fast path identifies a key by the fingerprint of its public
+        // half; a .pub next to the private key is the common source.
+        let dir = tempfile::tempdir().unwrap();
+        let key = dir.path().join("id_ed25519");
+        std::fs::write(&key, b"(private key body unused by the fingerprint path)").unwrap();
+        let pub_line = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINnFst2q3Z6rJ0r5wqT3o8n5oQ9m9g2k0o7w8b6c1d2e me@host\n";
+        std::fs::write(key.with_extension("pub"), pub_line).unwrap();
+
+        let fp = fingerprint_for_key_path(&key).expect("fingerprint from .pub");
+        assert!(fp.starts_with("SHA256:"));
+        // Matches what the public-key parser computes for the same line.
+        let expected = crate::ssh_agent::PublicKeyInfo::from_pub_line(pub_line.trim())
+            .unwrap()
+            .fingerprint;
+        assert_eq!(fp, expected);
+    }
+
+    #[test]
+    fn fingerprint_is_none_for_a_missing_key_and_missing_pub() {
+        // No key file and no .pub: the fast path cannot identify the key, so it
+        // returns None and the caller falls through to ssh-add (never blocks).
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("absent_key");
+        assert!(fingerprint_for_key_path(&missing).is_none());
     }
 }
