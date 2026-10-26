@@ -966,24 +966,34 @@ impl MainWindow {
         window.add_action(&obt_action);
     }
 
-    /// Raises a dynamic SOCKS proxy (`ssh -N -D`) to the given SSH or Tailscale SSH connection and
-    /// waits for it to accept connections.
+    /// Raises a dynamic SOCKS proxy (`ssh -N -D`) to the given SSH or Tailscale SSH connection
+    /// **off the GTK thread** and waits for it to accept connections, delivering the result to
+    /// `on_ready` back on the GTK thread.
     ///
     /// The tunnel reuses that connection's key (resolved through the group
     /// chain), its own jump-host chain and any session-cached password. It is
     /// the shared primitive behind both a Web connection's `tunnel_via` and the
-    /// SSH sidebar's "Open Browser via Tunnel" action.
+    /// SSH sidebar's "Open Browser via Tunnel" action. The params are read from
+    /// `AppState` here (cheap, on the GTK thread, borrow released before the
+    /// worker starts); only the blocking spawn+wait moves to a worker.
     ///
-    /// # Errors
-    ///
-    /// Returns a human-readable message when the connection is gone, the state
+    /// `on_ready` receives `Err(message)` when the connection is gone, the state
     /// is momentarily busy, or `ssh` fails to establish the proxy.
-    fn raise_socks_tunnel_for(
-        state: &SharedAppState,
-        jump_id: Uuid,
-    ) -> Result<rustconn_core::ssh_tunnel::SshTunnel, String> {
-        let params = Self::socks_tunnel_params_for(state, jump_id)?;
-        Self::spawn_socks_tunnel(&params)
+    fn raise_socks_tunnel_async<C>(state: &SharedAppState, jump_id: Uuid, on_ready: C)
+    where
+        C: FnOnce(Result<rustconn_core::ssh_tunnel::SshTunnel, String>) + 'static,
+    {
+        let params = match Self::socks_tunnel_params_for(state, jump_id) {
+            Ok(params) => params,
+            Err(msg) => {
+                on_ready(Err(msg));
+                return;
+            }
+        };
+        crate::utils::spawn_blocking_with_callback(
+            move || Self::spawn_socks_tunnel(&params),
+            on_ready,
+        );
     }
 
     /// Builds the [`rustconn_core::ssh_tunnel::SshTunnelParams`] for a SOCKS tunnel to `jump_id`, reading
@@ -992,7 +1002,7 @@ impl MainWindow {
     /// Split from [`Self::spawn_socks_tunnel`] so the spawn — which blocks while
     /// `ssh` connects and the port comes up — can run off the GTK thread while
     /// this cheap, borrow-only half stays on it. See
-    /// [`Self::raise_web_socks_tunnel_async`].
+    /// [`Self::raise_socks_tunnel_async`].
     ///
     /// # Errors
     ///
@@ -1063,9 +1073,7 @@ impl MainWindow {
     /// This blocks (the wait polls the port with `std::thread::sleep`), so it is
     /// **not** to be called on the GTK thread — a dead jump host would otherwise
     /// freeze the window until `ConnectTimeout` lapses. Callers on the UI thread
-    /// go through [`Self::raise_web_socks_tunnel_async`]; this synchronous form
-    /// is kept for the (already off-thread or short-lived) callers that build
-    /// params and spawn in one place.
+    /// go through [`Self::raise_socks_tunnel_async`], which runs this on a worker.
     ///
     /// # Errors
     ///
@@ -1105,17 +1113,7 @@ impl MainWindow {
             on_ready(Ok(None));
             return;
         };
-        let params = match Self::socks_tunnel_params_for(state, jump_id) {
-            Ok(params) => params,
-            Err(msg) => {
-                on_ready(Err(msg));
-                return;
-            }
-        };
-        crate::utils::spawn_blocking_with_callback(
-            move || Self::spawn_socks_tunnel(&params).map(Some),
-            on_ready,
-        );
+        Self::raise_socks_tunnel_async(state, jump_id, move |result| on_ready(result.map(Some)));
     }
 
     /// Normalises the configured tunnel-browser start URL into something both
@@ -1464,16 +1462,49 @@ impl MainWindow {
             return;
         }
 
-        let tunnel = match Self::raise_socks_tunnel_for(state, connection_id) {
-            Ok(tunnel) => tunnel,
+        // The tunnel comes up on a worker (a dead host would otherwise freeze the
+        // window until `ConnectTimeout`); the browser opens from the callback back
+        // on the GTK thread. No `Ref` is held across the worker: the params are
+        // read and released before it starts. The one-shot closure owns plain `Rc`
+        // clones and is stored nowhere, so it forms no cycle.
+        let state_cb = std::rc::Rc::clone(state);
+        let notebook_cb = notebook.clone();
+        let sidebar_cb = sidebar.clone();
+        Self::raise_socks_tunnel_async(state, connection_id, move |result| match result {
+            Ok(tunnel) => Self::launch_tunnel_browser(
+                &state_cb,
+                &notebook_cb,
+                &sidebar_cb,
+                connection_id,
+                path,
+                &start_url,
+                tunnel,
+            ),
             Err(msg) => {
                 crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
                     "Could not open the SSH tunnel: {}",
                     &[&msg],
                 ));
-                return;
             }
-        };
+        });
+    }
+
+    /// Opens the browser chosen by [`Self::open_browser_via_tunnel`] through a
+    /// SOCKS tunnel that is already up, and settles who owns the tunnel.
+    ///
+    /// The embedded browser consumes the tunnel (its lifetime is the tab's). An
+    /// external browser leaves it with the notebook and the external-session
+    /// registry; if the browser fails to start the tunnel is dropped here, which
+    /// kills `ssh`.
+    fn launch_tunnel_browser(
+        state: &SharedAppState,
+        notebook: &SharedNotebook,
+        sidebar: &SharedSidebar,
+        connection_id: Uuid,
+        path: TunnelBrowserPath,
+        start_url: &str,
+        tunnel: rustconn_core::ssh_tunnel::SshTunnel,
+    ) {
         let port = tunnel.local_port();
 
         let (browser, extra_args) = match path {
@@ -1486,13 +1517,15 @@ impl MainWindow {
                     state,
                     notebook,
                     connection_id,
-                    &start_url,
+                    start_url,
                     tunnel,
                 );
                 return;
             }
             #[cfg(not(feature = "web-embedded"))]
             TunnelBrowserPath::Embedded => {
+                // `state` is only read by the embedded path.
+                let _ = state;
                 unreachable!("embedded path is unreachable without the feature")
             }
             TunnelBrowserPath::Fail => return,
@@ -1511,7 +1544,7 @@ impl MainWindow {
         cmd.arg("--no-first-run");
         cmd.arg("--no-default-browser-check");
         cmd.arg(format!("--proxy-server=socks5://127.0.0.1:{port}"));
-        cmd.arg(&start_url);
+        cmd.arg(start_url);
 
         match cmd.spawn() {
             Ok(child) => {
