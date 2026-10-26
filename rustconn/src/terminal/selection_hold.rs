@@ -37,8 +37,9 @@ pub(super) struct SelectionHold {
     /// Weak on purpose: the terminal owns its controllers, and the controllers'
     /// closures own the only senders of `wake`. If the hold kept them alive, a
     /// terminal destroyed mid-drag would never close the channel and the
-    /// waiter would park for good. Weak, disposing the terminal drops the
-    /// senders and wakes the waiter.
+    /// waiter would park for good. Weak, dropping the last reference to the
+    /// terminal (GTK removes a widget's controllers when it finalizes, not when
+    /// it is disposed) drops the senders and wakes the waiter.
     controllers: Option<(
         glib::WeakRef<EventControllerLegacy>,
         glib::WeakRef<EventControllerFocus>,
@@ -125,9 +126,10 @@ impl SelectionHold {
     ///
     /// `has_selection` is re-checked after every wake. The caller passes VTE's
     /// own `has_selection` through a weak reference, so a terminal closed mid
-    /// drag is not kept alive by its output loop. Disposing the terminal drops
-    /// its controllers and with them every sender of the wake channel, which
-    /// ends the wait; that is the only wake a destroyed terminal can send.
+    /// drag is not kept alive by its output loop. When the last reference to
+    /// the terminal is dropped, GTK finalizes it and removes its controllers,
+    /// and with them every sender of the wake channel, which ends the wait; that
+    /// is the only wake a destroyed terminal can send.
     #[expect(
         clippy::future_not_send,
         reason = "GTK state; awaited only from glib::spawn_future_local on the main thread"
