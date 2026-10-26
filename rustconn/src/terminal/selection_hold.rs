@@ -34,7 +34,15 @@ pub(super) struct SelectionHold {
     /// The selection on screen belongs to the current press, not to an older one.
     fresh: Rc<Cell<bool>>,
     wake: async_channel::Receiver<()>,
-    controllers: Option<(EventControllerLegacy, EventControllerFocus)>,
+    /// Weak on purpose: the terminal owns its controllers, and the controllers'
+    /// closures own the only senders of `wake`. If the hold kept them alive, a
+    /// terminal destroyed mid-drag would never close the channel and the
+    /// waiter would park for good. Weak, disposing the terminal drops the
+    /// senders and wakes the waiter.
+    controllers: Option<(
+        glib::WeakRef<EventControllerLegacy>,
+        glib::WeakRef<EventControllerFocus>,
+    )>,
     selection_changed: Option<glib::SignalHandlerId>,
 }
 
@@ -97,7 +105,7 @@ impl SelectionHold {
             held,
             fresh,
             wake,
-            controllers: Some((buttons, focus)),
+            controllers: Some((buttons.downgrade(), focus.downgrade())),
             selection_changed: Some(changed_id),
         }
     }
@@ -113,11 +121,13 @@ impl SelectionHold {
     }
 
     /// Returns once the primary button is up, the press turns out not to be
-    /// selecting, or `has_selection` turns false.
+    /// selecting, `has_selection` turns false, or the terminal is gone.
     ///
     /// `has_selection` is re-checked after every wake. The caller passes VTE's
     /// own `has_selection` through a weak reference, so a terminal closed mid
-    /// drag is not kept alive by its output loop.
+    /// drag is not kept alive by its output loop. Disposing the terminal drops
+    /// its controllers and with them every sender of the wake channel, which
+    /// ends the wait; that is the only wake a destroyed terminal can send.
     #[expect(
         clippy::future_not_send,
         reason = "GTK state; awaited only from glib::spawn_future_local on the main thread"
@@ -135,8 +145,12 @@ impl SelectionHold {
     /// not stack them.
     pub(super) fn detach(mut self, terminal: &Terminal) {
         if let Some((buttons, focus)) = self.controllers.take() {
-            terminal.remove_controller(&buttons);
-            terminal.remove_controller(&focus);
+            if let Some(buttons) = buttons.upgrade() {
+                terminal.remove_controller(&buttons);
+            }
+            if let Some(focus) = focus.upgrade() {
+                terminal.remove_controller(&focus);
+            }
         }
         if let Some(id) = self.selection_changed.take() {
             terminal.disconnect(id);
@@ -238,6 +252,29 @@ mod tests {
         // VTE reports the finished drag on release; it must not arm the next press.
         selection_changed(&hold.held, &hold.fresh);
         assert!(!hold.fresh.get());
+    }
+
+    #[test]
+    fn a_waiter_wakes_when_the_last_sender_is_dropped() {
+        let ctx = glib::MainContext::new();
+        let (hold, wake_tx) = manual_hold();
+        press(&hold.held, &hold.fresh, false);
+
+        let hold = Rc::new(hold);
+        let done = Rc::new(Cell::new(false));
+        let (hold_task, done_task) = (Rc::clone(&hold), Rc::clone(&done));
+        drop(ctx.spawn_local(async move {
+            hold_task.wait_while_selecting(|| true).await;
+            done_task.set(true);
+        }));
+
+        pump(&ctx);
+        assert!(!done.get(), "output resumed mid drag");
+        // The terminal was disposed mid drag: its controllers, and with them
+        // the senders their closures own, are gone, and no release ever came.
+        drop(wake_tx);
+        pump(&ctx);
+        assert!(done.get(), "a destroyed terminal left the waiter parked");
     }
 
     #[test]
