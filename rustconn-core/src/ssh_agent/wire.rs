@@ -6,11 +6,11 @@
 //! about (1+N)×5 ms on the GTK main thread (issue, A1); this answers in one
 //! round trip with no process at all.
 //!
-//! Scope is deliberately the READ half — [`request_identities`] and the SHA256
-//! fingerprint it computes with `ring`. Adding and removing keys still go
-//! through `ssh-add` in [`super::SshAgentManager`]: adding an *encrypted* key
-//! needs a passphrase-decrypt that belongs with the `ssh-key` crate (A2), and
-//! until that lands the existing askpass path stays.
+//! Scope is deliberately the READ half — [`request_identities`], which
+//! fingerprints each key with the shared helper in [`super::keyfile`]. Adding
+//! and removing keys still go through `ssh-add` in [`super::SshAgentManager`]:
+//! adding an *encrypted* key needs an in-process passphrase decrypt, which is
+//! blocked by a dependency conflict (see `keyfile`), so the askpass path stays.
 //!
 //! # Protocol
 //!
@@ -116,51 +116,14 @@ fn parse_identities_answer(body: &[u8]) -> AgentResult<Vec<AgentKey>> {
         let blob = reader.string()?;
         let comment = reader.string()?;
         keys.push(AgentKey {
-            fingerprint: sha256_fingerprint(blob),
+            fingerprint: super::keyfile::sha256_fingerprint(blob),
             bits: 0,
-            key_type: key_type_from_blob(blob),
+            key_type: super::keyfile::key_type_from_blob(blob),
             comment: String::from_utf8_lossy(comment).into_owned(),
         });
     }
 
     Ok(keys)
-}
-
-/// The OpenSSH `SHA256:<base64>` fingerprint of a public-key blob.
-///
-/// OpenSSH hashes the raw blob with SHA-256 and prints the digest as standard
-/// base64 with the padding `=` stripped. `ring` does the hash in-process, which
-/// is the whole point of A1: no `ssh-keygen -lf -` per key.
-fn sha256_fingerprint(blob: &[u8]) -> String {
-    let digest = ring::digest::digest(&ring::digest::SHA256, blob);
-    // Standard base64 without padding, as OpenSSH prints a SHA256 fingerprint.
-    // `data-encoding` is already the project's base64 (see bitwarden.rs).
-    let b64 = data_encoding::BASE64_NOPAD.encode(digest.as_ref());
-    format!("SHA256:{b64}")
-}
-
-/// The leading algorithm string of a public-key blob (`ssh-ed25519`,
-/// `ssh-rsa`, `ecdsa-sha2-nistp256`, …), uppercased to a short type the UI
-/// already shows (`ED25519`, `RSA`, `ECDSA`).
-///
-/// Returns `"UNKNOWN"` when the blob does not start with a readable algorithm
-/// string; a connect decision never keys on this, so a best-effort label is
-/// enough.
-fn key_type_from_blob(blob: &[u8]) -> String {
-    let mut reader = Reader::new(blob);
-    let Ok(algo) = reader.string() else {
-        return "UNKNOWN".to_string();
-    };
-    let algo = String::from_utf8_lossy(algo);
-    match algo.as_ref() {
-        "ssh-ed25519" => "ED25519".to_string(),
-        "ssh-rsa" => "RSA".to_string(),
-        "ssh-dss" => "DSA".to_string(),
-        a if a.starts_with("ecdsa-sha2-") => "ECDSA".to_string(),
-        a if a.starts_with("sk-ssh-ed25519") => "ED25519-SK".to_string(),
-        a if a.starts_with("sk-ecdsa-sha2-") => "ECDSA-SK".to_string(),
-        other => other.to_uppercase(),
-    }
 }
 
 /// A bounds-checked cursor over the reply bytes.
@@ -263,17 +226,18 @@ mod tests {
     fn fingerprint_matches_known_vector() {
         // SHA256 of the 11 bytes b"hello world", base64 no-pad, is a fixed
         // value — this pins the encoding (standard base64, padding stripped,
-        // SHA256: prefix) against drift.
-        let fp = sha256_fingerprint(b"hello world");
+        // SHA256: prefix) against drift. The helper now lives in `keyfile`,
+        // shared with the key-file read path so both fingerprint identically.
+        let fp = super::super::keyfile::sha256_fingerprint(b"hello world");
         assert_eq!(fp, "SHA256:uU0nuZNNPgilLlLX2n2r+sSE7+N6U4DukIj3rOLvzek");
     }
 
     #[test]
     fn rsa_and_ecdsa_types_are_recognised() {
         let rsa = ssh_string(b"ssh-rsa");
-        assert_eq!(key_type_from_blob(&rsa), "RSA");
+        assert_eq!(super::super::keyfile::key_type_from_blob(&rsa), "RSA");
         let ecdsa = ssh_string(b"ecdsa-sha2-nistp256");
-        assert_eq!(key_type_from_blob(&ecdsa), "ECDSA");
+        assert_eq!(super::super::keyfile::key_type_from_blob(&ecdsa), "ECDSA");
     }
 
     #[test]

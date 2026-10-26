@@ -3,8 +3,11 @@
 //! This module provides functionality for interacting with the SSH agent,
 //! including starting the agent, managing keys, and parsing agent output.
 
+mod keyfile;
 #[cfg(unix)]
 mod wire;
+
+pub use keyfile::{KeyEncryption, KeyFileInfo, KeyFormat, PublicKeyInfo, inspect_key_file};
 
 use std::path::PathBuf;
 
