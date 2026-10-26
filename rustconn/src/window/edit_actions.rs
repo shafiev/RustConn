@@ -966,7 +966,7 @@ impl MainWindow {
         window.add_action(&obt_action);
     }
 
-    /// Raises a dynamic SOCKS proxy (`ssh -N -D`) to the given SSH connection and
+    /// Raises a dynamic SOCKS proxy (`ssh -N -D`) to the given SSH or Tailscale SSH connection and
     /// waits for it to accept connections.
     ///
     /// The tunnel reuses that connection's key (resolved through the group
@@ -1009,6 +1009,23 @@ impl MainWindow {
             .get_connection(jump_id)
             .ok_or_else(|| crate::i18n::i18n("the SSH connection it tunnels through is gone"))?;
 
+        if let Some(rustconn_core::ssh_tunnel::SocksTunnelRoute::TailscaleSsh { destination }) =
+            rustconn_core::ssh_tunnel::socks_tunnel_route(jump_conn)
+        {
+            // Same `tailscale ssh <dest>` the session runs: tailnet identity, no key,
+            // no cached password, no port (issue #397).
+            return Ok(rustconn_core::ssh_tunnel::SshTunnelParams {
+                jump_host: destination,
+                jump_port: 22,
+                remote_host: String::new(),
+                remote_port: 0,
+                identity_file: None,
+                password: None,
+                extra_args: Vec::new(),
+                launcher: rustconn_core::ssh_tunnel::TunnelLauncher::TailscaleSsh,
+            });
+        }
+
         let mut jump_dest = jump_conn.host.clone();
         if let Some(user) = &jump_conn.username {
             jump_dest = format!("{user}@{jump_dest}");
@@ -1036,6 +1053,7 @@ impl MainWindow {
             identity_file,
             password,
             extra_args,
+            launcher: rustconn_core::ssh_tunnel::TunnelLauncher::OpenSsh,
         })
     }
 
@@ -1338,27 +1356,24 @@ impl MainWindow {
         sidebar: &SharedSidebar,
         connection_id: Uuid,
     ) {
-        // Only SSH-family connections can host a SOCKS tunnel.
-        let (is_ssh, prefer_embedded, start_url, browser_command) = {
+        // Only connections `socks_tunnel_route` accepts (SSH/SFTP, Tailscale SSH)
+        // can host a SOCKS tunnel.
+        let (can_tunnel, prefer_embedded, start_url, browser_command) = {
             let Ok(state_ref) = state.try_borrow() else {
                 return;
             };
-            let is_ssh = state_ref.get_connection(connection_id).is_some_and(|c| {
-                matches!(
-                    c.protocol_config,
-                    rustconn_core::models::ProtocolConfig::Ssh(_)
-                        | rustconn_core::models::ProtocolConfig::Sftp(_)
-                )
-            });
+            let can_tunnel = state_ref
+                .get_connection(connection_id)
+                .is_some_and(|c| rustconn_core::ssh_tunnel::socks_tunnel_route(c).is_some());
             let ui = &state_ref.settings().ui;
             (
-                is_ssh,
+                can_tunnel,
                 ui.open_tunnelled_browser_in_embedded,
                 Self::normalize_start_url(&ui.tunnel_browser_start_url),
                 ui.tunnel_browser_command.trim().to_string(),
             )
         };
-        if !is_ssh {
+        if !can_tunnel {
             return;
         }
         // Only consulted by the embedded path; a build without it browses external.

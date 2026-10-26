@@ -309,6 +309,7 @@ fn start_rdp_session_internal(
                     })
                     .map(|c| c.password.clone()),
                 extra_args,
+                launcher: rustconn_core::ssh_tunnel::TunnelLauncher::OpenSsh,
             };
 
             // Clone connection for history before dropping state borrow
@@ -1480,6 +1481,7 @@ fn start_vnc_session_internal(
                     })
                     .map(|c| c.password.clone()),
                 extra_args,
+                launcher: rustconn_core::ssh_tunnel::TunnelLauncher::OpenSsh,
             };
 
             drop(state_ref);

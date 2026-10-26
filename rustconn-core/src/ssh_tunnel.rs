@@ -23,6 +23,12 @@ pub enum SshTunnelError {
     /// Failed to spawn the SSH process.
     #[error("Failed to spawn SSH tunnel: {0}")]
     SpawnFailed(#[from] std::io::Error),
+    /// A Tailscale SSH host or user name that could be read as an ssh option or
+    /// a shell word. Rejected before anything is spawned.
+    #[error(
+        "Refusing a Tailscale SSH host or user name that is not a plain name (letters, digits, '.', '_', '-', ':')"
+    )]
+    UnsafeDestination,
 }
 
 /// Result type for SSH tunnel operations.
@@ -125,6 +131,55 @@ impl Drop for SshTunnel {
     }
 }
 
+/// Which client starts the tunnel process.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum TunnelLauncher {
+    /// `ssh … <jump_host>` — the destination goes last.
+    #[default]
+    OpenSsh,
+    /// `tailscale ssh <jump_host> …` — the same wrapper the Tailscale SSH
+    /// session runs, so auth, ACLs and host-key checks match it. The
+    /// destination goes first (tailscale reads `args[0]` as the host and
+    /// passes the rest to the system `ssh`, which parses options after the
+    /// destination). `jump_port` and the Flatpak known_hosts are not used.
+    TailscaleSsh,
+}
+
+/// How a SOCKS browser tunnel reaches a connection, or `None` from
+/// [`socks_tunnel_route`] when the connection type cannot host one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SocksTunnelRoute {
+    /// Plain OpenSSH to the connection's own host.
+    OpenSsh,
+    /// `tailscale ssh <destination>`.
+    TailscaleSsh {
+        /// The `[user@]host` the Tailscale SSH session itself is given.
+        destination: String,
+    },
+}
+
+/// How a SOCKS browser tunnel reaches `conn`, or `None` when the connection
+/// type cannot host one.
+///
+/// The single gate behind "Open Browser via Tunnel" (issue #397): SSH/SFTP go
+/// through OpenSSH, Tailscale SSH through `tailscale ssh`; every other Zero
+/// Trust provider stays unsupported.
+#[must_use]
+pub fn socks_tunnel_route(conn: &crate::models::Connection) -> Option<SocksTunnelRoute> {
+    use crate::models::{ProtocolConfig, ZeroTrustProviderConfig};
+
+    match &conn.protocol_config {
+        ProtocolConfig::Ssh(_) | ProtocolConfig::Sftp(_) => Some(SocksTunnelRoute::OpenSsh),
+        ProtocolConfig::ZeroTrust(zt) => match &zt.provider_config {
+            ZeroTrustProviderConfig::TailscaleSsh(cfg) => Some(SocksTunnelRoute::TailscaleSsh {
+                destination: cfg.destination(conn.username.as_deref()),
+            }),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 /// Parameters for creating an SSH tunnel.
 #[derive(Debug, Clone)]
 pub struct SshTunnelParams {
@@ -146,6 +201,8 @@ pub struct SshTunnelParams {
     pub password: Option<SecretString>,
     /// Optional extra SSH args (e.g. `-o StrictHostKeyChecking=no`).
     pub extra_args: Vec<String>,
+    /// Which client starts the tunnel (OpenSSH by default).
+    pub launcher: TunnelLauncher,
 }
 
 /// Environment variable name carrying the *path* to the owner-only file that
@@ -339,41 +396,73 @@ pub fn create_socks_tunnel(params: &SshTunnelParams) -> SshTunnelResult<SshTunne
     spawn_tunnel(params, local_port, &["-D", &port_str], "SOCKS proxy")
 }
 
-/// Shared spawn path for [`create_tunnel`] and [`create_socks_tunnel`].
+/// Checks the `[user@]host` destination handed to `tailscale ssh`.
 ///
-/// `forward_args` is the forwarding flag and its value (`["-L", spec]` or
-/// `["-D", port]`); `remote_desc` is a human-readable destination for the log.
-/// Everything else — jump-host port, identity, askpass, Flatpak known_hosts,
-/// `ExitOnForwardFailure`, stderr capture — is identical between the two.
-#[expect(
-    clippy::too_many_lines,
-    reason = "one linear ssh-command assembly: flags, file-based askpass setup, spawn and stderr capture read top-to-bottom; splitting it would scatter the single command builder across helpers"
-)]
-fn spawn_tunnel(
+/// `tailscale ssh` places our forwarding flags after the destination and
+/// without a `--`, so a host or user starting with `-` would be read by the
+/// system `ssh` as an option (`-oProxyCommand=…` runs a local command). A host
+/// tailscale cannot resolve is passed through to `ProxyCommand … nc %h %p`,
+/// which runs under `sh -c`, so shell metacharacters matter too. Only plain
+/// names pass: user `[A-Za-z0-9._-]`, host `[A-Za-z0-9._:-]` (names, IPv4 and
+/// IPv6 literals), neither empty, neither starting with `-`, at most one `@`.
+/// The value is deliberately not echoed in the error.
+fn validate_tailscale_destination(destination: &str) -> SshTunnelResult<()> {
+    let (user, host) = match destination.split_once('@') {
+        Some((user, host)) => (Some(user), host),
+        None => (None, destination),
+    };
+    let plain = |part: &str, extra: &[char]| {
+        !part.is_empty()
+            && !part.starts_with('-')
+            && part.chars().all(|c| {
+                c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') || extra.contains(&c)
+            })
+    };
+    if user.is_none_or(|u| plain(u, &[])) && plain(host, &[':']) {
+        Ok(())
+    } else {
+        Err(SshTunnelError::UnsafeDestination)
+    }
+}
+
+/// The program and arguments [`spawn_tunnel`] runs. Pure apart from the
+/// Flatpak known_hosts lookup, so the argv shape is unit-testable.
+///
+/// `uses_askpass` is true when a password helper is wired up; otherwise
+/// `BatchMode=yes` keeps `ssh` from waiting on a prompt nobody can answer.
+fn tunnel_command_line(
     params: &SshTunnelParams,
-    local_port: u16,
     forward_args: &[&str; 2],
-    remote_desc: &str,
-) -> SshTunnelResult<SshTunnel> {
-    let mut cmd = Command::new("ssh");
-    cmd.arg("-N") // No remote command — just forward
-        .arg(forward_args[0])
-        .arg(forward_args[1]);
+    uses_askpass: bool,
+) -> (&'static str, Vec<String>) {
+    let tailscale = params.launcher == TunnelLauncher::TailscaleSsh;
+    let mut args: Vec<String> = Vec::new();
 
-    // Jump host port
-    if params.jump_port != 22 {
-        cmd.arg("-p").arg(params.jump_port.to_string());
+    // `tailscale ssh` reads args[0] as the host; the rest goes to `ssh`.
+    if tailscale {
+        args.push("ssh".to_string());
+        args.push(params.jump_host.clone());
     }
 
-    // Identity file
+    // No remote command — just forward
+    args.extend([
+        "-N".to_string(),
+        forward_args[0].to_string(),
+        forward_args[1].to_string(),
+    ]);
+
+    // Jump host port. `tailscale ssh` takes none: the session passes none either.
+    if !tailscale && params.jump_port != 22 {
+        args.push("-p".to_string());
+        args.push(params.jump_port.to_string());
+    }
+
     if let Some(ref key) = params.identity_file {
-        cmd.arg("-i").arg(key);
+        args.push("-i".to_string());
+        args.push(key.clone());
     }
 
-    // Extra args
-    for arg in &params.extra_args {
-        cmd.arg(arg);
-    }
+    args.extend(params.extra_args.iter().cloned());
 
     // Bound the initial connect so a dead jump host fails in seconds instead of
     // hanging on the OS TCP timeout. Without this a SOCKS/Web tunnel (or an
@@ -396,13 +485,50 @@ fn spawn_tunnel(
         .iter()
         .any(|a| a.eq_ignore_ascii_case("ConnectTimeout") || a.starts_with("ConnectTimeout="));
     if !has_connect_timeout {
-        cmd.arg("-o").arg("ConnectTimeout=8");
+        args.push("-o".to_string());
+        args.push("ConnectTimeout=8".to_string());
     }
 
-    // Flatpak writable known_hosts
-    if let Some(kh_path) = crate::get_flatpak_known_hosts_path() {
-        cmd.arg("-o")
-            .arg(format!("UserKnownHostsFile={}", kh_path.display()));
+    // Flatpak writable known_hosts. Not for Tailscale: it sets its own
+    // UserKnownHostsFile first, and the first value wins in OpenSSH.
+    if !tailscale && let Some(kh_path) = crate::get_flatpak_known_hosts_path() {
+        args.push("-o".to_string());
+        args.push(format!("UserKnownHostsFile={}", kh_path.display()));
+    }
+
+    // No password helper — prevent SSH from reading stdin
+    if !uses_askpass {
+        args.push("-o".to_string());
+        args.push("BatchMode=yes".to_string());
+    }
+
+    // Exit if the forwarding fails (e.g. port already in use)
+    args.push("-o".to_string());
+    args.push("ExitOnForwardFailure=yes".to_string());
+
+    // The jump host destination goes last for OpenSSH (first for tailscale, above)
+    if !tailscale {
+        args.push(params.jump_host.clone());
+    }
+
+    (if tailscale { "tailscale" } else { "ssh" }, args)
+}
+
+/// Shared spawn path for [`create_tunnel`] and [`create_socks_tunnel`].
+///
+/// `forward_args` is the forwarding flag and its value (`["-L", spec]` or
+/// `["-D", port]`); `remote_desc` is a human-readable destination for the log.
+/// Everything else — jump-host port, identity, askpass, Flatpak known_hosts,
+/// `ExitOnForwardFailure`, stderr capture — is identical between the two.
+fn spawn_tunnel(
+    params: &SshTunnelParams,
+    local_port: u16,
+    forward_args: &[&str; 2],
+    remote_desc: &str,
+) -> SshTunnelResult<SshTunnel> {
+    // Before any askpass file exists, so a refusal leaves nothing behind.
+    if params.launcher == TunnelLauncher::TailscaleSsh {
+        validate_tailscale_destination(&params.jump_host)?;
     }
 
     // SSH_ASKPASS for password-authenticated jump hosts, or BatchMode
@@ -416,16 +542,7 @@ fn spawn_tunnel(
             create_tunnel_askpass_script(),
             create_tunnel_secret_file(pw),
         ) {
-            (Ok(script_path), Ok(secret_path)) => {
-                cmd.env("SSH_ASKPASS", &script_path);
-                cmd.env("SSH_ASKPASS_REQUIRE", "force");
-                cmd.env(TUNNEL_ASKPASS_ENV_VAR, &secret_path);
-                // Ensure DISPLAY is set so SSH considers ASKPASS
-                if std::env::var("DISPLAY").is_err() {
-                    cmd.env("DISPLAY", "");
-                }
-                (Some(script_path), Some(secret_path))
-            }
+            (Ok(script_path), Ok(secret_path)) => (Some(script_path), Some(secret_path)),
             (script_result, secret_result) => {
                 // Either helper failed. Clean up whichever one succeeded so a
                 // stray script or plaintext file is not left behind, then fall
@@ -445,21 +562,39 @@ fn spawn_tunnel(
                     "Failed to set up SSH_ASKPASS for tunnel; \
                      falling back to BatchMode (password auth will fail)"
                 );
-                cmd.arg("-o").arg("BatchMode=yes");
                 (None, None)
             }
         }
     } else {
-        // No password — prevent SSH from reading stdin
-        cmd.arg("-o").arg("BatchMode=yes");
         (None, None)
     };
 
-    // Exit if the forwarding fails (e.g. port already in use)
-    cmd.arg("-o").arg("ExitOnForwardFailure=yes");
+    let (program, args) = tunnel_command_line(params, forward_args, askpass_script_path.is_some());
+    let mut cmd = match params.launcher {
+        TunnelLauncher::OpenSsh => Command::new(program),
+        TunnelLauncher::TailscaleSsh => {
+            // Sandbox-aware lookup (Flatpak CLI dir, Snap); tailscale then needs
+            // the same extended PATH to find `ssh` and, for its ProxyCommand,
+            // itself.
+            let mut cmd = Command::new(
+                crate::which::find_in_path(program)
+                    .unwrap_or_else(|| std::path::PathBuf::from(program)),
+            );
+            cmd.env("PATH", crate::cli_download::get_extended_path());
+            cmd
+        }
+    };
+    cmd.args(&args);
 
-    // The jump host destination
-    cmd.arg(&params.jump_host);
+    if let (Some(script_path), Some(secret_path)) = (&askpass_script_path, &secret_file_path) {
+        cmd.env("SSH_ASKPASS", script_path);
+        cmd.env("SSH_ASKPASS_REQUIRE", "force");
+        cmd.env(TUNNEL_ASKPASS_ENV_VAR, secret_path);
+        // Ensure DISPLAY is set so SSH considers ASKPASS
+        if std::env::var("DISPLAY").is_err() {
+            cmd.env("DISPLAY", "");
+        }
+    }
 
     cmd.stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -468,15 +603,12 @@ fn spawn_tunnel(
     // Log the assembled flags (not the env — the askpass password lives there).
     // Without this the "not ready" failures could not be told apart from a
     // missing ConnectTimeout, which cost a round of diagnosis.
-    let args_for_log: Vec<String> = cmd
-        .get_args()
-        .map(|a| a.to_string_lossy().into_owned())
-        .collect();
     tracing::info!(
         local_port,
         remote = %remote_desc,
         jump_host = %params.jump_host,
-        args = ?args_for_log,
+        program,
+        args = ?args,
         "Starting SSH tunnel"
     );
 
@@ -1900,11 +2032,272 @@ mod proxy_detection_tests {
             identity_file: None,
             password: Some(secrecy::SecretString::from("hunter2-tunnel-secret")),
             extra_args: Vec::new(),
+            launcher: crate::ssh_tunnel::TunnelLauncher::OpenSsh,
         };
         let rendered = format!("{params:?}");
         assert!(
             !rendered.contains("hunter2-tunnel-secret"),
             "Debug output must not contain the plaintext jump-host password: {rendered}"
         );
+    }
+}
+
+#[cfg(test)]
+mod tailscale_tunnel_tests {
+    use super::*;
+    use crate::models::{
+        Connection, ProtocolConfig, TailscaleSshConfig, ZeroTrustConfig, ZeroTrustProvider,
+        ZeroTrustProviderConfig,
+    };
+
+    fn params(launcher: TunnelLauncher, jump_host: &str) -> SshTunnelParams {
+        SshTunnelParams {
+            jump_host: jump_host.to_string(),
+            jump_port: 22,
+            remote_host: String::new(),
+            remote_port: 0,
+            identity_file: None,
+            password: None,
+            extra_args: Vec::new(),
+            launcher,
+        }
+    }
+
+    fn strs(v: &[&str]) -> Vec<String> {
+        v.iter().map(ToString::to_string).collect()
+    }
+
+    fn tailscale_conn(
+        conn_user: Option<&str>,
+        cfg_user: Option<&str>,
+        custom_args: &[&str],
+    ) -> Connection {
+        let mut conn = Connection::new(
+            "ts".to_string(),
+            String::new(),
+            0,
+            ProtocolConfig::ZeroTrust(ZeroTrustConfig {
+                provider: ZeroTrustProvider::TailscaleSsh,
+                provider_config: ZeroTrustProviderConfig::TailscaleSsh(TailscaleSshConfig {
+                    host: "my-server".to_string(),
+                    username: cfg_user.map(String::from),
+                }),
+                custom_args: strs(custom_args),
+            }),
+        );
+        conn.username = conn_user.map(String::from);
+        conn
+    }
+
+    #[test]
+    fn openssh_socks_command_line_is_unchanged() {
+        // Outside Flatpak there is no known_hosts override to add.
+        if crate::flatpak::is_flatpak() {
+            return;
+        }
+        let mut p = params(TunnelLauncher::OpenSsh, "admin@bastion.example.com");
+        p.jump_port = 2222;
+        p.identity_file = Some("/k".to_string());
+        let (program, args) = tunnel_command_line(&p, &["-D", "1080"], false);
+        assert_eq!(program, "ssh");
+        assert_eq!(
+            args,
+            strs(&[
+                "-N",
+                "-D",
+                "1080",
+                "-p",
+                "2222",
+                "-i",
+                "/k",
+                "-o",
+                "ConnectTimeout=8",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ExitOnForwardFailure=yes",
+                "admin@bastion.example.com",
+            ])
+        );
+    }
+
+    #[test]
+    fn tailscale_socks_command_line_puts_destination_first() {
+        let mut p = params(TunnelLauncher::TailscaleSsh, "alice@my-server");
+        p.jump_port = 2222; // ignored: the session passes no port either
+        let (program, args) = tunnel_command_line(&p, &["-D", "1080"], false);
+        assert_eq!(program, "tailscale");
+        assert_eq!(
+            args,
+            strs(&[
+                "ssh",
+                "alice@my-server",
+                "-N",
+                "-D",
+                "1080",
+                "-o",
+                "ConnectTimeout=8",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ExitOnForwardFailure=yes",
+            ])
+        );
+        assert!(!args.iter().any(|a| a.starts_with("UserKnownHostsFile")));
+    }
+
+    #[test]
+    fn tailscale_command_line_with_askpass_omits_batchmode() {
+        let p = params(TunnelLauncher::TailscaleSsh, "my-server");
+        let (_, args) = tunnel_command_line(&p, &["-D", "1080"], true);
+        assert!(!args.contains(&"BatchMode=yes".to_string()), "{args:?}");
+    }
+
+    #[test]
+    fn tailscale_command_line_keeps_caller_connect_timeout() {
+        let mut p = params(TunnelLauncher::TailscaleSsh, "my-server");
+        p.extra_args = strs(&["-o", "ConnectTimeout=3"]);
+        let (_, args) = tunnel_command_line(&p, &["-D", "1080"], false);
+        assert!(!args.contains(&"ConnectTimeout=8".to_string()), "{args:?}");
+        let timeout_at = args
+            .iter()
+            .position(|a| a == "ConnectTimeout=3")
+            .expect("caller timeout kept");
+        let forward_at = args.iter().position(|a| a == "-D").expect("forward flag");
+        assert!(timeout_at > forward_at, "{args:?}");
+    }
+
+    #[test]
+    fn tailscale_destination_accepts_plain_names() {
+        for input in [
+            "my-server",
+            "alice@my-server.tail1234.ts.net",
+            "root@my_server",
+            "100.101.102.103",
+            "fd7a:115c:a1e0::1",
+            "j.doe@host-1",
+        ] {
+            assert!(
+                validate_tailscale_destination(input).is_ok(),
+                "{input:?} should be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn tailscale_destination_rejects_option_and_shell_metacharacters() {
+        for input in [
+            "",
+            "@host",
+            "alice@",
+            "-oProxyCommand=touch /tmp/pwn",
+            "-oProxyCommand=x@host",
+            "alice@-oProxyCommand=x",
+            "host; touch /tmp/pwn",
+            "host$(id)",
+            "host`id`",
+            "$(id)@host",
+            "a@b@c",
+            "ho st",
+            "host\nx",
+            "'host'",
+            "host|nc",
+        ] {
+            assert!(
+                matches!(
+                    validate_tailscale_destination(input),
+                    Err(SshTunnelError::UnsafeDestination)
+                ),
+                "{input:?} should be refused"
+            );
+        }
+    }
+
+    #[test]
+    fn tailscale_socks_tunnel_refuses_unsafe_destination_without_spawning() {
+        let p = params(
+            TunnelLauncher::TailscaleSsh,
+            "-oProxyCommand=touch /tmp/pwn",
+        );
+        assert!(matches!(
+            create_socks_tunnel(&p),
+            Err(SshTunnelError::UnsafeDestination)
+        ));
+    }
+
+    #[test]
+    fn socks_tunnel_route_gates_ssh_sftp_and_tailscale_only() {
+        let route = socks_tunnel_route;
+        assert_eq!(
+            route(&Connection::new_ssh("a".into(), "h".into(), 22)),
+            Some(SocksTunnelRoute::OpenSsh)
+        );
+        assert_eq!(
+            route(&Connection::new_sftp("a".into(), "h".into(), 22)),
+            Some(SocksTunnelRoute::OpenSsh)
+        );
+        assert_eq!(
+            route(&Connection::new_rdp("a".into(), "h".into(), 3389)),
+            None
+        );
+        assert_eq!(
+            route(&Connection::new_vnc("a".into(), "h".into(), 5900)),
+            None
+        );
+        assert_eq!(
+            route(&Connection::new_telnet("a".into(), "h".into(), 23)),
+            None
+        );
+
+        // Connection-level user is the fallback; the config's own user wins.
+        assert_eq!(
+            route(&tailscale_conn(Some("bob"), None, &["tmux"])),
+            Some(SocksTunnelRoute::TailscaleSsh {
+                destination: "bob@my-server".to_string()
+            })
+        );
+        assert_eq!(
+            route(&tailscale_conn(Some("bob"), Some("alice"), &[])),
+            Some(SocksTunnelRoute::TailscaleSsh {
+                destination: "alice@my-server".to_string()
+            })
+        );
+
+        // Every other Zero Trust provider stays unsupported.
+        for &provider in ZeroTrustProvider::all() {
+            if provider == ZeroTrustProvider::TailscaleSsh {
+                continue;
+            }
+            let conn = Connection::new(
+                "zt".to_string(),
+                String::new(),
+                0,
+                ProtocolConfig::ZeroTrust(ZeroTrustConfig {
+                    provider,
+                    provider_config: ZeroTrustProviderConfig::from_wizard_fields(
+                        provider,
+                        Some("echo hi"),
+                        Some("x"),
+                        Some("y"),
+                        Some("z"),
+                    ),
+                    custom_args: Vec::new(),
+                }),
+            );
+            assert_eq!(route(&conn), None, "{provider:?} must stay unsupported");
+        }
+    }
+
+    #[test]
+    fn socks_tunnel_route_destination_matches_session_command() {
+        let conn = tailscale_conn(Some("bob"), None, &[]);
+        let Some(SocksTunnelRoute::TailscaleSsh { destination }) = socks_tunnel_route(&conn) else {
+            panic!("a Tailscale SSH connection must route through tailscale");
+        };
+        let ProtocolConfig::ZeroTrust(zt) = &conn.protocol_config else {
+            panic!("expected a Zero Trust connection");
+        };
+        let (_, session_args) = zt.build_command(conn.username.as_deref());
+        assert_eq!(session_args[1], destination);
     }
 }

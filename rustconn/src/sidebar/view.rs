@@ -116,6 +116,7 @@ pub fn show_context_menu_for_connection_item(
     let is_group = item.is_group();
     let protocol = item.protocol();
     let is_ssh = protocol == "ssh" || protocol == "sftp";
+    let can_tunnel_browser = crate::window::types::protocol_supports_browser_tunnel(&protocol);
     let is_connected = item.status() == "connected";
     let conn_id = item.id();
     // A connection is in a split when it carries a split-pane colour (>= 0);
@@ -154,6 +155,7 @@ pub fn show_context_menu_for_connection_item(
         name = %item.name(),
         %protocol,
         is_group,
+        can_tunnel_browser,
         is_connected,
         has_external_session,
         is_pinned,
@@ -167,6 +169,7 @@ pub fn show_context_menu_for_connection_item(
         &conn_id,
         is_group,
         is_ssh,
+        can_tunnel_browser,
         is_connected,
         is_recording,
         has_external_session,

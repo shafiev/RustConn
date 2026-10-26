@@ -1711,12 +1711,20 @@ SFTP connections use the `folder-remote-symbolic` icon in the sidebar and behave
 
 #### Open Browser via Tunnel
 
-Right-click an SSH connection and choose **Open Browser via Tunnel** to reach web
+Right-click an SSH connection — or a Zero Trust connection of the Tailscale SSH
+type — and choose **Open Browser via Tunnel** to reach web
 services that only that SSH host can see — an internal dashboard, a router admin
 page, a service in a DMZ — without configuring a separate Web connection. RustConn
 raises a dynamic SOCKS proxy (`ssh -N -D`) to the host on a free local port and
 opens a browser on a start page routed through it; every request exits from the
 SSH host. This is RustConn's equivalent of Ásbrú's incognito browser.
+
+For a Tailscale SSH connection RustConn runs `tailscale ssh <user@host> -N -D <port>`,
+the same command the session uses, so tailnet authentication, ACLs and the host-key
+check are the session's own. The connection's port, Custom Args and stored password
+are not used. If your Tailscale SSH policy asks for a check in the browser, open a
+normal session first and pass the check, because the tunnel does not show the check
+URL. Other Zero Trust providers are not supported yet.
 
 Where it opens is a global setting — Settings → Interface → Connections → **Open
 tunnelled browser in the embedded browser**:

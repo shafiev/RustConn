@@ -311,6 +311,7 @@ pub fn show_context_menu_for_item(
     conn_id: &str,
     is_group: bool,
     is_ssh: bool,
+    can_tunnel_browser: bool,
     is_connected: bool,
     is_recording: bool,
     has_external_session: bool,
@@ -485,6 +486,8 @@ pub fn show_context_menu_for_item(
         ));
         if is_ssh {
             items.push(ContextMenuItem::action(&i18n("Open SFTP"), "open-sftp"));
+        }
+        if can_tunnel_browser {
             items.push(ContextMenuItem::action(
                 &i18n("Open Browser via Tunnel"),
                 "open-browser-via-tunnel",

@@ -3281,9 +3281,7 @@ impl ZeroTrustConfig {
                 ("tsh".to_string(), a)
             }
             ZeroTrustProviderConfig::TailscaleSsh(cfg) => {
-                let user = cfg.username.as_deref().or(username);
-                let target = user.map_or_else(|| cfg.host.clone(), |u| format!("{u}@{}", cfg.host));
-                let a = vec!["ssh".to_string(), target];
+                let a = vec!["ssh".to_string(), cfg.destination(username)];
                 ("tailscale".to_string(), a)
             }
             ZeroTrustProviderConfig::Boundary(cfg) => {
@@ -3557,6 +3555,16 @@ pub struct TailscaleSshConfig {
     /// SSH username
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
+}
+
+impl TailscaleSshConfig {
+    /// The `[user@]host` destination `tailscale ssh` is given — the connection's
+    /// own user wins over `fallback_username` (the connection-level username).
+    #[must_use]
+    pub fn destination(&self, fallback_username: Option<&str>) -> String {
+        let user = self.username.as_deref().or(fallback_username);
+        user.map_or_else(|| self.host.clone(), |u| format!("{u}@{}", self.host))
+    }
 }
 
 /// `HashiCorp` Boundary configuration
