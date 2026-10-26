@@ -778,6 +778,17 @@ fn build_ui(app: &adw::Application, tray_manager: SharedTrayManager) {
         }
     }
 
+    // Warm the FreeRDP version cache off the main thread. The first RDP connect
+    // otherwise probes each candidate client (`… --version`) synchronously on
+    // the GTK main thread — up to seven spawns the user waits through. Filling
+    // the cache now makes those lookups hits by the time a connection opens.
+    // Fire-and-forget: the cache is process-global, nothing here needs the
+    // result, and a cold connect still re-probes anything this missed.
+    std::thread::spawn(|| {
+        crate::embedded_rdp::detect::warm_version_cache();
+        tracing::debug!("FreeRDP version cache warmed");
+    });
+
     // Initialize secret backends in a background thread after the window is visible.
     // Decryption is fast and runs on the main thread; the slow Bitwarden vault
     // unlock runs in a background thread to avoid blocking the GTK main loop.

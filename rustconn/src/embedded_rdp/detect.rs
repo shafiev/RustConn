@@ -462,6 +462,27 @@ pub fn available_freerdp_clients() -> Vec<String> {
     })
 }
 
+/// Warms [`VERSION_CACHE`] for every known FreeRDP client, off the main thread.
+///
+/// The first RDP connect of a session otherwise probes each candidate binary
+/// synchronously on the GTK main thread — up to seven `… --version` spawns the
+/// user waits through (the log for one connect showed five). Running this once
+/// at startup in a background thread fills the cache the connect path reads, so
+/// by the time a connection is opened the version lookups are hits and the main
+/// thread spawns nothing.
+///
+/// It is a strict warm-up: it probes the same binaries by the same cache keys
+/// the launch path uses (local `PATH`, and the Flatpak host's `host:` form),
+/// discarding the list [`available_freerdp_clients`] returns and keeping only
+/// its cache side effect. A binary that is missing, times out or prints no
+/// banner is simply not cached (same policy as every probe), so a cold connect
+/// still works — it just re-probes that one. Safe to call more than once.
+///
+/// Must not run on the GTK main thread; spawn it (see the startup caller).
+pub fn warm_version_cache() {
+    let _ = available_freerdp_clients();
+}
+
 /// Resolves which FreeRDP binary to launch, honouring an explicit override.
 ///
 /// When `override_name` is set and the named client is available (on the local
