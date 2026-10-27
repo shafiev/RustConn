@@ -6019,11 +6019,11 @@ msgstr "Сервер просить пароль. Уведи пароль обл
 
 #: rustconn/src/dialogs/key_setup.rs:498
 msgid "Create a New Key"
-msgstr "Створити новий ключ"
+msgstr "Створи новий ключ"
 
 #: rustconn/src/dialogs/key_setup.rs:499
 msgid "Use an Existing Key"
-msgstr "Використати наявний ключ"
+msgstr "Використай наявний ключ"
 
 #: rustconn/src/dialogs/key_setup.rs:504
 msgid "Key Type"
