@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-26 22:39+0200\n"
+"POT-Creation-Date: 2026-10-26 22:59+0200\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: p-bo <https://github.com/p-bo>\n"
 "Language-Team: Czech\n"
@@ -259,8 +259,8 @@ msgstr "Zadat heslo ručně"
 
 #: rustconn/src/dialogs/backend_missing.rs:56
 #: rustconn/src/embedded_rdp/connection.rs:2333 rustconn/src/vault_ops.rs:66
-#: rustconn/src/vault_ops.rs:316 rustconn/src/window/edit_actions.rs:1377
-#: rustconn/src/window/edit_actions.rs:2014 rustconn/src/window/mod.rs:1074
+#: rustconn/src/vault_ops.rs:316 rustconn/src/window/edit_actions.rs:1415
+#: rustconn/src/window/edit_actions.rs:2066 rustconn/src/window/mod.rs:1074
 msgid "Open Settings"
 msgstr "Otevřít nastavení"
 
@@ -12535,7 +12535,7 @@ msgstr ""
 
 #: rustconn/src/window/credentials.rs:1021
 #: rustconn/src/window/credentials.rs:1257
-#: rustconn/src/window/edit_actions.rs:2206
+#: rustconn/src/window/edit_actions.rs:2258
 msgid "Connection failed. Host unreachable."
 msgstr "Připojení selhalo. Hostitel nedostupný."
 
@@ -12576,77 +12576,77 @@ msgstr "Relaci se nepodařilo přesunout do vlastního okna."
 msgid "Could not move the session back to the main window."
 msgstr "Relaci se nepodařilo přesunout zpět do hlavního okna."
 
-#: rustconn/src/window/edit_actions.rs:308
+#: rustconn/src/window/edit_actions.rs:346
 msgid "Item restored"
 msgstr "Položka obnovena"
 
-#: rustconn/src/window/edit_actions.rs:437
+#: rustconn/src/window/edit_actions.rs:475
 msgid "No Wake On LAN configured. Edit the connection to set a MAC address."
 msgstr "Wake On LAN není nastaveno. Upravte připojení a zadejte MAC adresu."
 
-#: rustconn/src/window/edit_actions.rs:465
+#: rustconn/src/window/edit_actions.rs:503
 msgid "Wake On LAN sent to {} — waiting for host to come online…"
 msgstr "Wake On LAN odesláno na {} — čekání na spuštění hostitele…"
 
-#: rustconn/src/window/edit_actions.rs:506
+#: rustconn/src/window/edit_actions.rs:544
 msgid "{} is online — connecting…"
 msgstr "{} je online — připojování…"
 
-#: rustconn/src/window/edit_actions.rs:521
+#: rustconn/src/window/edit_actions.rs:559
 msgid "{} did not come online after WoL"
 msgstr "{} se nespustil po WoL"
 
-#: rustconn/src/window/edit_actions.rs:533
+#: rustconn/src/window/edit_actions.rs:571
 msgid "Failed to send Wake On LAN packet. Check network permissions."
 msgstr ""
 "Nepodařilo se odeslat paket Wake On LAN. Zkontrolujte síťová "
 "oprávnění.Nepodařilo se odeslat paket Wake On LAN. Zkontrolujte síťová "
 "oprávnění."
 
-#: rustconn/src/window/edit_actions.rs:568
+#: rustconn/src/window/edit_actions.rs:606
 msgid "Checking if {} is online…"
 msgstr "Kontrola, zda je {} online…"
 
-#: rustconn/src/window/edit_actions.rs:599
+#: rustconn/src/window/edit_actions.rs:637
 msgid "{} is online"
 msgstr "{} je online"
 
-#: rustconn/src/window/edit_actions.rs:614
+#: rustconn/src/window/edit_actions.rs:652
 msgid "{} did not come online within timeout"
 msgstr "{} se nespustil v časovém limitu"
 
-#: rustconn/src/window/edit_actions.rs:621
+#: rustconn/src/window/edit_actions.rs:659
 msgid "Host check failed: {}"
 msgstr "Kontrola hostitele selhala: {}"
 
-#: rustconn/src/window/edit_actions.rs:694
-#: rustconn/src/window/edit_actions.rs:786
-#: rustconn/src/window/edit_actions.rs:841
+#: rustconn/src/window/edit_actions.rs:732
+#: rustconn/src/window/edit_actions.rs:824
+#: rustconn/src/window/edit_actions.rs:879
 msgid "SFTP is only available for SSH connections."
 msgstr "SFTP je dostupné pouze pro SSH připojení."
 
-#: rustconn/src/window/edit_actions.rs:704
+#: rustconn/src/window/edit_actions.rs:742
 msgid "mc requires SSH key in agent. Password auth is not supported."
 msgstr "mc vyžaduje SSH klíč v agentovi. Ověření heslem není podporováno."
 
-#: rustconn/src/window/edit_actions.rs:712
+#: rustconn/src/window/edit_actions.rs:750
 msgid "SSH agent not running. Run 'eval $(ssh-agent)' and retry."
 msgstr "Agent SSH neběží. Spusťte „eval $(ssh-agent)“ a zkuste to znovu."
 
-#: rustconn/src/window/edit_actions.rs:719
+#: rustconn/src/window/edit_actions.rs:757
 msgid "SSH key not available"
 msgstr "SSH klíč není dostupný"
 
-#: rustconn/src/window/edit_actions.rs:729
+#: rustconn/src/window/edit_actions.rs:767
 msgid "Midnight Commander (mc) is not installed."
 msgstr "Midnight Commander (mc) není nainstalován."
 
-#: rustconn/src/window/edit_actions.rs:734
+#: rustconn/src/window/edit_actions.rs:772
 msgid "Opening mc SFTP…"
 msgstr "Otevírání mc SFTP…"
 
-#: rustconn/src/window/edit_actions.rs:812
-#: rustconn/src/window/edit_actions.rs:2354
+#: rustconn/src/window/edit_actions.rs:850
+#: rustconn/src/window/edit_actions.rs:2406
 msgid ""
 "External file managers cannot access SSH agent in "
 "Flatpak.                          Enable \"SFTP via mc\" in Settings for "
@@ -12655,44 +12655,44 @@ msgstr ""
 "Externí správci souborů nemají přístup k SSH agentovi ve Flatpaku. Pro "
 "spolehlivý přístup povolte \"SFTP přes mc\" v Nastavení."
 
-#: rustconn/src/window/edit_actions.rs:828
-#: rustconn/src/window/edit_actions.rs:2372
+#: rustconn/src/window/edit_actions.rs:866
+#: rustconn/src/window/edit_actions.rs:2424
 msgid "Jump host detected. Opening SFTP via mc instead of the file manager."
 msgstr ""
 "Zjištěn přestupní hostitel. SFTP se otevírá přes mc místo správce souborů."
 
-#: rustconn/src/window/edit_actions.rs:891
+#: rustconn/src/window/edit_actions.rs:929
 msgid "Opening SFTP…"
 msgstr "Otevírání SFTP…"
 
-#: rustconn/src/window/edit_actions.rs:938
+#: rustconn/src/window/edit_actions.rs:976
 msgid "SSH agent not running — file manager may not authenticate."
 msgstr "Agent SSH neběží — správce souborů se nemusí ověřit."
 
-#: rustconn/src/window/edit_actions.rs:1012
+#: rustconn/src/window/edit_actions.rs:1050
 msgid "This connection type cannot host a SOCKS tunnel"
 msgstr "Tento typ připojení nepodporuje tunel SOCKS"
 
-#: rustconn/src/window/edit_actions.rs:1033
+#: rustconn/src/window/edit_actions.rs:1071
 msgid "application is busy"
 msgstr "aplikace je zaneprázdněna"
 
-#: rustconn/src/window/edit_actions.rs:1036
+#: rustconn/src/window/edit_actions.rs:1074
 msgid "the SSH connection it tunnels through is gone"
 msgstr "SSH připojení, přes které tuneluje, již neexistuje"
 
-#: rustconn/src/window/edit_actions.rs:1375
+#: rustconn/src/window/edit_actions.rs:1413
 msgid "Opened outside RustConn: the embedded browser is off in the snap"
 msgstr "Otevřeno mimo RustConn: vestavěný prohlížeč je ve snapu vypnutý"
 
-#: rustconn/src/window/edit_actions.rs:1435
-#: rustconn/src/window/edit_actions.rs:1565
-#: rustconn/src/window/edit_actions.rs:1809
-#: rustconn/src/window/edit_actions.rs:1907
+#: rustconn/src/window/edit_actions.rs:1473
+#: rustconn/src/window/edit_actions.rs:1616
+#: rustconn/src/window/edit_actions.rs:1861
+#: rustconn/src/window/edit_actions.rs:1959
 msgid "Could not open the SSH tunnel: {}"
 msgstr "Nepodařilo se otevřít SSH tunel: {}"
 
-#: rustconn/src/window/edit_actions.rs:1497
+#: rustconn/src/window/edit_actions.rs:1535
 msgid ""
 "The tunnelled browser command ‘{}’ is not Chromium-based and can't be "
 "tunnelled; opening the embedded browser instead. Set a chromium/chrome/brave/"
@@ -12702,7 +12702,7 @@ msgstr ""
 "tunelovat; otevírám vestavěný prohlížeč. Nastavte v předvolbách příkaz "
 "chromium/chrome/brave/vivaldi/edge pro použití externího prohlížeče."
 
-#: rustconn/src/window/edit_actions.rs:1501
+#: rustconn/src/window/edit_actions.rs:1539
 msgid ""
 "The tunnelled browser command ‘{}’ is not a Chromium-based browser. Only "
 "Chromium-family browsers can be proxied through the tunnel; set a chromium/"
@@ -12712,7 +12712,7 @@ msgstr ""
 "tunel lze proxovat pouze prohlížeče z rodiny Chromium; nastavte v "
 "předvolbách příkaz chromium/chrome/brave/vivaldi/edge."
 
-#: rustconn/src/window/edit_actions.rs:1507
+#: rustconn/src/window/edit_actions.rs:1545
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH; opening the "
 "embedded browser instead. Check the command in Settings, or clear it to auto-"
@@ -12722,7 +12722,7 @@ msgstr ""
 "prohlížeč. Zkontrolujte příkaz v předvolbách nebo jej vymažte pro "
 "automatické zjištění prohlížeče."
 
-#: rustconn/src/window/edit_actions.rs:1511
+#: rustconn/src/window/edit_actions.rs:1549
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH. Check the command "
 "in Settings, or clear it to auto-detect a browser."
@@ -12730,7 +12730,7 @@ msgstr ""
 "Příkaz tunelovaného prohlížeče ‘{}’ nebyl nalezen v PATH. Zkontrolujte "
 "příkaz v předvolbách nebo jej vymažte pro automatické zjištění prohlížeče."
 
-#: rustconn/src/window/edit_actions.rs:1517
+#: rustconn/src/window/edit_actions.rs:1555
 msgid ""
 "No Chromium-based browser found; opening the embedded browser instead. "
 "Install a Chromium-based browser to tunnel an external one."
@@ -12738,7 +12738,7 @@ msgstr ""
 "Nenalezen žádný prohlížeč na bázi Chromium; otevírám vestavěný prohlížeč. "
 "Nainstalujte prohlížeč na bázi Chromium, abyste mohli tunelovat externí."
 
-#: rustconn/src/window/edit_actions.rs:1522
+#: rustconn/src/window/edit_actions.rs:1560
 msgid ""
 "No Chromium-based browser found, and the embedded browser is off in the "
 "snap. Turn it on in Settings to open a tunnelled browser."
@@ -12746,7 +12746,7 @@ msgstr ""
 "Nebyl nalezen prohlížeč založený na Chromiu a vestavěný prohlížeč je ve "
 "snapu vypnutý. Zapněte jej v nastavení a otevřete tunelovaný prohlížeč."
 
-#: rustconn/src/window/edit_actions.rs:1526
+#: rustconn/src/window/edit_actions.rs:1564
 msgid ""
 "No Chromium-based browser found. Install a Chromium-based browser, or use a "
 "build with the embedded browser, to open a tunnelled browser."
@@ -12755,31 +12755,35 @@ msgstr ""
 "Chromium nebo použijte sestavení s vestavěným prohlížečem k otevření "
 "tunelovaného prohlížeče."
 
-#: rustconn/src/window/edit_actions.rs:1640
+#: rustconn/src/window/edit_actions.rs:1594
+msgid "Starting the tunnel…"
+msgstr "Spouští se tunel…"
+
+#: rustconn/src/window/edit_actions.rs:1692
 msgid "Opened a tunnelled browser"
 msgstr "Tunelovaný prohlížeč otevřen"
 
-#: rustconn/src/window/edit_actions.rs:1645
-#: rustconn/src/window/edit_actions.rs:1698
+#: rustconn/src/window/edit_actions.rs:1697
+#: rustconn/src/window/edit_actions.rs:1750
 msgid "Failed to open browser: {}"
 msgstr "Nepodařilo se otevřít prohlížeč: {}"
 
-#: rustconn/src/window/edit_actions.rs:1675
+#: rustconn/src/window/edit_actions.rs:1727
 msgid "{} (tunnel)"
 msgstr "{} (tunel)"
 
-#: rustconn/src/window/edit_actions.rs:1689
-#: rustconn/src/window/edit_actions.rs:1848
+#: rustconn/src/window/edit_actions.rs:1741
+#: rustconn/src/window/edit_actions.rs:1900
 msgid "Could not open the page: {}"
 msgstr "Stránku se nepodařilo otevřít: {}"
 
-#: rustconn/src/window/edit_actions.rs:1880
-#: rustconn/src/window/edit_actions.rs:1994
-#: rustconn/src/window/edit_actions.rs:2041
+#: rustconn/src/window/edit_actions.rs:1932
+#: rustconn/src/window/edit_actions.rs:2046
+#: rustconn/src/window/edit_actions.rs:2093
 msgid "Failed to open URL: {}"
 msgstr "Nepodařilo se otevřít URL: {}"
 
-#: rustconn/src/window/edit_actions.rs:1940
+#: rustconn/src/window/edit_actions.rs:1992
 msgid ""
 "This browser can't be tunnelled from the command line. Use a Chromium-based "
 "browser or the embedded browser for SSH tunnelling."
@@ -12787,12 +12791,12 @@ msgstr ""
 "Tento prohlížeč nelze tunelovat z příkazového řádku. Pro tunelování přes SSH "
 "použijte prohlížeč založený na Chromiu nebo vestavěný prohlížeč."
 
-#: rustconn/src/window/edit_actions.rs:1983
-#: rustconn/src/window/edit_actions.rs:2055
+#: rustconn/src/window/edit_actions.rs:2035
+#: rustconn/src/window/edit_actions.rs:2107
 msgid "Opened in browser"
 msgstr "Otevřeno v prohlížeči"
 
-#: rustconn/src/window/edit_actions.rs:2012
+#: rustconn/src/window/edit_actions.rs:2064
 msgid ""
 "This tunnelled connection needs the embedded browser, which is off in the "
 "snap"
@@ -12800,7 +12804,7 @@ msgstr ""
 "Toto tunelované připojení vyžaduje vestavěný prohlížeč, který je ve snapu "
 "vypnutý"
 
-#: rustconn/src/window/edit_actions.rs:2028
+#: rustconn/src/window/edit_actions.rs:2080
 msgid ""
 "SSH tunnelling needs the embedded or a Custom (Chromium) browser; the system "
 "browser opens without the tunnel."

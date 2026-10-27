@@ -74,6 +74,44 @@ enum TunnelBrowserPath {
     Fail,
 }
 
+thread_local! {
+    /// Connections whose "Open Browser via Tunnel" tunnel is still starting.
+    ///
+    /// Only touched on the GTK thread. Every borrow lives inside one `with` call
+    /// in [`BrowserTunnelStart`], never across a callback.
+    static BROWSER_TUNNELS_STARTING: std::cell::RefCell<std::collections::BTreeSet<Uuid>> =
+        const { std::cell::RefCell::new(std::collections::BTreeSet::new()) };
+}
+
+/// Marks a connection's browser tunnel as starting; unmarks on drop.
+///
+/// The guard is moved into the callback that runs when the tunnel is ready (or
+/// has failed), so the mark is cleared on success, on failure, and when the
+/// worker dies and the callback is dropped unrun.
+struct BrowserTunnelStart(Uuid);
+
+impl BrowserTunnelStart {
+    /// Marks `id` as starting, or returns `None` when a tunnel for it is
+    /// already starting.
+    fn begin(id: Uuid) -> Option<Self> {
+        let inserted = BROWSER_TUNNELS_STARTING
+            .with(|set| set.try_borrow_mut().is_ok_and(|mut set| set.insert(id)));
+        inserted.then_some(Self(id))
+    }
+}
+
+impl Drop for BrowserTunnelStart {
+    fn drop(&mut self) {
+        // `try_borrow_mut`: a failure here means a nested borrow, which cannot
+        // happen (borrows never span a callback); skipping beats panicking in drop.
+        BROWSER_TUNNELS_STARTING.with(|set| {
+            if let Ok(mut set) = set.try_borrow_mut() {
+                set.remove(&self.0);
+            }
+        });
+    }
+}
+
 impl MainWindow {
     pub(crate) fn setup_edit_actions(
         &self,
@@ -980,14 +1018,14 @@ impl MainWindow {
     /// `on_ready` receives `Err(message)` when the connection is gone, the state
     /// is momentarily busy, or `ssh` fails to establish the proxy.
     ///
-    /// Known limitations (shared with the Web `tunnel_via` path):
-    /// - There is no "connecting" feedback during the wait (up to ~10 s), and a
-    ///   second request for the same connection raises a second tunnel and browser.
+    /// Known limitation (shared with the Web `tunnel_via` path):
     /// - Quitting while the worker waits for the port leaves its `ssh -N` running,
     ///   because the tunnel is not registered anywhere until `on_ready` runs and
     ///   `spawn_tunnel` sets neither a process group nor a parent-death signal.
-    // ponytail: no per-connection in-flight guard or spinner; add one if repeat
-    // clicks show up in practice. Orphan-on-quit needs PDEATHSIG in rustconn-pty-sys.
+    ///
+    /// The sidebar action guards against repeat clicks itself, see
+    /// [`BrowserTunnelStart`]; this primitive does not.
+    // ponytail: orphan-on-quit needs PDEATHSIG in rustconn-pty-sys (deferred to 0.24.x).
     fn raise_socks_tunnel_async<C>(state: &SharedAppState, jump_id: Uuid, on_ready: C)
     where
         C: FnOnce(Result<rustconn_core::ssh_tunnel::SshTunnel, String>) + 'static,
@@ -1547,24 +1585,38 @@ impl MainWindow {
         // on the GTK thread. No `Ref` is held across the worker: the params are
         // read and released before it starts. The one-shot closure owns plain `Rc`
         // clones and is stored nowhere, so it forms no cycle.
+        //
+        // A repeat click while the tunnel is starting is ignored: the first click
+        // already raises one tunnel and one browser. The guard moves into the
+        // callback, so the mark is cleared on success and on failure alike.
+        let start_guard = BrowserTunnelStart::begin(connection_id);
+        // Shown on the first click and, as acknowledgement, on an ignored repeat.
+        crate::toast::show_info_toast_on_active_window(&crate::i18n::i18n("Starting the tunnel…"));
+        let Some(start_guard) = start_guard else {
+            return;
+        };
         let state_cb = std::rc::Rc::clone(state);
         let notebook_cb = notebook.clone();
         let sidebar_cb = sidebar.clone();
-        Self::raise_socks_tunnel_async(state, connection_id, move |result| match result {
-            Ok(tunnel) => Self::launch_tunnel_browser(
-                &state_cb,
-                &notebook_cb,
-                &sidebar_cb,
-                connection_id,
-                path,
-                &start_url,
-                tunnel,
-            ),
-            Err(msg) => {
-                crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
-                    "Could not open the SSH tunnel: {}",
-                    &[&msg],
-                ));
+        Self::raise_socks_tunnel_async(state, connection_id, move |result| {
+            // Cleared as soon as the outcome is known, whichever it is.
+            drop(start_guard);
+            match result {
+                Ok(tunnel) => Self::launch_tunnel_browser(
+                    &state_cb,
+                    &notebook_cb,
+                    &sidebar_cb,
+                    connection_id,
+                    path,
+                    &start_url,
+                    tunnel,
+                ),
+                Err(msg) => {
+                    crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
+                        "Could not open the SSH tunnel: {}",
+                        &[&msg],
+                    ));
+                }
             }
         });
     }
@@ -2465,5 +2517,46 @@ impl MainWindow {
                 },
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod browser_tunnel_tests {
+    use super::*;
+
+    #[test]
+    fn second_begin_for_same_connection_is_refused() {
+        let id = Uuid::new_v4();
+        let first = BrowserTunnelStart::begin(id);
+        assert!(first.is_some());
+        assert!(BrowserTunnelStart::begin(id).is_none());
+    }
+
+    #[test]
+    fn other_connection_is_not_blocked() {
+        let a = BrowserTunnelStart::begin(Uuid::new_v4());
+        let b = BrowserTunnelStart::begin(Uuid::new_v4());
+        assert!(a.is_some() && b.is_some());
+    }
+
+    #[test]
+    fn drop_clears_the_mark() {
+        let id = Uuid::new_v4();
+        drop(BrowserTunnelStart::begin(id));
+        assert!(BrowserTunnelStart::begin(id).is_some());
+    }
+
+    /// The success and failure paths consume the callback; a dead worker drops it
+    /// unrun. Either way the guard it owns must release the mark.
+    #[test]
+    fn guard_moved_into_a_dropped_closure_clears_the_mark() {
+        let id = Uuid::new_v4();
+        let guard = BrowserTunnelStart::begin(id);
+        let callback = move |_: Result<(), String>| {
+            let _guard = &guard;
+        };
+        assert!(BrowserTunnelStart::begin(id).is_none());
+        drop(callback);
+        assert!(BrowserTunnelStart::begin(id).is_some());
     }
 }
