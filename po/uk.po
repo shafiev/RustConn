@@ -8663,7 +8663,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:509
 msgid "Allow the embedded browser"
-msgstr "Дозволяти вбудований оглядач"
+msgstr "Дозволь вбудований оглядач"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:511
 msgid ""
@@ -8692,7 +8692,7 @@ msgid ""
 "incognito mode"
 msgstr ""
 "«Відкрий оглядач крізь тунель» використовує вбудований оглядач, якщо "
-"ввімкнено «Дозволяти вбудований оглядач»; інакше запускає зовнішній оглядач "
+"ввімкнено «Дозволь вбудований оглядач»; інакше запускає зовнішній оглядач "
 "Chromium у режимі інкогніто"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:542
