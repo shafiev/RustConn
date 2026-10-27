@@ -1366,6 +1366,10 @@ pub fn classify_deploy(
 /// a whole word. A login by some other key (an `IdentityFile` from
 /// `~/.ssh/config`, say) is a failure however cleanly it ended.
 ///
+/// The `partial success`, `Authenticated to` and askpass markers are read only
+/// from that accept line onward: behind `-J` the bastion's own `-v` output sits
+/// in the same stream, ahead of it.
+///
 /// # Errors
 ///
 /// The [`KeySetupError`] variant that matches the failure;
@@ -1379,14 +1383,8 @@ pub fn classify_verify(
     // ponytail: OpenSSH before 8.x prints `Server accepts key:` without the
     // fingerprint, so verification reports KeyNotAccepted there. A false
     // negative, hence safe; upgrade by matching the `-i` path on the same line.
-    let accepted = stderr.lines().any(|line| {
-        line.starts_with("debug1: Server accepts key:")
-            && line
-                .split_whitespace()
-                .any(|word| word == expected_fingerprint)
-    });
-    if accepted {
-        if stderr.contains("partial success") {
+    if let Some(tail) = after_accept_line(stderr, expected_fingerprint) {
+        if tail.contains("partial success") {
             return Ok(VerifyOutcome::AcceptedSecondFactorRequired);
         }
         if exit_code.is_some_and(|code| code != 255) {
@@ -1399,8 +1397,8 @@ pub fn classify_verify(
         // showed; older releases do print it and are caught further down. A
         // login that completed (`Authenticated to`) and died later is not this.
         if exit_code == Some(255)
-            && stderr.contains("read_passphrase: requested to askpass")
-            && !stderr.contains("Authenticated to")
+            && tail.contains("read_passphrase: requested to askpass")
+            && !tail.contains("Authenticated to")
         {
             return Err(KeySetupError::WrongPassphrase);
         }
@@ -1413,6 +1411,30 @@ pub fn classify_verify(
         }),
         Some(_) => Err(KeySetupError::KeyNotAccepted),
     }
+}
+
+/// The part of `stderr` that starts at the first `Server accepts key:` line
+/// naming `expected_fingerprint` as a whole word, or `None` if there is none.
+///
+/// Behind a `-J` jump host the bastion's `ssh` inherits `-v` and writes into the
+/// same stream, so its `Authenticated to` and `partial success` lines are in
+/// `stderr` too. The bastion signs in before the transport to the target starts,
+/// so those lines always come before the target's accept line. Judging markers
+/// only from here on keeps them out of the verdict.
+fn after_accept_line<'a>(stderr: &'a str, expected_fingerprint: &str) -> Option<&'a str> {
+    let mut offset = 0;
+    for line in stderr.split_inclusive('\n') {
+        let text = line.trim_end_matches(['\n', '\r']);
+        if text.starts_with("debug1: Server accepts key:")
+            && text
+                .split_whitespace()
+                .any(|word| word == expected_fingerprint)
+        {
+            return Some(&stderr[offset..]);
+        }
+        offset += line.len();
+    }
+    None
 }
 
 /// `stderr` without `debug1:`-style lines.

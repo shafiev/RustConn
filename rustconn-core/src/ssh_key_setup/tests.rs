@@ -1210,6 +1210,45 @@ fn classify_verify_ignores_narration_in_debug_lines() {
     ));
 }
 
+/// What `-J bastion` adds to the stream: the bastion's own `-v` narration,
+/// ahead of the target's `Offering public key` / `Server accepts key` lines.
+const BASTION: &str = "debug1: Authenticated to bastion ([10.0.0.1]:22) using \"publickey\".\ndebug1: Authenticated using \"publickey\" with partial success.\n";
+
+#[test]
+fn classify_verify_ignores_jump_host_markers_before_the_accept_line() {
+    // (a) Wrong passphrase behind a bastion: the bastion's `Authenticated to`
+    // must not hide the askpass request that follows the target's accept line.
+    let wrong = format!(
+        "{BASTION}{ACCEPTS}debug1: read_passphrase: requested to askpass\nuser@h: Permission denied (publickey).\n"
+    );
+    assert!(matches!(
+        classify_verify(Some(255), &wrong, "SHA256:abc"),
+        Err(KeySetupError::WrongPassphrase)
+    ));
+    // (b) A bastion's `partial success` must not turn a plain success into a
+    // second-factor verdict.
+    let ok = format!(
+        "{BASTION}{ACCEPTS}debug1: Authenticated to h ([1.2.3.4]:22) using \"publickey\".\n"
+    );
+    assert!(matches!(
+        classify_verify(Some(0), &ok, "SHA256:abc"),
+        Ok(VerifyOutcome::Accepted)
+    ));
+    // (c) Regression: `partial success` after the accept line still counts.
+    let partial = format!(
+        "{BASTION}{ACCEPTS}Authenticated using \"publickey\" with partial success.\nuser@h: Permission denied (keyboard-interactive).\n"
+    );
+    assert!(matches!(
+        classify_verify(Some(255), &partial, "SHA256:abc"),
+        Ok(VerifyOutcome::AcceptedSecondFactorRequired)
+    ));
+    // A bastion line alone, with no accept line from the target, proves nothing.
+    assert!(matches!(
+        classify_verify(Some(0), BASTION, "SHA256:abc"),
+        Err(KeySetupError::KeyNotAccepted)
+    ));
+}
+
 // ---- E. processes and secrets ----------------------------------------------
 
 fn write_stub(dir: &Path, name: &str, body: &str) -> PathBuf {
