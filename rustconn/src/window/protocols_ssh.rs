@@ -1883,6 +1883,18 @@ pub fn reconnect_ssh_in_place(
         }
     };
 
+    // Discard the previous connection's monitoring bar and collector so a
+    // stale, dimmed bar (or a race with a collector that has not yet
+    // noticed the drop) does not survive into the new connection (#398).
+    // Done only now, after the two `return false` cases above, so a failed
+    // reconnect attempt does not tear down a still-valid bar for nothing.
+    // `had_monitoring_bar` records whether a bar actually existed — used
+    // below to decide whether to restart monitoring through
+    // `session_content_box` (tab or detached window) rather than
+    // `get_session_container` (tab only), without ever placing a bar into a
+    // split pane where monitoring is suspended by design.
+    let had_monitoring_bar = monitoring.reset_for_reconnect(session_id);
+
     // Re-apply highlight rules
     super::protocols::apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
@@ -2149,7 +2161,26 @@ pub fn reconnect_ssh_in_place(
                     return;
                 }
                 monitoring_started_clone.set(true);
-                if let Some(container) = notebook_clone.get_session_container(session_id) {
+                // Resolve through `get_session_container` first (tab-only).
+                // Only fall back to `session_content_box` when a bar existed
+                // before the reconnect reset it (#398) AND the session is
+                // confirmed detached right now — not merely "not in a tab".
+                // Between `reset_for_reconnect` and this closure running, the
+                // session may have been moved into a split as a guest (no
+                // `TabPage`, so `get_session_container` also returns `None`
+                // for it); `session_content_box` resolves that case through
+                // the split-pane box provider, which would place the bar in
+                // the pane while monitoring stays suspended there by design.
+                // Checking `is_detached` here rules that branch out, so this
+                // reconnect path never places a bar into a split pane.
+                let container = notebook_clone
+                    .get_session_container(session_id)
+                    .or_else(|| {
+                        (had_monitoring_bar && notebook_clone.is_detached(session_id))
+                            .then(|| notebook_clone.session_content_box(session_id))
+                            .flatten()
+                    });
+                if let Some(container) = container {
                     monitoring_clone.start_monitoring(
                         session_id,
                         &container,
