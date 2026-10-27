@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::panic::AssertUnwindSafe;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use ironrdp::cliprdr::CliprdrClient;
 use ironrdp::connector::{
@@ -672,6 +673,16 @@ pub(super) async fn establish_connection(
     };
     let handshake_timeout = Duration::from_secs(handshake_secs);
 
+    // Separates "the server never answered" from "the server answered and
+    // then stalled mid-handshake" (issue #392): set once the TLS upgrade and
+    // TOFU certificate check succeed, read only after the `timeout(..)` below
+    // has resolved. `&AtomicBool` is `Send + Sync`, so the async block can
+    // hold a shared reference without an `Arc`; `Cell` would not do, since
+    // `&Cell<_>` is not `Send`. `Ordering::Relaxed` is enough because the flag
+    // guards nothing else — the `.await` boundary already happened-after the
+    // store by the time this function reads it.
+    let secure_channel_up = AtomicBool::new(false);
+
     let handshake_result = timeout(handshake_timeout, async {
         // Type-erase the transport: both TcpStream and GwClient implement
         // AsyncRead + AsyncWrite + Unpin + Send.
@@ -729,6 +740,10 @@ pub(super) async fn establish_connection(
         // a later connection whose fingerprint has changed. `ignore_certificate`
         // opts out entirely, matching xfreerdp `/cert:ignore`.
         verify_server_certificate(config, &server_cert)?;
+        // TLS is up and the server's identity is accepted: a timeout from here
+        // on means the server is reachable and speaking RDP, not that it is
+        // unreachable (issue #392).
+        secure_channel_up.store(true, Ordering::Relaxed);
 
         // Extract server public key from certificate
         let server_public_key = ironrdp_tls::extract_tls_server_public_key(&server_cert)
@@ -824,6 +839,25 @@ pub(super) async fn establish_connection(
             #[cfg(feature = "gfx-h264")]
             gfx_update_rx,
         })
+    } else if secure_channel_up.load(Ordering::Relaxed) {
+        // TLS (and TOFU) succeeded before the budget ran out: the server is
+        // reachable and speaking RDP, but the connect sequence (NLA, licensing,
+        // or capabilities) never finished. Hand the session to the external
+        // FreeRDP client instead of the generic `Timeout`/`Other` path below —
+        // see `rdp_client::failure::post_tls_stall_error` (issue #392).
+        tracing::warn!(
+            protocol = "rdp",
+            host = %config.host,
+            port = %config.port,
+            timeout_secs = handshake_secs,
+            is_tunnel,
+            "IronRDP connection sequence stalled after the TLS upgrade \
+             (sign-in/licensing/capabilities); handing the session to the \
+             external client"
+        );
+        Err(crate::rdp_client::failure::post_tls_stall_error(
+            handshake_secs,
+        ))
     } else {
         tracing::error!(
             protocol = "rdp",
@@ -831,7 +865,7 @@ pub(super) async fn establish_connection(
             port = %config.port,
             timeout_secs = handshake_secs,
             is_tunnel,
-            "RDP handshake timed out (TLS/NLA phase). \
+            "RDP handshake timed out (before the TLS upgrade completed). \
              The remote host may be unreachable or RDP service not running."
         );
         if is_tunnel {
@@ -1053,5 +1087,68 @@ fn get_timezone_info() -> TimezoneInfo {
     TimezoneInfo {
         bias,
         ..TimezoneInfo::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Issue #392: a connect sequence that stalls *before* TLS (the server
+    /// accepts the TCP connection but never answers X.224) must keep failing
+    /// as a non-fallback error, exactly as before this change. The post-TLS
+    /// branch cannot be driven the same way without a TLS server in the test,
+    /// so it is covered by `failure::post_tls_stall_falls_back_to_the_external_client`
+    /// instead; this test only pins down the "before TLS" side of the new
+    /// `if secure_channel_up.load(..)` branch added to this function.
+    #[tokio::test]
+    async fn stall_before_tls_stays_a_non_fallback_failure() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("binding a loopback listener must not fail in this sandbox");
+        let port = listener
+            .local_addr()
+            .expect("bound listener has an addr")
+            .port();
+
+        // Accept the connection and hold it open without writing anything, so
+        // `connect_begin`'s X.224 exchange never completes and the handshake
+        // timeout fires before the TLS upgrade is ever reached.
+        tokio::spawn(async move {
+            if let Ok((socket, _)) = listener.accept().await {
+                // Hold the socket open for the rest of the test (dropped when
+                // the single-threaded test runtime shuts down) instead of
+                // writing or closing it, so the client's X.224 read blocks.
+                let _socket = socket;
+                std::future::pending::<()>().await;
+            }
+        });
+
+        let config = RdpClientConfig {
+            host: "127.0.0.1".to_string(),
+            port,
+            timeout_secs: 1,
+            clipboard_enabled: false,
+            ..Default::default()
+        };
+        let (tx, _rx) = std::sync::mpsc::channel();
+
+        let result = establish_connection(&config, tx).await;
+
+        // `ConnectionSetup` is not `Debug` (it holds a framed IronRDP stream),
+        // so `Result::expect_err` cannot be used here.
+        let Err(err) = result else {
+            panic!("a server that never answers X.224 must not connect");
+        };
+        let class = crate::rdp_client::failure::classify_rdp_failure(&err.to_string());
+        assert_eq!(
+            class,
+            crate::rdp_client::failure::RdpFailureClass::Other,
+            "error: {err}"
+        );
+        assert!(
+            !class.warrants_freerdp_fallback(),
+            "a pre-TLS stall must not trigger the external-client fallback: {err}"
+        );
     }
 }

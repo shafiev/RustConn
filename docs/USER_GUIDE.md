@@ -1158,6 +1158,8 @@ This uses the RDP clipboard channel (`CF_HDROP` / `FILEDESCRIPTORW` format) and 
 
 The setting is shown for both client modes, not only External, because an embedded session hands over to the external client whenever the built-in IronRDP client cannot serve the server — a legacy security layer, RemoteApp, remote audio playback, or a failed connection. In that case this is the only setting that decides how large the window opens.
 
+One such server is GNOME Remote Desktop's **Remote Login** mode (GNOME 46+): it is known to rely on a redirect to a second, per-session server with one-time credentials, which the embedded IronRDP client does not yet support, so the connection stalls for about a minute before handing over to the external FreeRDP client. To skip the wait, set **Client mode** to **External** for that connection.
+
 Before 0.20.9 there was no such setting. A separate window was sized from a fixed resolution that the editor collected in a hidden row and defaulted to 1920×1080, so on a 4K display the client opened at roughly a quarter of the screen. **A connection that genuinely needs a fixed resolution has to select *Custom resolution* once** — a stored 1920×1080 cannot be told apart from that old default, so it is not assumed.
 
 From the CLI: `--rdp-display-mode fit|fullscreen|custom|multimon` and `--rdp-resolution WIDTHxHEIGHT`.
