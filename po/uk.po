@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-27 16:14+0200\n"
+"POT-Creation-Date: 2026-10-27 17:02+0200\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: Mykola Zubkov <zubkov139@ukr.net>\n"
 "Language-Team: Ukrainian\n"
@@ -19,7 +19,8 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 "Generated-By: Babel 2.10.3\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
@@ -34,7 +35,7 @@ msgstr "Гаразд"
 #: rustconn/src/dialogs/credential_transfer.rs:457
 #: rustconn/src/dialogs/flatpak_components.rs:299
 #: rustconn/src/dialogs/history.rs:199 rustconn/src/dialogs/kdbx_unlock.rs:112
-#: rustconn/src/dialogs/key_setup.rs:471
+#: rustconn/src/dialogs/key_setup.rs:622
 #: rustconn/src/dialogs/portable_migration.rs:58
 #: rustconn/src/dialogs/portable_passphrase_change.rs:93
 #: rustconn/src/dialogs/portable_unlock.rs:93
@@ -64,7 +65,7 @@ msgstr "Гаразд"
 #: rustconn/src/window/edit_group.rs:1957
 #: rustconn/src/window/edit_group.rs:2006
 #: rustconn/src/window/group_broadcast.rs:379
-#: rustconn/src/window/key_setup.rs:719 rustconn/src/window/mod.rs:3387
+#: rustconn/src/window/key_setup.rs:938 rustconn/src/window/mod.rs:3387
 #: rustconn/src/window/mod.rs:3451 rustconn/src/window/mod.rs:4405
 #: rustconn/src/window/operations.rs:116 rustconn/src/window/operations.rs:487
 #: rustconn/src/window/operations.rs:670 rustconn/src/window/sessions.rs:339
@@ -228,7 +229,7 @@ msgid "‘{}’ needs the following before it can connect."
 msgstr "«{}» потребує такого перед з’єднуванням."
 
 #: rustconn/src/dialogs/ask_prompt.rs:73 rustconn/src/dialogs/history.rs:105
-#: rustconn/src/dialogs/key_setup.rs:438 rustconn/src/dialogs/widgets.rs:614
+#: rustconn/src/dialogs/key_setup.rs:589 rustconn/src/dialogs/widgets.rs:614
 #: rustconn/src/sidebar_ui.rs:396 rustconn/src/smart_folder_ui.rs:438
 #: rustconn/src/window/edit_dialogs.rs:760
 #: rustconn/src/window/edit_dialogs.rs:761
@@ -260,9 +261,9 @@ msgid ""
 "it may be locked, not logged in, or not set up on this computer. Open "
 "Settings, then Secrets, to check its status."
 msgstr ""
-"Цей з'єднок зберігає свій пароль у {}, який зараз недоступний — можливо, його"
-" заблоковано, вхід не виконано або його не налаштовано на цьому комп'ютері. "
-"Відкрий Устави, потім Таємниці, щоб перевірити його стан."
+"Цей з'єднок зберігає свій пароль у {}, який зараз недоступний — можливо, "
+"його заблоковано, вхід не виконано або його не налаштовано на цьому "
+"комп'ютері. Відкрий Устави, потім Таємниці, щоб перевірити його стан."
 
 #: rustconn/src/dialogs/backend_missing.rs:55
 msgid "Enter Password Manually"
@@ -433,7 +434,7 @@ msgstr "Цей кластер буде остаточно вилучено."
 #: rustconn/src/dialogs/tunnel.rs:728 rustconn/src/dialogs/workspace.rs:119
 #: rustconn/src/dialogs/workspace.rs:292 rustconn/src/sidebar_ui.rs:559
 #: rustconn/src/smart_folder_ui.rs:406 rustconn/src/smart_folder_ui.rs:460
-#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:720
+#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:939
 #: rustconn/src/window/operations.rs:171 rustconn/src/window/snippets.rs:413
 #: rustconn/src/window/snippets.rs:503 rustconn/src/window/templates.rs:151
 msgid "Delete"
@@ -824,7 +825,8 @@ msgstr "Назва правила"
 msgid ""
 "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields "
 "to the right."
-msgstr "Регулярний вираз, напр. (?i)\\bINFO\\b. Встанови колір у полях праворуч."
+msgstr ""
+"Регулярний вираз, напр. (?i)\\bINFO\\b. Встанови колір у полях праворуч."
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:924
 #: rustconn/src/dialogs/connection/advanced_tab.rs:928
@@ -872,11 +874,11 @@ msgstr "Автовідповідь на шаблони терміналу (за 
 #: rustconn/src/dialogs/connection/automation_tab.rs:115
 #: rustconn/src/window/edit_group.rs:1166
 msgid ""
-"Responses support ${password}, ${username}, and ${VARIABLE_NAME} placeholders"
-" resolved at connection time"
+"Responses support ${password}, ${username}, and ${VARIABLE_NAME} "
+"placeholders resolved at connection time"
 msgstr ""
-"Відповіді підтримують заповнювачі ${password}, ${username} та "
-"${VARIABLE_NAME}, що підставляються під час з'єднування"
+"Відповіді підтримують заповнювачі ${password}, ${username} та $"
+"{VARIABLE_NAME}, що підставляються під час з'єднування"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:128
 #: rustconn/src/window/edit_group.rs:1179
@@ -924,8 +926,8 @@ msgid ""
 "Commands sent with a shortcut while this connection's terminal has keyboard "
 "focus"
 msgstr ""
-"Команди, що надсилаються скороченням, поки термінал цього з'єднанка має фокус"
-" клавіятури"
+"Команди, що надсилаються скороченням, поки термінал цього з'єднанка має "
+"фокус клавіятури"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:229
 msgid "No command macros"
@@ -1001,8 +1003,8 @@ msgstr "Запит пароля"
 #: rustconn/src/dialogs/connection/automation_tab.rs:370
 msgid "Expected text; empty detects Password: in every supported language"
 msgstr ""
-"Очікуваний текст; якщо порожньо, розпізнається Password: усіма підтримуваними"
-" мовами"
+"Очікуваний текст; якщо порожньо, розпізнається Password: усіма "
+"підтримуваними мовами"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:388
 msgid "Login Timeout (seconds)"
@@ -1338,9 +1340,9 @@ msgid ""
 "Wake-on-LAN will stop working once it rotates — turn off the private address "
 "for this network on the target device, or read it again later."
 msgstr ""
-"Це схоже на випадкову (приватну) адресу, що періодично змінюється. Щойно вона"
-" зміниться, Wake-on-LAN перестане працювати — вимкни приватну адресу для цієї"
-" мережі на цільовому пристрої або зчитай її пізніше знову."
+"Це схоже на випадкову (приватну) адресу, що періодично змінюється. Щойно "
+"вона зміниться, Wake-on-LAN перестане працювати — вимкни приватну адресу для "
+"цієї мережі на цільовому пристрої або зчитай її пізніше знову."
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:474
 msgid "MAC address not found"
@@ -1352,9 +1354,9 @@ msgid ""
 "the same local network. For a host beyond a router, read its MAC over an SSH "
 "session instead."
 msgstr ""
-"Вузла нема в ARP-кеші цього комп’ютера. Він має бути ввімкнений і в тій самій"
-" локальній мережі. Для вузла за маршрутизатором зчитай його MAC через сеанс "
-"SSH."
+"Вузла нема в ARP-кеші цього комп’ютера. Він має бути ввімкнений і в тій "
+"самій локальній мережі. Для вузла за маршрутизатором зчитай його MAC через "
+"сеанс SSH."
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:831
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1196
@@ -1675,7 +1677,7 @@ msgstr ""
 "Ключ пошуку: {}"
 
 #: rustconn/src/dialogs/connection/dialog/populate.rs:45
-#: rustconn/src/window/edit_group.rs:734
+#: rustconn/src/window/edit_group.rs:734 rustconn/src/window/key_setup.rs:329
 msgid "Select SSH Key"
 msgstr "Обери ключ SSH"
 
@@ -1843,11 +1845,11 @@ msgstr "Текст для надсилання (напр., ${password}\\n)"
 #: rustconn/src/dialogs/connection/dialog/rows.rs:323
 #: rustconn/src/window/edit_group.rs:2159
 msgid ""
-"Response to send when pattern matches. Use ${password}, ${username}, or "
-"${VAR_NAME} for variables."
+"Response to send when pattern matches. Use ${password}, ${username}, or $"
+"{VAR_NAME} for variables."
 msgstr ""
-"Відповідь для надсилання при збігу шаблону. Використовуй ${password}, "
-"${username} або ${VAR_NAME} для змінниць."
+"Відповідь для надсилання при збігу шаблону. Використовуй ${password}, $"
+"{username} або ${VAR_NAME} для змінниць."
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:331
 #: rustconn/src/window/edit_group.rs:2167
@@ -2115,8 +2117,8 @@ msgstr "Режим мережі"
 #: rustconn/src/dialogs/connection/general_tab.rs:191
 msgid "Direct ignores a jump host inherited from a group or globally"
 msgstr ""
-"«Безпосередньо» ігнорує проміжний гост, успадкований від групи або глобальних"
-" устав"
+"«Безпосередньо» ігнорує проміжний гост, успадкований від групи або "
+"глобальних устав"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:213
 #: rustconn/src/dialogs/connection/ssh.rs:300
@@ -2715,8 +2717,8 @@ msgstr "Динамічна роздільність"
 
 #: rustconn/src/dialogs/connection/rdp.rs:422
 msgid ""
-"Resize the remote desktop to match the window (External client). Turn off for"
-" legacy servers"
+"Resize the remote desktop to match the window (External client). Turn off "
+"for legacy servers"
 msgstr ""
 "Змінювати розмір віддаленого робочого столу відповідно до вікна (зовнішній "
 "клієнт). Вимкни для застарілих серверів"
@@ -2795,14 +2797,14 @@ msgstr ""
 #: rustconn/src/dialogs/connection/rdp.rs:495
 msgid ""
 "Passes /admin to the external FreeRDP client, connecting to the server's "
-"console/administrative session instead of a normal RDS session. This bypasses"
-" RDS CAL licensing. External client only; the embedded client cannot request "
-"it yet."
+"console/administrative session instead of a normal RDS session. This "
+"bypasses RDS CAL licensing. External client only; the embedded client cannot "
+"request it yet."
 msgstr ""
-"Передає /admin зовнішньому клієнту FreeRDP, під’єднуючи до "
-"консольного/адміністративного сеансу сервера замість звичайного сеансу RDS. "
-"Це обходить ліцензування RDS CAL. Лише зовнішній клієнт; вбудований клієнт "
-"поки не може цього запитати."
+"Передає /admin зовнішньому клієнту FreeRDP, під’єднуючи до консольного/"
+"адміністративного сеансу сервера замість звичайного сеансу RDS. Це обходить "
+"ліцензування RDS CAL. Лише зовнішній клієнт; вбудований клієнт поки не може "
+"цього запитати."
 
 #: rustconn/src/dialogs/connection/rdp.rs:506
 msgid "Kerberos Authentication"
@@ -2824,10 +2826,10 @@ msgstr "Адреса KDC"
 
 #: rustconn/src/dialogs/connection/rdp.rs:522
 msgid ""
-"Optional. A domain controller name or IP address, a tcp:// or udp:// address,"
-" or an https:// KDC proxy URL. Leave empty to find it automatically. The "
-"External client uses only an https://…/KdcProxy proxy and otherwise follows "
-"the system Kerberos configuration."
+"Optional. A domain controller name or IP address, a tcp:// or udp:// "
+"address, or an https:// KDC proxy URL. Leave empty to find it automatically. "
+"The External client uses only an https://…/KdcProxy proxy and otherwise "
+"follows the system Kerberos configuration."
 msgstr ""
 "Необов'язково. Ім'я чи IP-адреса контролера домену, адреса tcp:// або udp:// "
 "чи URL проксі KDC https://. Залиште порожнім для автоматичного пошуку. "
@@ -3184,8 +3186,9 @@ msgid ""
 "Serial uses picocom as the terminal client.              Ensure your user is "
 "in the 'dialout' group for device access."
 msgstr ""
-"Serial використовує picocom як термінальний клієнт.              Переконайся,"
-" що твій користувач належить до групи 'dialout' для доступу до пристрою."
+"Serial використовує picocom як термінальний клієнт.              "
+"Переконайся, що твій користувач належить до групи 'dialout' для доступу до "
+"пристрою."
 
 #: rustconn/src/dialogs/connection/serial.rs:57
 msgid "Device Path"
@@ -3580,7 +3583,7 @@ msgstr "Обери файл ключа SSH"
 #: rustconn/src/dialogs/connection/ssh.rs:360
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:124
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:336
-#: rustconn/src/dialogs/key_setup.rs:380
+#: rustconn/src/dialogs/key_setup.rs:512 rustconn/src/dialogs/key_setup.rs:536
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2333
 #: rustconn/src/dialogs/template.rs:677
 msgid "Key File"
@@ -3597,6 +3600,7 @@ msgid "(No keys loaded)"
 msgstr "(Ключі не завантажено)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:377
+#: rustconn/src/dialogs/key_setup.rs:496
 msgid "Key"
 msgstr "Ключ"
 
@@ -3724,8 +3728,8 @@ msgid ""
 "Use multiple network paths (mptcpize run). Not available: kernel MPTCP is "
 "disabled"
 msgstr ""
-"Використовувати декілька мережевих шляхів (mptcpize run). Недоступно: MPTCP у"
-" ядрі вимкнено"
+"Використовувати декілька мережевих шляхів (mptcpize run). Недоступно: MPTCP "
+"у ядрі вимкнено"
 
 #: rustconn/src/dialogs/connection/ssh.rs:712
 #: rustconn/src/dialogs/template.rs:740
@@ -3767,11 +3771,11 @@ msgstr "Провайдер PKCS#11"
 
 #: rustconn/src/dialogs/connection/ssh.rs:760
 msgid ""
-"Path to a PKCS#11 library for hardware-token login (e.g. "
-"/usr/lib64/libykcs11.so.2)"
+"Path to a PKCS#11 library for hardware-token login (e.g. /usr/lib64/"
+"libykcs11.so.2)"
 msgstr ""
-"Шлях до бібліотеки PKCS#11 для входу за апаратним токеном (напр. "
-"/usr/lib64/libykcs11.so.2)"
+"Шлях до бібліотеки PKCS#11 для входу за апаратним токеном (напр. /usr/lib64/"
+"libykcs11.so.2)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:786
 msgid "SFTP Remote Directory"
@@ -3793,11 +3797,11 @@ msgstr "Клавіятура"
 #: rustconn/src/dialogs/connection/ssh.rs:820
 #: rustconn/src/dialogs/connection/telnet.rs:54
 msgid ""
-"If Backspace or Delete is not recognised, try Backspace (^H) or Delete (^?) —"
-"              devices that reject one default usually reject both"
+"If Backspace or Delete is not recognised, try Backspace (^H) or Delete (^?) "
+"—              devices that reject one default usually reject both"
 msgstr ""
-"Якщо Backspace або Delete не розпізнається, спробуй Backspace (^H) або Delete"
-" (^?) — пристрої, які не приймають одне типове значення, зазвичай не "
+"Якщо Backspace або Delete не розпізнається, спробуй Backspace (^H) або "
+"Delete (^?) — пристрої, які не приймають одне типове значення, зазвичай не "
 "приймають і друге"
 
 #: rustconn/src/dialogs/connection/ssh.rs:831
@@ -4021,11 +4025,11 @@ msgstr "Тунель крізь SSH"
 
 #: rustconn/src/dialogs/connection/web.rs:107
 msgid ""
-"Browse via a SOCKS proxy over the chosen SSH connection (embedded or Chromium"
-" browser)"
+"Browse via a SOCKS proxy over the chosen SSH connection (embedded or "
+"Chromium browser)"
 msgstr ""
-"Переглядай крізь SOCKS-проксі обраного SSH-з’єднанка (вбудований або Chromium"
-" оглядач)"
+"Переглядай крізь SOCKS-проксі обраного SSH-з’єднанка (вбудований або "
+"Chromium оглядач)"
 
 #: rustconn/src/dialogs/connection/web.rs:130
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:58
@@ -4035,8 +4039,8 @@ msgstr "Загальне"
 
 #: rustconn/src/dialogs/connection/web.rs:198
 msgid ""
-"In the snap, Embedded opens in the system browser unless the embedded browser"
-" is allowed in Settings"
+"In the snap, Embedded opens in the system browser unless the embedded "
+"browser is allowed in Settings"
 msgstr ""
 "У snap режим «Убудований» відкриває системний оглядач, якщо вбудований "
 "оглядач не дозволено в Уставах"
@@ -4505,11 +4509,11 @@ msgstr "Копіювання збережених паролів"
 
 #: rustconn/src/dialogs/credential_transfer.rs:79
 msgid ""
-"Copies the passwords of every connection, group and secret variable that uses"
-" the password store. The originals are left where they are."
+"Copies the passwords of every connection, group and secret variable that "
+"uses the password store. The originals are left where they are."
 msgstr ""
-"Копіює паролі кожного з'єднанка, групи та секретної змінниці, що користуються"
-" сховищем паролів. Первісні записи лишаються на місці."
+"Копіює паролі кожного з'єднанка, групи та секретної змінниці, що "
+"користуються сховищем паролів. Первісні записи лишаються на місці."
 
 #: rustconn/src/dialogs/credential_transfer.rs:88
 msgid "From"
@@ -4544,7 +4548,7 @@ msgid "Copy"
 msgstr "Копіюй"
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
-#: rustconn/src/dialogs/key_setup.rs:474 rustconn/src/dialogs/script.rs:171
+#: rustconn/src/dialogs/key_setup.rs:625 rustconn/src/dialogs/script.rs:171
 #: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:1127
 msgid "Stop"
 msgstr "Зупини"
@@ -4559,9 +4563,9 @@ msgstr "Обери два різні сховища паролів"
 
 #: rustconn/src/dialogs/credential_transfer.rs:223
 msgid ""
-"These entries would end up in the same place in the destination, so one would"
-" overwrite the other. Rename one of them, or choose a destination that keeps "
-"groups apart."
+"These entries would end up in the same place in the destination, so one "
+"would overwrite the other. Rename one of them, or choose a destination that "
+"keeps groups apart."
 msgstr ""
 "Ці записи потрапили б у призначенні в одне місце, тож один перезаписав би "
 "інший. Перейменуй один із них або обери призначення, яке тримає групи окремо."
@@ -4612,8 +4616,8 @@ msgstr ""
 
 #: rustconn/src/dialogs/credential_transfer.rs:597
 msgid ""
-"There is no portable file at {}. Check the path in Settings, or wait for your"
-" cloud client to deliver it."
+"There is no portable file at {}. Check the path in Settings, or wait for "
+"your cloud client to deliver it."
 msgstr ""
 "За шляхом {} портативного файла нема. Перевір шлях в Уставах або дочекайся, "
 "поки твій хмарний клієнт його доставить."
@@ -4657,7 +4661,7 @@ msgstr "Копіювання зупинено"
 #: rustconn/src/dialogs/credential_transfer.rs:719
 #: rustconn/src/dialogs/export.rs:1180 rustconn/src/dialogs/history.rs:340
 #: rustconn/src/dialogs/import/sources.rs:708
-#: rustconn/src/dialogs/key_setup.rs:709
+#: rustconn/src/dialogs/key_setup.rs:1030
 #: rustconn/src/dialogs/portable_passphrase_change.rs:376
 #: rustconn/src/dialogs/recording.rs:831 rustconn/src/dialogs/recording.rs:843
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
@@ -4789,10 +4793,12 @@ msgstr "Місце виведення"
 
 #: rustconn/src/dialogs/export.rs:305
 msgid ""
-"Remmina, SecureCRT and RDP Files export to a directory (one file per connection).\n"
+"Remmina, SecureCRT and RDP Files export to a directory (one file per "
+"connection).\n"
 "Other formats export to a single file."
 msgstr ""
-"Remmina, SecureCRT і файли RDP експортуються в каталог (один файл на з'єднання).\n"
+"Remmina, SecureCRT і файли RDP експортуються в каталог (один файл на "
+"з'єднання).\n"
 "Інші формати експортуються в один файл."
 
 #: rustconn/src/dialogs/export.rs:311
@@ -5023,8 +5029,8 @@ msgid ""
 "Showing sandbox-compatible components only.              Downloads are "
 "verified with SHA256 checksums."
 msgstr ""
-"Показано лише сумісні з пісочницею складники.              Завантажування які"
-" перевіряють контрольними сумами SHA256."
+"Показано лише сумісні з пісочницею складники.              Завантажування "
+"які перевіряють контрольними сумами SHA256."
 
 #: rustconn/src/dialogs/flatpak_components.rs:157
 msgid "Protocol Clients"
@@ -5229,8 +5235,8 @@ msgstr ""
 
 #: rustconn/src/dialogs/import/mod.rs:393
 msgid ""
-"Passwords were not imported: {} keeps them encrypted inside the document. The"
-" affected connections ask for a password on connect."
+"Passwords were not imported: {} keeps them encrypted inside the document. "
+"The affected connections ask for a password on connect."
 msgstr ""
 "Паролі не імпортовано: {} тримає їх зашифрованими в документі. Відповідні "
 "з'єднки питатимуть пароль під час з'єднування."
@@ -5744,23 +5750,27 @@ msgstr "Перевіряння…"
 msgid "Verification failed"
 msgstr "Перевірка не вдалася"
 
-#: rustconn/src/dialogs/key_setup.rs:40
+#: rustconn/src/dialogs/key_setup.rs:45
 msgid "Looking up the stored password…"
 msgstr "Пошук збереженого пароля…"
 
-#: rustconn/src/dialogs/key_setup.rs:41
+#: rustconn/src/dialogs/key_setup.rs:46
 msgid "Generating key…"
 msgstr "Створення ключа…"
 
-#: rustconn/src/dialogs/key_setup.rs:42
+#: rustconn/src/dialogs/key_setup.rs:47
+msgid "Reading the key…"
+msgstr "Читання ключа…"
+
+#: rustconn/src/dialogs/key_setup.rs:48
 msgid "Installing the key on {}…"
 msgstr "Установлення ключа на {}…"
 
-#: rustconn/src/dialogs/key_setup.rs:43
+#: rustconn/src/dialogs/key_setup.rs:49
 msgid "Checking that the key signs in…"
 msgstr "Перевірка входу за ключем…"
 
-#: rustconn/src/dialogs/key_setup.rs:146
+#: rustconn/src/dialogs/key_setup.rs:240
 msgid ""
 "RustConn has not seen this server's host key yet, so nothing was sent. "
 "Connect once so the key is recorded, then try again. If the terminal asks "
@@ -5770,11 +5780,11 @@ msgstr ""
 "З'єднайся один раз, щоб ключ записався, потім спробуй знову. Якщо термінал "
 "спитає про ключ, перевір його, перш ніж прийняти."
 
-#: rustconn/src/dialogs/key_setup.rs:148
+#: rustconn/src/dialogs/key_setup.rs:242
 msgid "Unknown Host Key"
 msgstr "Невідомий ключ госта"
 
-#: rustconn/src/dialogs/key_setup.rs:152
+#: rustconn/src/dialogs/key_setup.rs:246
 msgid ""
 "The server's host key differs from the one on record. Someone may be "
 "intercepting the connection. Nothing was sent. Check the key with the "
@@ -5784,22 +5794,29 @@ msgstr ""
 "з'єднування. Нічого не надіслано. Перш ніж з'єднуватися, перевір ключ в "
 "адміністратора сервера."
 
-#: rustconn/src/dialogs/key_setup.rs:154
+#: rustconn/src/dialogs/key_setup.rs:248
 msgid "Host Key Changed"
 msgstr "Ключ госта змінився"
 
-#: rustconn/src/dialogs/key_setup.rs:158
+#: rustconn/src/dialogs/key_setup.rs:252
 msgid ""
 "The account password has expired. Change it on the server, then try again."
 msgstr ""
 "Термін дії пароля облікового запису минув. Зміни пароль на сервері й спробуй "
 "знову."
 
-#: rustconn/src/dialogs/key_setup.rs:162
+#: rustconn/src/dialogs/key_setup.rs:256
 msgid "The passphrase is not correct for this key."
 msgstr "Парольна фраза не підходить до цього ключа."
 
-#: rustconn/src/dialogs/key_setup.rs:167
+#: rustconn/src/dialogs/key_setup.rs:262
+msgid ""
+"The key was installed, but the server does not accept it. Common causes are "
+"wrong permissions on the home folder or ~/.ssh (StrictModes), a custom "
+"AuthorizedKeysFile, SELinux, or key sign-in being disabled."
+msgstr "Ключ встановлено, але сервер його не приймає. Поширені причини: неправильні права на домашню папку або ~/.ssh (StrictModes), власний AuthorizedKeysFile, SELinux або вимкнений вхід за ключем."
+
+#: rustconn/src/dialogs/key_setup.rs:267
 msgid ""
 "The key was installed, but the server does not accept it. Common causes are "
 "wrong permissions on the home folder or ~/.ssh (StrictModes), a custom "
@@ -5811,7 +5828,7 @@ msgstr ""
 "або вимкнений вхід за ключем. Ключ збережено, тож можеш спробувати знову "
 "після виправлення сервера."
 
-#: rustconn/src/dialogs/key_setup.rs:172
+#: rustconn/src/dialogs/key_setup.rs:272
 msgid ""
 "Sign-in worked, but the server did not run the install command. The account "
 "may be limited to a fixed command or a restricted shell."
@@ -5819,128 +5836,147 @@ msgstr ""
 "Вхід відбувся, але сервер не виконав команду установлення. Обліковий запис "
 "може бути обмежений наперед заданою командою або обмеженою оболонкою."
 
-#: rustconn/src/dialogs/key_setup.rs:176
+#: rustconn/src/dialogs/key_setup.rs:276
 msgid ""
 "The server has no POSIX shell, for example a Windows server. Key setup "
 "supports Linux and other Unix-like servers."
 msgstr ""
-"На сервері нема оболонки POSIX, наприклад, на сервері Windows. Налаштовування"
-" ключа підтримує Linux та інші Unix-подібні сервери."
+"На сервері нема оболонки POSIX, наприклад, на сервері Windows. "
+"Налаштовування ключа підтримує Linux та інші Unix-подібні сервери."
 
-#: rustconn/src/dialogs/key_setup.rs:183
+#: rustconn/src/dialogs/key_setup.rs:283
 msgid "ssh exited with code {}."
 msgstr "ssh завершився з кодом {}."
 
-#: rustconn/src/dialogs/key_setup.rs:188
+#: rustconn/src/dialogs/key_setup.rs:288
 msgid "ssh was stopped by a signal."
 msgstr "ssh зупинено сигналом."
 
-#: rustconn/src/dialogs/key_setup.rs:193
+#: rustconn/src/dialogs/key_setup.rs:293
 msgid "ssh-keygen was not found. Install the OpenSSH client."
 msgstr "ssh-keygen не знайдено. Установи клієнта OpenSSH."
 
-#: rustconn/src/dialogs/key_setup.rs:196
+#: rustconn/src/dialogs/key_setup.rs:296
 msgid "ssh was not found. Install the OpenSSH client."
 msgstr "ssh не знайдено. Установи клієнта OpenSSH."
 
-#: rustconn/src/dialogs/key_setup.rs:199
+#: rustconn/src/dialogs/key_setup.rs:299
 msgid "ssh-keygen could not create the key."
 msgstr "ssh-keygen не зміг створити ключ."
 
-#: rustconn/src/dialogs/key_setup.rs:202
+#: rustconn/src/dialogs/key_setup.rs:302
 msgid "Your home folder could not be found."
 msgstr "Домашню теку не знайдено."
 
-#: rustconn/src/dialogs/key_setup.rs:205
+#: rustconn/src/dialogs/key_setup.rs:305
 msgid "Could not use the key folder {}."
 msgstr "Не вдалося використати теку ключів {}."
 
-#: rustconn/src/dialogs/key_setup.rs:210
+#: rustconn/src/dialogs/key_setup.rs:310
 msgid "A file already exists at {}."
 msgstr "Файл за шляхом {} уже є."
 
-#: rustconn/src/dialogs/key_setup.rs:215
+#: rustconn/src/dialogs/key_setup.rs:315
 msgid "There is no free key file name in {}. Remove unused keys from it."
 msgstr "У {} нема вільної назви файла ключа. Вилучи з неї невикористані ключі."
 
-#: rustconn/src/dialogs/key_setup.rs:219
+#: rustconn/src/dialogs/key_setup.rs:319
 msgid "Could not read the key file {}."
 msgstr "Не вдалося прочитати файл ключа {}."
 
-#: rustconn/src/dialogs/key_setup.rs:224
+#: rustconn/src/dialogs/key_setup.rs:324
 msgid "{} was not created by RustConn, so it was not deleted."
 msgstr "{} створено не RustConn, тому його не вилучено."
 
-#: rustconn/src/dialogs/key_setup.rs:229
+#: rustconn/src/dialogs/key_setup.rs:332
+msgid "Key setup supports Ed25519 and RSA keys. Choose another key."
+msgstr "Налаштування ключа підтримує ключі Ed25519 та RSA. Обери інший ключ."
+
+#: rustconn/src/dialogs/key_setup.rs:336
+msgid "The public key of this key file is not valid."
+msgstr "Відкритий ключ цього файла ключа недійсний."
+
+#: rustconn/src/dialogs/key_setup.rs:340
 msgid "The generated public key is not valid."
 msgstr "Створений відкритий ключ недійсний."
 
-#: rustconn/src/dialogs/key_setup.rs:232
+#: rustconn/src/dialogs/key_setup.rs:343
+msgid ""
+"{} is not a private key. Choose the private key file, not the .pub file."
+msgstr "{} — не закритий ключ. Обери файл закритого ключа, а не файл .pub."
+
+#: rustconn/src/dialogs/key_setup.rs:347
+msgid ""
+"The public key for {} was not found. Put its .pub file next to it, or choose "
+"a key in the OpenSSH format."
+msgstr "Відкритий ключ для {} не знайдено. Розмісти поряд його файл .pub або обери ключ у форматі OpenSSH."
+
+#: rustconn/src/dialogs/key_setup.rs:351
 msgid "This host name or user name cannot be used for key setup."
 msgstr ""
 "Цю назву госта або ім'я користувача не можна використати для налаштовування "
 "ключа."
 
-#: rustconn/src/dialogs/key_setup.rs:235
+#: rustconn/src/dialogs/key_setup.rs:354
 msgid "Could not prepare the password helper."
 msgstr "Не вдалося підготувати помічника паролів."
 
-#: rustconn/src/dialogs/key_setup.rs:238
+#: rustconn/src/dialogs/key_setup.rs:357
 msgid "Could not start {}."
 msgstr "Не вдалося запустити {}."
 
-#: rustconn/src/dialogs/key_setup.rs:241
+#: rustconn/src/dialogs/key_setup.rs:360
 msgid "The server did not answer in time."
 msgstr "Сервер не відповів вчасно."
 
-#: rustconn/src/dialogs/key_setup.rs:245
+#: rustconn/src/dialogs/key_setup.rs:364
 msgid "Cancelled."
 msgstr "Скасовано."
 
-#: rustconn/src/dialogs/key_setup.rs:254
+#: rustconn/src/dialogs/key_setup.rs:373
 msgid ""
 "Connection refused. Check the host, the port and that the SSH server is "
 "running."
 msgstr ""
 "З'єднування відхилено. Перевір гост, порт і те, що сервер SSH запущено."
 
-#: rustconn/src/dialogs/key_setup.rs:257
+#: rustconn/src/dialogs/key_setup.rs:376
 msgid "The connection timed out. Check that the host is reachable."
 msgstr "Час з'єднування вичерпано. Перевір, чи гост доступний."
 
-#: rustconn/src/dialogs/key_setup.rs:260
+#: rustconn/src/dialogs/key_setup.rs:379
 msgid "The host is unreachable. Check the network connection."
 msgstr "Гост недосяжний. Перевір мережне з'єднування."
 
-#: rustconn/src/dialogs/key_setup.rs:263
+#: rustconn/src/dialogs/key_setup.rs:382
 msgid "The host name could not be resolved. Check the host name."
 msgstr "Не вдалося визначити адресу за назвою госта. Перевір назву госта."
 
-#: rustconn/src/dialogs/key_setup.rs:265
+#: rustconn/src/dialogs/key_setup.rs:384
 msgid "The server closed the connection."
 msgstr "Сервер закрив з'єднок."
 
-#: rustconn/src/dialogs/key_setup.rs:271
+#: rustconn/src/dialogs/key_setup.rs:390
 msgid "Could not create ~/.ssh on the server."
 msgstr "Не вдалося створити ~/.ssh на сервері."
 
-#: rustconn/src/dialogs/key_setup.rs:273
+#: rustconn/src/dialogs/key_setup.rs:392
 msgid "Could not create ~/.ssh/authorized_keys on the server."
 msgstr "Не вдалося створити ~/.ssh/authorized_keys на сервері."
 
-#: rustconn/src/dialogs/key_setup.rs:275
+#: rustconn/src/dialogs/key_setup.rs:394
 msgid "The server did not receive the key."
 msgstr "Сервер не отримав ключа."
 
-#: rustconn/src/dialogs/key_setup.rs:277
+#: rustconn/src/dialogs/key_setup.rs:396
 msgid ""
-"Could not add the key to ~/.ssh/authorized_keys on the server. Check the disk"
-" space and file permissions."
+"Could not add the key to ~/.ssh/authorized_keys on the server. Check the "
+"disk space and file permissions."
 msgstr ""
 "Не вдалося додати ключ до ~/.ssh/authorized_keys на сервері. Перевір вільне "
 "місце на диску та права доступу до файлів."
 
-#: rustconn/src/dialogs/key_setup.rs:298
+#: rustconn/src/dialogs/key_setup.rs:417
 msgid ""
 "Too many authentication attempts. Remove unused keys from the SSH agent and "
 "try again."
@@ -5948,22 +5984,22 @@ msgstr ""
 "Забагато спроб автентифікації. Вилучи невикористані ключі з SSH-аґента й "
 "спробуй знову."
 
-#: rustconn/src/dialogs/key_setup.rs:304
+#: rustconn/src/dialogs/key_setup.rs:423
 msgid ""
-"The server does not allow password sign-in (it offers: {}), so the key cannot"
-" be installed this way."
+"The server does not allow password sign-in (it offers: {}), so the key "
+"cannot be installed this way."
 msgstr ""
 "Сервер не дозволяє вхід за паролем (він пропонує: {}), тож ключ не можна "
 "установити таким способом."
 
-#: rustconn/src/dialogs/key_setup.rs:312
+#: rustconn/src/dialogs/key_setup.rs:431
 msgid ""
 "The server did not accept the password. Enter the account password and try "
 "again."
 msgstr ""
 "Сервер не прийняв пароль. Уведи пароль облікового запису й спробуй знову."
 
-#: rustconn/src/dialogs/key_setup.rs:319
+#: rustconn/src/dialogs/key_setup.rs:438
 msgid ""
 "The server asks for a password, but this connection's options or proxy "
 "prevent RustConn from passing the stored one safely."
@@ -5971,12 +6007,93 @@ msgstr ""
 "Сервер просить пароль, але параметри цього з'єднанка чи проксі не дозволяють "
 "RustConn безпечно передати збережений."
 
-#: rustconn/src/dialogs/key_setup.rs:323
+#: rustconn/src/dialogs/key_setup.rs:442
 msgid ""
 "The server asks for a password. Enter the account password and try again."
 msgstr "Сервер просить пароль. Уведи пароль облікового запису й спробуй знову."
 
-#: rustconn/src/dialogs/key_setup.rs:367
+#: rustconn/src/dialogs/key_setup.rs:498
+msgid "Create a New Key"
+msgstr "Створити новий ключ"
+
+#: rustconn/src/dialogs/key_setup.rs:499
+msgid "Use an Existing Key"
+msgstr "Використати наявний ключ"
+
+#: rustconn/src/dialogs/key_setup.rs:504
+msgid "Key Type"
+msgstr "Тип ключа"
+
+#: rustconn/src/dialogs/key_setup.rs:506
+msgid "Ed25519 (Recommended)"
+msgstr "Ed25519 (рекомендовано)"
+
+#: rustconn/src/dialogs/key_setup.rs:507
+msgid "RSA 4096"
+msgstr "RSA 4096"
+
+#: rustconn/src/dialogs/key_setup.rs:520
+msgid ""
+"In the snap, the key is kept in the snap's own folder and is deleted when "
+"the snap is removed. Without an SSH agent, a key passphrase is asked on "
+"every connect."
+msgstr ""
+"У snap ключ зберігається у власній теці snap і вилучається разом зі snap. "
+"Без SSH-аґента парольну фразу ключа запитують за кожного з'єднування."
+
+#: rustconn/src/dialogs/key_setup.rs:526 rustconn/src/toast.rs:72
+msgid "Warning"
+msgstr "Засторога"
+
+#: rustconn/src/dialogs/key_setup.rs:537 rustconn/src/dialogs/key_setup.rs:817
+#: rustconn/src/dialogs/key_setup.rs:861
+msgid "No keys found. Choose a key file."
+msgstr "Ключів не знайдено. Обери файл ключа."
+
+#: rustconn/src/dialogs/key_setup.rs:543 rustconn/src/dialogs/key_setup.rs:545
+#: rustconn/src/window/edit_group.rs:714 rustconn/src/window/edit_group.rs:716
+msgid "Select SSH key file"
+msgstr "Обери файл ключа SSH"
+
+#: rustconn/src/dialogs/key_setup.rs:554 rustconn/src/dialogs/key_setup.rs:792
+msgid "Passphrase (Optional)"
+msgstr "Парольна фраза (необов'язково)"
+
+#: rustconn/src/dialogs/key_setup.rs:559
+msgid "Used once to install the key. Not saved."
+msgstr "Використовується один раз для установлення ключа. Не зберігається."
+
+#: rustconn/src/dialogs/key_setup.rs:563
+msgid "Account Password"
+msgstr "Пароль облікового запису"
+
+#: rustconn/src/dialogs/key_setup.rs:590
+msgid "Delete Generated Key"
+msgstr "Вилучи створений ключ"
+
+#: rustconn/src/dialogs/key_setup.rs:592
+msgid "Use Key"
+msgstr "Використай ключ"
+
+#: rustconn/src/dialogs/key_setup.rs:593
+msgid "Keep Current Settings"
+msgstr "Залиш поточні устави"
+
+#: rustconn/src/dialogs/key_setup.rs:606
+#: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1003
+#: rustconn/src/dialogs/settings/ssh_agent_tab.rs:45
+msgid "Status"
+msgstr "Стан"
+
+#: rustconn/src/dialogs/key_setup.rs:620 rustconn/src/dialogs/key_setup.rs:1078
+msgid "Set Up"
+msgstr "Налаштуй"
+
+#: rustconn/src/dialogs/key_setup.rs:630
+msgid "Set Up Key Authentication"
+msgstr "Налаштуй автентифікацію за ключем"
+
+#: rustconn/src/dialogs/key_setup.rs:689
 msgid ""
 "RustConn creates a key, installs it on {} and checks that it signs in. The "
 "stored password is kept."
@@ -5984,70 +6101,13 @@ msgstr ""
 "RustConn створює ключ, установлює його на {} і перевіряє, що вхід із ним "
 "працює. Збережений пароль лишається."
 
-#: rustconn/src/dialogs/key_setup.rs:372
-msgid "Key Type"
-msgstr "Тип ключа"
-
-#: rustconn/src/dialogs/key_setup.rs:374
-msgid "Ed25519 (Recommended)"
-msgstr "Ed25519 (рекомендовано)"
-
-#: rustconn/src/dialogs/key_setup.rs:375
-msgid "RSA 4096"
-msgstr "RSA 4096"
-
-#: rustconn/src/dialogs/key_setup.rs:388
+#: rustconn/src/dialogs/key_setup.rs:693
 msgid ""
-"In the snap, the key is kept in the snap's own folder and is deleted when the"
-" snap is removed. Without an SSH agent, a key passphrase is asked on every "
-"connect."
-msgstr ""
-"У snap ключ зберігається у власній теці snap і вилучається разом зі snap. Без"
-" SSH-аґента парольну фразу ключа запитують за кожного з'єднування."
+"RustConn installs the key on {} and checks that it signs in. The stored "
+"password is kept."
+msgstr "RustConn встановить ключ на {} і перевірить, що він дозволяє увійти. Збережений пароль залишається."
 
-#: rustconn/src/dialogs/key_setup.rs:394 rustconn/src/toast.rs:72
-msgid "Warning"
-msgstr "Засторога"
-
-#: rustconn/src/dialogs/key_setup.rs:403
-msgid "Passphrase (Optional)"
-msgstr "Парольна фраза (необов'язково)"
-
-#: rustconn/src/dialogs/key_setup.rs:408
-msgid "Used once to install the key. Not saved."
-msgstr "Використовується один раз для установлення ключа. Не зберігається."
-
-#: rustconn/src/dialogs/key_setup.rs:412
-msgid "Account Password"
-msgstr "Пароль облікового запису"
-
-#: rustconn/src/dialogs/key_setup.rs:439
-msgid "Delete Generated Key"
-msgstr "Вилучи створений ключ"
-
-#: rustconn/src/dialogs/key_setup.rs:441
-msgid "Use Key"
-msgstr "Використай ключ"
-
-#: rustconn/src/dialogs/key_setup.rs:442
-msgid "Keep Current Settings"
-msgstr "Залиш поточні устави"
-
-#: rustconn/src/dialogs/key_setup.rs:455
-#: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1003
-#: rustconn/src/dialogs/settings/ssh_agent_tab.rs:45
-msgid "Status"
-msgstr "Стан"
-
-#: rustconn/src/dialogs/key_setup.rs:469 rustconn/src/dialogs/key_setup.rs:754
-msgid "Set Up"
-msgstr "Налаштуй"
-
-#: rustconn/src/dialogs/key_setup.rs:479
-msgid "Set Up Key Authentication"
-msgstr "Налаштуй автентифікацію за ключем"
-
-#: rustconn/src/dialogs/key_setup.rs:530
+#: rustconn/src/dialogs/key_setup.rs:702
 msgid ""
 "A key from an earlier attempt is ready and will be used again. Enter its "
 "passphrase if it has one."
@@ -6055,7 +6115,7 @@ msgstr ""
 "Ключ із попередньої спроби готовий і буде використаний знову. Якщо в нього є "
 "парольна фраза, уведи її."
 
-#: rustconn/src/dialogs/key_setup.rs:534
+#: rustconn/src/dialogs/key_setup.rs:706
 msgid ""
 "A passphrase protects the key if someone copies it. Without an SSH agent it "
 "is asked on every connect."
@@ -6063,16 +6123,28 @@ msgstr ""
 "Парольна фраза захищає ключ, якщо хтось його скопіює. Без SSH-аґента її "
 "запитують за кожного з'єднування."
 
-#: rustconn/src/dialogs/key_setup.rs:718
+#: rustconn/src/dialogs/key_setup.rs:874
+msgid "Key Passphrase"
+msgstr "Парольна фраза ключа"
+
+#: rustconn/src/dialogs/key_setup.rs:879
+msgid "Key Passphrase (Optional)"
+msgstr "Парольна фраза ключа (необов'язково)"
+
+#: rustconn/src/dialogs/key_setup.rs:887
+msgid "Used once to check that the key signs in. Not saved."
+msgstr "Використовується один раз, щоб перевірити вхід за ключем. Не зберігається."
+
+#: rustconn/src/dialogs/key_setup.rs:1040
 #: rustconn/src/embedded_rdp/file_dnd.rs:229
 msgid "Try Again"
 msgstr "Спробуй знову"
 
-#: rustconn/src/dialogs/key_setup.rs:733
+#: rustconn/src/dialogs/key_setup.rs:1056
 msgid "Key Accepted, More Required"
 msgstr "Ключ прийнято, потрібен ще один чинник"
 
-#: rustconn/src/dialogs/key_setup.rs:735
+#: rustconn/src/dialogs/key_setup.rs:1058
 msgid ""
 "The server accepted the key but also asks for another factor, such as a one-"
 "time code. Use the key for this connection anyway?"
@@ -6080,7 +6152,7 @@ msgstr ""
 "Сервер прийняв ключ, але просить ще й інший чинник, наприклад одноразовий "
 "код. Усе одно використати ключ для цього з'єднанка?"
 
-#: rustconn/src/dialogs/key_setup.rs:751
+#: rustconn/src/dialogs/key_setup.rs:1075
 msgid "The generated key was deleted."
 msgstr "Створений ключ вилучено."
 
@@ -6332,11 +6404,15 @@ msgstr "Скопіювати облікові відомости до порта
 
 #: rustconn/src/dialogs/portable_migration.rs:52
 msgid ""
-"{} stored passwords are currently protected by a key that only works on this computer. Copying them into the portable file re-encrypts them with your passphrase, so they can be opened on your other devices.\n"
+"{} stored passwords are currently protected by a key that only works on this "
+"computer. Copying them into the portable file re-encrypts them with your "
+"passphrase, so they can be opened on your other devices.\n"
 "\n"
 "The originals are kept, so nothing is lost if you change your mind."
 msgstr ""
-"{} збережених паролів зараз захищено ключем, що працює лише на цьому комп'ютері. Копіювання до портативного файла перешифрує їх твоєю парольною фразою, тож їх можна буде відкрити на інших пристроях.\n"
+"{} збережених паролів зараз захищено ключем, що працює лише на цьому "
+"комп'ютері. Копіювання до портативного файла перешифрує їх твоєю парольною "
+"фразою, тож їх можна буде відкрити на інших пристроях.\n"
 "\n"
 "Оригінали зберігаються, тож нічого не буде втрачено, якщо ти зміниш думку."
 
@@ -6376,11 +6452,11 @@ msgstr ""
 
 #: rustconn/src/dialogs/portable_migration.rs:201
 msgid ""
-"These connections still work on this computer. To use them on another device,"
-" open each one and save its password again."
+"These connections still work on this computer. To use them on another "
+"device, open each one and save its password again."
 msgstr ""
-"Ці з'єднки досі працюють на цьому комп'ютері. Щоб скористатися ними на іншому"
-" пристрої, відкрий кожен і збережи його пароль наново."
+"Ці з'єднки досі працюють на цьому комп'ютері. Щоб скористатися ними на "
+"іншому пристрої, відкрий кожен і збережи його пароль наново."
 
 #: rustconn/src/dialogs/portable_migration.rs:214
 msgid "Some Credentials Were Not Copied"
@@ -6393,8 +6469,8 @@ msgstr "Зміна парольної фрази"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:56
 msgid ""
-"Every password in the file is encrypted again under the new passphrase. There"
-" is still no way to recover it, so it is asked for twice."
+"Every password in the file is encrypted again under the new passphrase. "
+"There is still no way to recover it, so it is asked for twice."
 msgstr ""
 "Кожен пароль у файлі буде зашифровано знову під новою парольною фразою. Її "
 "так само не відновити, тому її запитують двічі."
@@ -6822,11 +6898,11 @@ msgstr "Медіакодеки"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:111
 msgid ""
-"OpenH264 Video Codec provided by Cisco Systems, Inc. — optional H.264 decoder"
-" for RDP graphics (GFX) sessions."
+"OpenH264 Video Codec provided by Cisco Systems, Inc. — optional H.264 "
+"decoder for RDP graphics (GFX) sessions."
 msgstr ""
-"OpenH264 Video Codec provided by Cisco Systems, Inc. — необов'язковий декодер"
-" H.264 для сеансів графіки RDP (GFX)."
+"OpenH264 Video Codec provided by Cisco Systems, Inc. — необов'язковий "
+"декодер H.264 для сеансів графіки RDP (GFX)."
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:125
 msgid "Use OpenH264"
@@ -6880,13 +6956,15 @@ msgstr "Не вдалося видалити"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:343
 msgid ""
-"This downloads the OpenH264 Video Codec provided by Cisco Systems, Inc. from:\n"
+"This downloads the OpenH264 Video Codec provided by Cisco Systems, Inc. "
+"from:\n"
 "{}\n"
 "\n"
 "and installs it to:\n"
 "{}\n"
 "\n"
-"Cisco — not RustConn — provides this binary and holds the MPEG-LA patent licence for it. By downloading you accept Cisco's binary licence:\n"
+"Cisco — not RustConn — provides this binary and holds the MPEG-LA patent "
+"licence for it. By downloading you accept Cisco's binary licence:\n"
 "{}\n"
 "\n"
 "Download it?"
@@ -6897,7 +6975,8 @@ msgstr ""
 "і встановить його до:\n"
 "{}\n"
 "\n"
-"Цей бінарник надає Cisco — не RustConn — і Cisco тримає патентну ліцензію MPEG-LA на нього. Завантажуючи, ви приймаєте бінарну ліцензію Cisco:\n"
+"Цей бінарник надає Cisco — не RustConn — і Cisco тримає патентну ліцензію "
+"MPEG-LA на нього. Завантажуючи, ви приймаєте бінарну ліцензію Cisco:\n"
 "{}\n"
 "\n"
 "Завантажити?"
@@ -7011,21 +7090,25 @@ msgstr "Імпортуй файл синхронізації"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:230
 msgid ""
-"The Flatpak sandbox cannot directly access this directory. File monitoring will not work through the document portal.\n"
+"The Flatpak sandbox cannot directly access this directory. File monitoring "
+"will not work through the document portal.\n"
 "\n"
 "To grant access, run in a terminal:\n"
 "\n"
 "flatpak override --user --filesystem={} {}\n"
 "\n"
-"Adjust the path if needed to match the actual location on your filesystem. Then restart RustConn and set the sync directory again."
+"Adjust the path if needed to match the actual location on your filesystem. "
+"Then restart RustConn and set the sync directory again."
 msgstr ""
-"Пісочниця Flatpak не може безпосередньо звертатися до цієї теки. Моніторинг файлів не працюватиме через портал документів.\n"
+"Пісочниця Flatpak не може безпосередньо звертатися до цієї теки. Моніторинг "
+"файлів не працюватиме через портал документів.\n"
 "\n"
 "Щоб надати доступ, виконай у терміналі:\n"
 "\n"
 "flatpak override --user --filesystem={} {}\n"
 "\n"
-"За потреби скоригуй шлях відповідно до фактичного розташування у файловій системі. Потім перезапусти RustConn і знову вкажи теку синхронізації."
+"За потреби скоригуй шлях відповідно до фактичного розташування у файловій "
+"системі. Потім перезапусти RustConn і знову вкажи теку синхронізації."
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:235
 msgid "Flatpak: filesystem access required"
@@ -7282,8 +7365,8 @@ msgid ""
 "Connections that switch monitoring on or off themselves: {}. After the reset "
 "they follow the global switch. Polling intervals set per connection are kept."
 msgstr ""
-"З'єднання, що самі вмикають або вимикають моніторинг: {}. Після скидання вони"
-" слідуватимуть глобальному перемикачу. Інтервали опитування, задані для "
+"З'єднання, що самі вмикають або вимикають моніторинг: {}. Після скидання "
+"вони слідуватимуть глобальному перемикачу. Інтервали опитування, задані для "
 "окремих з'єднань, зберігаються."
 
 #: rustconn/src/dialogs/settings/mod.rs:954
@@ -7353,11 +7436,11 @@ msgstr "Увімкни моніторинг"
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:65
 msgid ""
-"Global switch for all connections (per-connection: Advanced tab in connection"
-" settings)"
+"Global switch for all connections (per-connection: Advanced tab in "
+"connection settings)"
 msgstr ""
-"Глобальний перемикач для всіх з'єднків (окремо для кожного: вкладка Додатково"
-" в уставах з'єднанка)"
+"Глобальний перемикач для всіх з'єднків (окремо для кожного: вкладка "
+"Додатково в уставах з'єднанка)"
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:71
 msgid "Polling interval"
@@ -7683,8 +7766,8 @@ msgid ""
 "Repeat the passphrase to confirm it. A new file cannot be recovered if the "
 "passphrase is wrong."
 msgstr ""
-"Повтори парольну фразу для потвердження. Нового файла не відновити, якщо вона"
-" хибна."
+"Повтори парольну фразу для потвердження. Нового файла не відновити, якщо "
+"вона хибна."
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:941
 msgid "Secrets"
@@ -8007,9 +8090,9 @@ msgstr "Зашифрований файл"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1656
 msgid ""
-"Credentials in a file on this computer. The key is derived from this machine,"
-" so the file cannot be opened anywhere else — and cannot be recovered if the "
-"machine is lost."
+"Credentials in a file on this computer. The key is derived from this "
+"machine, so the file cannot be opened anywhere else — and cannot be "
+"recovered if the machine is lost."
 msgstr ""
 "Облікові відомости у файлі на цьому комп'ютері. Ключ виводиться з цієї "
 "машини, тож файла не відкрити ніде більше — і не відновити, якщо машину "
@@ -8033,8 +8116,8 @@ msgid ""
 msgstr ""
 "Облікові відомости у файлі, зашифрованому вибраною тобою парольною фразою. "
 "Поклади його до теки, яку синхронізує твій хмарний клієнт, і той самий файл "
-"відкриється на інших твоїх комп'ютерах. Парольної фрази не відновити, тому її"
-" запитують двічі."
+"відкриється на інших твоїх комп'ютерах. Парольної фрази не відновити, тому "
+"її запитують двічі."
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1701
 msgid "Browse"
@@ -8128,8 +8211,8 @@ msgstr "Наявні паролі"
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2075
 msgid "Re-encrypt credentials from the machine-bound file with your passphrase"
 msgstr ""
-"Перешифруй своєю парольною фразою облікові відомости з файла, прив'язаного до"
-" цього комп'ютера"
+"Перешифруй своєю парольною фразою облікові відомости з файла, прив'язаного "
+"до цього комп'ютера"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2121
 msgid "No stored passwords to copy"
@@ -8206,8 +8289,8 @@ msgstr "Слот YubiKey (запит-відповідь)"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2345
 msgid ""
-"YubiKey Challenge-Response slot for unlocking, as slot or slot:serial (e.g. 2"
-" or 2:12345678). Touch the key when it blinks."
+"YubiKey Challenge-Response slot for unlocking, as slot or slot:serial (e.g. "
+"2 or 2:12345678). Touch the key when it blinks."
 msgstr ""
 "Слот запиту-відповіді YubiKey для розблокування у форматі slot або "
 "slot:serial (напр., 2 або 2:12345678). Торкнись ключа, коли він блимає."
@@ -8431,11 +8514,13 @@ msgstr "Не вдалося відкрити вибирач файлів"
 msgid ""
 "{}\n"
 "\n"
-"Keys already in ~/.ssh are listed under Available Key Files, and can be added from there without the file chooser."
+"Keys already in ~/.ssh are listed under Available Key Files, and can be "
+"added from there without the file chooser."
 msgstr ""
 "{}\n"
 "\n"
-"Ключі, що вже є в ~/.ssh, перелічені в розділі «Доступні файли ключів», і їх можна додати звідти без вибирача файлів."
+"Ключі, що вже є в ~/.ssh, перелічені в розділі «Доступні файли ключів», і їх "
+"можна додати звідти без вибирача файлів."
 
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:749
 msgid "Remove from agent"
@@ -8817,8 +8902,8 @@ msgid ""
 "Reduce header bar, tab bar, and toolbar height for a denser layout. Applied "
 "instantly"
 msgstr ""
-"Зменшує висоту заголовка, панелі вкладок і панелі інструментів для щільнішого"
-" вигляду. Застосовується миттєво"
+"Зменшує висоту заголовка, панелі вкладок і панелі інструментів для "
+"щільнішого вигляду. Застосовується миттєво"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:275
 msgid "Compact automatically on small windows"
@@ -8839,14 +8924,14 @@ msgstr "Відкривати панель сеансу при наведенні
 #: rustconn/src/dialogs/settings/ui_tab.rs:290
 msgid ""
 "Reveal the floating viewer toolbar (RDP, VNC and the embedded browser) from "
-"its handle on the top edge of the pane when the pointer touches it. When off,"
-" the handle must be clicked. Does not affect terminal sessions, which have no"
-" floating toolbar"
+"its handle on the top edge of the pane when the pointer touches it. When "
+"off, the handle must be clicked. Does not affect terminal sessions, which "
+"have no floating toolbar"
 msgstr ""
-"Відкриває рухому панель перегляду (RDP, VNC і вбудований браузер) із вушка на"
-" верхньому краї панелі, коли вказівник торкається його. Коли вимкнено — вушко"
-" потрібно клацнути. Не впливає на термінальні сеанси, у яких нема рухомої "
-"панелі"
+"Відкриває рухому панель перегляду (RDP, VNC і вбудований браузер) із вушка "
+"на верхньому краї панелі, коли вказівник торкається його. Коли вимкнено — "
+"вушко потрібно клацнути. Не впливає на термінальні сеанси, у яких нема "
+"рухомої панелі"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:310
 msgid "Always on while Compact interface is enabled above"
@@ -8861,8 +8946,9 @@ msgid ""
 "Vertical space above and below each connection row, in pixels. Lower values "
 "fit more hosts on screen. Applied instantly"
 msgstr ""
-"Вертикальний відступ вище та нижче кожного рядка з'єднанка, у пікселях. Менші"
-" значення дають змогу побачити більше Гостів на екрані. Застосовується одразу"
+"Вертикальний відступ вище та нижче кожного рядка з'єднанка, у пікселях. "
+"Менші значення дають змогу побачити більше Гостів на екрані. Застосовується "
+"одразу"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:353
 msgid "Sidebar text size"
@@ -8912,11 +8998,11 @@ msgstr "Показувати з'єднок у заголовку вікна"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:437
 msgid ""
-"Append the active connection name to the window title, so time-tracking tools"
-" can identify it"
+"Append the active connection name to the window title, so time-tracking "
+"tools can identify it"
 msgstr ""
-"Додавати назву активного з'єднанка до заголовка вікна, щоб засоби обліку часу"
-" могли його розпізнати"
+"Додавати назву активного з'єднанка до заголовка вікна, щоб засоби обліку "
+"часу могли його розпізнати"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:443
 msgid "Show hierarchy path in header"
@@ -10070,8 +10156,8 @@ msgid ""
 "“{}” is attached to a connection that is not SSH. Port forwarding needs an "
 "SSH connection."
 msgstr ""
-"«{}» прив'язаний до з'єднанка, який не є SSH. Перенаправлення портів потребує"
-" SSH-з'єднанка."
+"«{}» прив'язаний до з'єднанка, який не є SSH. Перенаправлення портів "
+"потребує SSH-з'єднанка."
 
 #: rustconn/src/dialogs/tunnel.rs:654
 msgid "“{}” is already running."
@@ -10346,8 +10432,8 @@ msgstr "Ґлобальні змінниці"
 
 #: rustconn/src/dialogs/variables.rs:171
 msgid ""
-"Define variables that can be used in connections                  with "
-"${variable_name} syntax"
+"Define variables that can be used in connections                  with $"
+"{variable_name} syntax"
 msgstr ""
 "Визнач змінниці, які можна залучати в з'єднках                  із синтаксою "
 "${variable_name}"
@@ -10379,9 +10465,9 @@ msgstr "напр. Internet/MyRouter (необовʼязково)"
 
 #: rustconn/src/dialogs/variables.rs:305
 msgid ""
-"Custom KeePass entry path. If set, the password is read from this"
-"                  existing entry instead of the default "
-"RustConn/rustconn/var/ path."
+"Custom KeePass entry path. If set, the password is read from "
+"this                  existing entry instead of the default RustConn/"
+"rustconn/var/ path."
 msgstr ""
 "Власний шлях до запису KeePass. Якщо вказано, пароль зчитується з цього "
 "наявного запису замість типового шляху RustConn/rustconn/var/."
@@ -10396,8 +10482,8 @@ msgstr "напр. AD Credentials (необов'язково)"
 
 #: rustconn/src/dialogs/variables.rs:324
 msgid ""
-"Existing vault entry name. If set, the password is fetched from this"
-"                  entry at connection time — no need to enter a password "
+"Existing vault entry name. If set, the password is fetched from "
+"this                  entry at connection time — no need to enter a password "
 "above.                  Nothing is written back to the vault."
 msgstr ""
 "Назва існуючого запису у сховищі. Якщо вказано, пароль отримується з цього "
@@ -10434,9 +10520,9 @@ msgid ""
 "Leave empty for none. To recolour the text itself, give the connection an "
 "Output Filter such as ChromaTerm."
 msgstr ""
-"Шістнадцятковий колір, напр. #00AAFF, що малюється як підкреслина під збігом."
-" Залиш порожнім, якщо без підкреслини. Щоб змінити колір самого тексту, "
-"признач з'єднуванню фільтр виведення, як-от ChromaTerm."
+"Шістнадцятковий колір, напр. #00AAFF, що малюється як підкреслина під "
+"збігом. Залиш порожнім, якщо без підкреслини. Щоб змінити колір самого "
+"тексту, признач з'єднуванню фільтр виведення, як-от ChromaTerm."
 
 #: rustconn/src/dialogs/widgets.rs:550
 msgid "Hexadecimal colour such as #402020. Leave empty for no background."
@@ -10619,8 +10705,8 @@ msgstr ""
 #: rustconn/src/embedded.rs:641
 msgid ""
 "The installed FreeRDP client rejected one of the connection options. Your "
-"FreeRDP version may be too old; update FreeRDP or report this at the RustConn"
-" issue tracker."
+"FreeRDP version may be too old; update FreeRDP or report this at the "
+"RustConn issue tracker."
 msgstr ""
 "Встановлений клієнт FreeRDP відхилив один із параметрів з'єднанка. Можливо, "
 "твоя версія FreeRDP застаріла; онови FreeRDP або повідом про це в трекері "
@@ -10639,8 +10725,8 @@ msgid ""
 "TLS handshake failed. For a legacy server (e.g. Windows 2008 R2), set the "
 "security layer to RDP in connection settings."
 msgstr ""
-"Не вдалося виконати TLS-рукостискання. Для застарілого сервера (напр. Windows"
-" 2008 R2) встанови рівень захисту RDP в уставах з'єднанка."
+"Не вдалося виконати TLS-рукостискання. Для застарілого сервера (напр. "
+"Windows 2008 R2) встанови рівень захисту RDP в уставах з'єднанка."
 
 #: rustconn/src/embedded.rs:664
 msgid ""
@@ -10688,8 +10774,8 @@ msgid ""
 "Text entered here will be sent as keystrokes to the remote session. It will "
 "not be placed in the system clipboard."
 msgstr ""
-"Введений тут текст буде надіслано як натискання клавіш у віддалену сесію. Він"
-" не потрапить до системного буфера обміну."
+"Введений тут текст буде надіслано як натискання клавіш у віддалену сесію. "
+"Він не потрапить до системного буфера обміну."
 
 #: rustconn/src/embedded_rdp/autotype.rs:202
 msgid "Hide text (password mode)"
@@ -10828,11 +10914,12 @@ msgstr "З'єднування скасовано, бо сервер вимага
 
 #: rustconn/src/embedded_rdp/connection.rs:922
 msgid ""
-"Custom FreeRDP arguments are ignored by the embedded client."
-"                          Set the RDP client mode to External to apply them."
+"Custom FreeRDP arguments are ignored by the embedded "
+"client.                          Set the RDP client mode to External to "
+"apply them."
 msgstr ""
-"Вбудований клієнт не враховує власних аргументів FreeRDP. Щоб їх застосувати,"
-" обери режим клієнта RDP «Зовнішній»."
+"Вбудований клієнт не враховує власних аргументів FreeRDP. Щоб їх "
+"застосувати, обери режим клієнта RDP «Зовнішній»."
 
 #: rustconn/src/embedded_rdp/connection.rs:2310
 msgid ""
@@ -10900,19 +10987,19 @@ msgstr "Час з'єднування вичерпано. Перевір, чи г
 #: rustconn/src/embedded_rdp/connection.rs:2875
 msgid ""
 "Authentication failed: invalid username or password. If the credentials are "
-"correct and the server is a Linux RDP host (KDE KRdp, xrdp), this can instead"
-" be the server's NLA regression with FreeRDP 3.32 — update KRdp to 6.7.90 or "
-"newer, or set ExtSecurity=0 on the server (FreeRDP issue #13567)."
+"correct and the server is a Linux RDP host (KDE KRdp, xrdp), this can "
+"instead be the server's NLA regression with FreeRDP 3.32 — update KRdp to "
+"6.7.90 or newer, or set ExtSecurity=0 on the server (FreeRDP issue #13567)."
 msgstr ""
 "Автентифікація не вдалася: невірне ім’я користувача або пароль. Якщо "
 "креденшіали правильні, а сервер — це Linux RDP (KDE KRdp, xrdp), причиною "
-"може бути регресія NLA на сервері з FreeRDP 3.32 — оновіть KRdp до 6.7.90 або"
-" новішої, або встановіть ExtSecurity=0 на сервері (FreeRDP issue #13567)."
+"може бути регресія NLA на сервері з FreeRDP 3.32 — оновіть KRdp до 6.7.90 "
+"або новішої, або встановіть ExtSecurity=0 на сервері (FreeRDP issue #13567)."
 
 #: rustconn/src/embedded_rdp/connection.rs:2880
 msgid ""
-"Account restrictions refused this sign-in. Protected Users members cannot use"
-" NTLM: turn on Kerberos Authentication in the connection's RDP settings."
+"Account restrictions refused this sign-in. Protected Users members cannot "
+"use NTLM: turn on Kerberos Authentication in the connection's RDP settings."
 msgstr ""
 "Обмеження облікового запису відхилили цей вхід. Учасники групи Protected "
 "Users не можуть використовувати NTLM: увімкни автентифікацію Kerberos в "
@@ -12392,7 +12479,7 @@ msgid "Info"
 msgstr "Відомости"
 
 #: rustconn/src/toast.rs:295 rustconn/src/window/batch_edit.rs:239
-#: rustconn/src/window/key_setup.rs:583
+#: rustconn/src/window/key_setup.rs:794
 msgid "Undo"
 msgstr "Скасуй"
 
@@ -12448,9 +12535,9 @@ msgid ""
 "portable credential file. Open Settings, then Secrets, and enter the "
 "passphrase the file was created with."
 msgstr ""
-"Пароль не збережено. Уживана парольна фраза не розшифровує портативного файла"
-" облікових відомостей. Відкрий Устави, тоді Таємниці, і введи парольну фразу,"
-" з якою створено цей файл."
+"Пароль не збережено. Уживана парольна фраза не розшифровує портативного "
+"файла облікових відомостей. Відкрий Устави, тоді Таємниці, і введи парольну "
+"фразу, з якою створено цей файл."
 
 #: rustconn/src/vault_ops.rs:57
 msgid "Portable File Is Locked"
@@ -12489,8 +12576,8 @@ msgid ""
 "No system keyring is responding. Open Settings, then Secrets, and choose "
 "another backend such as Encrypted file or KeePassXC."
 msgstr ""
-"Жодна системна в’язка ключів не відповідає. Відкрий Устави, потім Таємниці, і"
-" обери інший бекенд, наприклад «Зашифрований файл» або KeePassXC."
+"Жодна системна в’язка ключів не відповідає. Відкрий Устави, потім Таємниці, "
+"і обери інший бекенд, наприклад «Зашифрований файл» або KeePassXC."
 
 #: rustconn/src/vault_ops.rs:294
 msgid ""
@@ -12607,8 +12694,8 @@ msgid ""
 "Most of them may come from its auto-membership pattern. If that is more than "
 "you expected, cancel and narrow the pattern."
 msgstr ""
-"Більшість із них можуть походити з шаблону авто-членства. Якщо це більше, ніж"
-" ви очікували, скасуйте й звузьте шаблон."
+"Більшість із них можуть походити з шаблону авто-членства. Якщо це більше, "
+"ніж ви очікували, скасуйте й звузьте шаблон."
 
 #: rustconn/src/window/clusters.rs:400
 msgid "Open All Connections?"
@@ -12684,16 +12771,16 @@ msgid ""
 "io.github.totoshko88.RustConn"
 msgstr ""
 "Теку синхронізації не налаштовано. У Flatpak спочатку надайте доступ до "
-"файлової системи: flatpak override --user --filesystem=/шлях/до/синхронізації"
-" io.github.totoshko88.RustConn"
+"файлової системи: flatpak override --user --filesystem=/шлях/до/"
+"синхронізації io.github.totoshko88.RustConn"
 
 #: rustconn/src/window/connection_actions.rs:200
 msgid ""
 "Sync directory is not accessible from Flatpak sandbox. Run: flatpak override "
 "--user --filesystem={} io.github.totoshko88.RustConn"
 msgstr ""
-"Теку синхронізації недоступно із пісочниці Flatpak. Виконай: flatpak override"
-" --user --filesystem={} io.github.totoshko88.RustConn"
+"Теку синхронізації недоступно із пісочниці Flatpak. Виконай: flatpak "
+"override --user --filesystem={} io.github.totoshko88.RustConn"
 
 #: rustconn/src/window/connection_actions.rs:204
 msgid "Sync failed: {}"
@@ -12809,8 +12896,8 @@ msgstr "Імпортувати дублікати?"
 
 #: rustconn/src/window/connection_dialogs.rs:935
 msgid ""
-"{} of {} connections have the same name as existing ones. Imported copies are"
-" kept alongside the existing connections under a numbered name."
+"{} of {} connections have the same name as existing ones. Imported copies "
+"are kept alongside the existing connections under a numbered name."
 msgstr ""
 "{} з {} з'єднків мають ті самі назви, що й наявні. Імпортовані копії буде "
 "збережено поруч із наявними з'єднками під нумерованою назвою."
@@ -12885,8 +12972,8 @@ msgstr "Цей сеанс уже має власне вікно."
 
 #: rustconn/src/window/detach_actions.rs:79
 msgid ""
-"This session is displayed by a separate viewer, which already runs in its own"
-" window."
+"This session is displayed by a separate viewer, which already runs in its "
+"own window."
 msgstr ""
 "Цей сеанс показано в окремому переглядачі, який уже працює у власному вікні."
 
@@ -12985,13 +13072,13 @@ msgstr "Відкриття mc SFTP…"
 #: rustconn/src/window/edit_actions.rs:866
 #: rustconn/src/window/edit_actions.rs:2459
 msgid ""
-"External file managers cannot access SSH agent in Flatpak."
-"                          Enable \"SFTP via mc\" in Settings for reliable "
-"access."
+"External file managers cannot access SSH agent in "
+"Flatpak.                          Enable \"SFTP via mc\" in Settings for "
+"reliable access."
 msgstr ""
-"Зовнішні файлові менеджери не мають доступу до SSH-агента у Flatpak."
-"                          Увімкни «SFTP через mc» в Уставах для надійного "
-"доступу."
+"Зовнішні файлові менеджери не мають доступу до SSH-агента у "
+"Flatpak.                          Увімкни «SFTP через mc» в Уставах для "
+"надійного доступу."
 
 #: rustconn/src/window/edit_actions.rs:882
 #: rustconn/src/window/edit_actions.rs:2477
@@ -13040,20 +13127,18 @@ msgstr "Запускання тунелю…"
 #: rustconn/src/window/edit_actions.rs:1583
 msgid ""
 "The tunnelled browser command ‘{}’ is not Chromium-based and can't be "
-"tunnelled; opening the embedded browser instead. Set a "
-"chromium/chrome/brave/vivaldi/edge command in Settings to use an external "
-"browser."
+"tunnelled; opening the embedded browser instead. Set a chromium/chrome/brave/"
+"vivaldi/edge command in Settings to use an external browser."
 msgstr ""
 "Команда тунельного оглядача ‘{}’ не на основі Chromium і не тунелюється; "
-"відкриваю вбудований оглядач. Задай команду "
-"chromium/chrome/brave/vivaldi/edge в Уставах, щоб користуватися зовнішнім "
-"оглядачем."
+"відкриваю вбудований оглядач. Задай команду chromium/chrome/brave/vivaldi/"
+"edge в Уставах, щоб користуватися зовнішнім оглядачем."
 
 #: rustconn/src/window/edit_actions.rs:1587
 msgid ""
 "The tunnelled browser command ‘{}’ is not a Chromium-based browser. Only "
-"Chromium-family browsers can be proxied through the tunnel; set a "
-"chromium/chrome/brave/vivaldi/edge command in Settings."
+"Chromium-family browsers can be proxied through the tunnel; set a chromium/"
+"chrome/brave/vivaldi/edge command in Settings."
 msgstr ""
 "Команда тунельного браузера ‘{}’ не є браузером на основі Chromium. Через "
 "тунель можна проксувати лише браузери родини Chromium; задай команду "
@@ -13086,8 +13171,8 @@ msgstr ""
 
 #: rustconn/src/window/edit_actions.rs:1608
 msgid ""
-"No Chromium-based browser found, and the embedded browser is off in the snap."
-" Turn it on in Settings to open a tunnelled browser."
+"No Chromium-based browser found, and the embedded browser is off in the "
+"snap. Turn it on in Settings to open a tunnelled browser."
 msgstr ""
 "Оглядача на основі Chromium не знайдено, а вбудований оглядач у snap "
 "вимкнено. Увімкни його в Уставах, щоб відкрити тунельний оглядач."
@@ -13246,10 +13331,6 @@ msgstr "Успадковано від батьківської групи: {}"
 msgid "SSH Key Path"
 msgstr "Шлях до ключа SSH"
 
-#: rustconn/src/window/edit_group.rs:714 rustconn/src/window/edit_group.rs:716
-msgid "Select SSH key file"
-msgstr "Обери файл ключа SSH"
-
 #: rustconn/src/window/edit_group.rs:830
 msgid "(unknown connection)"
 msgstr "(невідомий з’єднок)"
@@ -13363,8 +13444,8 @@ msgid ""
 "Script library ids run after a connection in this group starts (inherited by "
 "connections)"
 msgstr ""
-"Ідентифікатори скриптів із бібліотеки, що виконуються після запуску з'єднанка"
-" в цій групі (успадковуються з'єднками)"
+"Ідентифікатори скриптів із бібліотеки, що виконуються після запуску "
+"з'єднанка в цій групі (успадковуються з'єднками)"
 
 #: rustconn/src/window/edit_group.rs:1646
 msgid "Select a variable"
@@ -13379,8 +13460,8 @@ msgid ""
 "This group will be exported to {}. Other team members with read access can "
 "import it."
 msgstr ""
-"Цю групу буде експортовано до {}. Інші учасники команди з доступом на читання"
-" зможуть її імпортувати."
+"Цю групу буде експортовано до {}. Інші учасники команди з доступом на "
+"читання зможуть її імпортувати."
 
 #: rustconn/src/window/edit_group.rs:1956
 msgid "Enable Cloud Sync?"
@@ -13399,8 +13480,8 @@ msgid ""
 "Choose a directory synced with your cloud service (Google Drive, Nextcloud, "
 "Syncthing, etc.)"
 msgstr ""
-"Обери теку, синхронізовану з твоїм хмарним сервісом (Google Drive, Nextcloud,"
-" Syncthing тощо)"
+"Обери теку, синхронізовану з твоїм хмарним сервісом (Google Drive, "
+"Nextcloud, Syncthing тощо)"
 
 #: rustconn/src/window/edit_group.rs:2514
 msgid "Shell command (e.g., export TERM=xterm-256color)"
@@ -13481,46 +13562,46 @@ msgid ""
 "Your changes could not be written to disk and will be lost when RustConn "
 "closes: {}"
 msgstr ""
-"Зміни не вдалося записати на диск, і вони зникнуть, коли RustConn закриється:"
-" {}"
+"Зміни не вдалося записати на диск, і вони зникнуть, коли RustConn "
+"закриється: {}"
 
 #: rustconn/src/window/history_actions.rs:175
 msgid "Global variables could not be saved to disk."
 msgstr "Не вдалося зберегти глобальні змінниці на диск."
 
-#: rustconn/src/window/key_setup.rs:412
+#: rustconn/src/window/key_setup.rs:620
 msgid "The connection could not be read. Try again."
 msgstr "Не вдалося прочитати з'єднок. Спробуй знову."
 
-#: rustconn/src/window/key_setup.rs:570
+#: rustconn/src/window/key_setup.rs:781
 msgid "The key works, but the connection could not be switched to it: {}"
 msgstr "Ключ працює, але перемкнути на нього з'єднок не вдалося: {}"
 
-#: rustconn/src/window/key_setup.rs:582
+#: rustconn/src/window/key_setup.rs:793
 msgid "'{}' now signs in with a key"
 msgstr "«{}» тепер входить за ключем"
 
-#: rustconn/src/window/key_setup.rs:610
+#: rustconn/src/window/key_setup.rs:821
 msgid "the application is busy"
 msgstr "програма зайнята"
 
-#: rustconn/src/window/key_setup.rs:614
+#: rustconn/src/window/key_setup.rs:825
 msgid "the connection no longer exists"
 msgstr "з'єднка вже нема"
 
-#: rustconn/src/window/key_setup.rs:617
+#: rustconn/src/window/key_setup.rs:828
 msgid "the connection is not an SSH connection"
 msgstr "це не SSH-з'єднок"
 
-#: rustconn/src/window/key_setup.rs:641
+#: rustconn/src/window/key_setup.rs:852
 msgid "Restored the previous sign-in settings for '{}'"
 msgstr "Відновлено попередні устави входу для «{}»"
 
-#: rustconn/src/window/key_setup.rs:648
+#: rustconn/src/window/key_setup.rs:859
 msgid "The previous sign-in settings could not be restored."
 msgstr "Не вдалося відновити попередні устави входу."
 
-#: rustconn/src/window/key_setup.rs:692
+#: rustconn/src/window/key_setup.rs:903
 msgid ""
 "Once the session is open and the host key is recorded, choose Set Up Key "
 "Authentication again."
@@ -13528,11 +13609,11 @@ msgstr ""
 "Коли сеанс відкрито, а ключ госта записано, ще раз обери «Налаштуй "
 "автентифікацію за ключем»."
 
-#: rustconn/src/window/key_setup.rs:714
+#: rustconn/src/window/key_setup.rs:933
 msgid "Delete Generated Key?"
 msgstr "Вилучити створений ключ?"
 
-#: rustconn/src/window/key_setup.rs:716
+#: rustconn/src/window/key_setup.rs:935
 msgid ""
 "The key files are removed from this computer. If the public key was already "
 "installed, it stays in the server's authorized_keys."
@@ -13641,7 +13722,8 @@ msgid ""
 "Now points to:\n"
 "{}\n"
 "\n"
-"If you did not make this change, cancel — connecting could send saved credentials to a different machine."
+"If you did not make this change, cancel — connecting could send saved "
+"credentials to a different machine."
 msgstr ""
 "Цей з’єднок більше не веде туди, куди раніше.\n"
 "\n"
@@ -13651,7 +13733,8 @@ msgstr ""
 "Тепер веде до:\n"
 "{}\n"
 "\n"
-"Якщо цю зміну зробив не ти, скасуй — з’єднок може надіслати збережені облікові дані на іншу машину."
+"Якщо цю зміну зробив не ти, скасуй — з’єднок може надіслати збережені "
+"облікові дані на іншу машину."
 
 #: rustconn/src/window/mod.rs:3384
 msgid "Routing changed for “{}”"
@@ -14485,10 +14568,8 @@ msgid "RustConn"
 msgstr "RustConn"
 
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
-msgid ""
-"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
-msgstr ""
-"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;з'єднок;термінал;віддалений;kubernetes;k8s;послідовний;sftp;"
+msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;з'єднок;термінал;віддалений;kubernetes;k8s;послідовний;sftp;"
 
 #~ msgid "The server did not accept the password."
 #~ msgstr "Сервер не прийняв пароль."
@@ -14503,17 +14584,18 @@ msgstr ""
 #~ msgstr "Микола Зубков (Українська)"
 
 #~ msgid ""
-#~ "Reveal the floating RDP/VNC toolbar when the pointer touches its handle. When"
-#~ " off, the handle must be clicked"
+#~ "Reveal the floating RDP/VNC toolbar when the pointer touches its handle. "
+#~ "When off, the handle must be clicked"
 #~ msgstr ""
-#~ "Показувати плаваючу панель RDP/VNC, коли курсор торкається її маркера. Якщо "
-#~ "вимкнено, потрібен клік"
+#~ "Показувати плаваючу панель RDP/VNC, коли курсор торкається її маркера. "
+#~ "Якщо вимкнено, потрібен клік"
 
 #~ msgid ""
-#~ "Hide the top-right reveal arrow with close/detach buttons on split-view panes"
+#~ "Hide the top-right reveal arrow with close/detach buttons on split-view "
+#~ "panes"
 #~ msgstr ""
-#~ "Ховати стрілку розкриття у верхньому правому куті з кнопками "
-#~ "закрити/відкріпити на панелях поділеного перегляду"
+#~ "Ховати стрілку розкриття у верхньому правому куті з кнопками закрити/"
+#~ "відкріпити на панелях поділеного перегляду"
 
 #~ msgid "Do nothing"
 #~ msgstr "Нічого не робити"
@@ -14528,8 +14610,8 @@ msgstr ""
 #~ msgstr "Створи кластер із вибраних з'єднків"
 
 #~ msgid ""
-#~ "Reduce header bar, tab bar, and toolbar height. Applied instantly; useful on "
-#~ "small screens, macOS and KDE"
+#~ "Reduce header bar, tab bar, and toolbar height. Applied instantly; useful "
+#~ "on small screens, macOS and KDE"
 #~ msgstr ""
 #~ "Зменшуй висоту смуги заголовка, смуги вкладок і панелі інструментів. "
 #~ "Застосовується миттєво; корисно на малих екранах, macOS та KDE"
@@ -14548,22 +14630,25 @@ msgstr ""
 #~ "\"Protected Users\". Signs in with the saved password; Host must be the "
 #~ "server's DNS name"
 #~ msgstr ""
-#~ "Використовуй Kerberos для NLA замість NTLM (вбудований клієнт). Потрібно для "
-#~ "облікових записів AD у групі «Protected Users». Входить зі збереженим "
+#~ "Використовуй Kerberos для NLA замість NTLM (вбудований клієнт). Потрібно "
+#~ "для облікових записів AD у групі «Protected Users». Входить зі збереженим "
 #~ "паролем; у полі «Гост» має бути DNS-ім'я сервера"
 
 #~ msgid ""
-#~ "Optional. A domain controller name or IP address, a tcp:// or udp:// address,"
-#~ " or an https:// KDC proxy URL. Leave empty to find it automatically."
+#~ "Optional. A domain controller name or IP address, a tcp:// or udp:// "
+#~ "address, or an https:// KDC proxy URL. Leave empty to find it "
+#~ "automatically."
 #~ msgstr ""
-#~ "Необов'язково. Ім'я або IP-адреса контролера домену, адреса tcp:// чи udp:// "
-#~ "або https://-URL проксі KDC. Залиш порожнім, щоб знайти автоматично."
+#~ "Необов'язково. Ім'я або IP-адреса контролера домену, адреса tcp:// чи "
+#~ "udp:// або https://-URL проксі KDC. Залиш порожнім, щоб знайти "
+#~ "автоматично."
 
 #~ msgid "Color tabs by protocol"
 #~ msgstr "Забарвлення вкладинок за протоколом"
 
 #~ msgid "Show colored indicator on tabs based on protocol type"
-#~ msgstr "Показуй кольоровий індикатор на вкладинках залежно від типу протоколу"
+#~ msgstr ""
+#~ "Показуй кольоровий індикатор на вкладинках залежно від типу протоколу"
 
 #~ msgid "Show protocol filters"
 #~ msgstr "Показуй фільтри протоколів"

@@ -7,9 +7,13 @@ mod keyfile;
 #[cfg(unix)]
 mod wire;
 
-pub use keyfile::{KeyEncryption, KeyFileInfo, KeyFormat, PublicKeyInfo, inspect_key_file};
+#[cfg(test)]
+pub(crate) use keyfile::openssh_key_fixture;
+pub use keyfile::{
+    KeyEncryption, KeyFileInfo, KeyFormat, PublicKeyInfo, inspect_key_file, openssh_public_key_line,
+};
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -868,14 +872,14 @@ impl SshAgentManager {
         Ok(())
     }
 
-    /// Lists available SSH key files in ~/.ssh/ directory.
+    /// Lists available SSH key files in `~/.ssh/`.
     ///
-    /// Looks for common key file patterns like `id_rsa`, `id_ed25519`, etc.
-    /// Also detects other private key files by checking file content headers.
+    /// [`list_key_files_in`] against `$HOME/.ssh`.
     ///
     /// # Errors
     ///
-    /// Returns `AgentError::Io` if the directory cannot be read.
+    /// Returns `AgentError::Io` if `HOME` is not set or the directory cannot
+    /// be read.
     pub fn list_key_files() -> AgentResult<Vec<PathBuf>> {
         let home = std::env::var("HOME").map_err(|_| {
             AgentError::Io(std::io::Error::new(
@@ -883,80 +887,7 @@ impl SshAgentManager {
                 "HOME environment variable not set",
             ))
         })?;
-
-        let ssh_dir = PathBuf::from(home).join(".ssh");
-
-        if !ssh_dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        let mut keys = Vec::new();
-
-        // Common key file patterns (private keys only)
-        let key_patterns = [
-            "id_rsa",
-            "id_ed25519",
-            "id_ecdsa",
-            "id_dsa",
-            "id_ecdsa_sk",
-            "id_ed25519_sk",
-        ];
-
-        // File extensions that indicate private keys
-        let key_extensions = ["pem", "key"];
-
-        // Files to skip (not private keys)
-        let skip_files = [
-            "known_hosts",
-            "known_hosts.old",
-            "config",
-            "authorized_keys",
-        ];
-
-        for entry in std::fs::read_dir(&ssh_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.is_file()
-                && let Some(file_name) = path.file_name().and_then(|n| n.to_str())
-            {
-                // Skip public keys
-                let is_pub = std::path::Path::new(file_name)
-                    .extension()
-                    .is_some_and(|ext| ext.eq_ignore_ascii_case("pub"));
-                if is_pub {
-                    continue;
-                }
-
-                // Skip known non-key files
-                if skip_files.contains(&file_name) {
-                    continue;
-                }
-
-                // Check if it matches a known pattern
-                let is_standard_key =
-                    key_patterns.contains(&file_name) || file_name.starts_with("id_");
-
-                // Check if it has a key extension (.pem, .key)
-                let has_key_extension = std::path::Path::new(file_name)
-                    .extension()
-                    .is_some_and(|ext| key_extensions.iter().any(|e| ext.eq_ignore_ascii_case(e)));
-
-                // Check file content for private key header
-                let is_private_key_content = if !is_standard_key && !has_key_extension {
-                    Self::is_private_key_file(&path)
-                } else {
-                    false
-                };
-
-                if is_standard_key || has_key_extension || is_private_key_content {
-                    keys.push(path);
-                }
-            }
-        }
-
-        keys.sort();
-        Ok(keys)
+        list_key_files_in(&PathBuf::from(home).join(".ssh"))
     }
 
     /// Gets the public key for a specific fingerprint from the SSH agent.
@@ -1086,26 +1017,148 @@ impl SshAgentManager {
 
         Ok(path)
     }
+}
 
-    /// Checks if a file contains a private key by reading its header
-    fn is_private_key_file(path: &PathBuf) -> bool {
-        use std::io::{BufRead, BufReader};
+/// Checks if a file contains a private key by reading its header.
+fn is_private_key_file(path: &PathBuf) -> bool {
+    use std::io::{BufRead, BufReader};
 
-        let Ok(file) = std::fs::File::open(path) else {
-            return false;
-        };
+    let Ok(file) = std::fs::File::open(path) else {
+        return false;
+    };
 
-        let reader = BufReader::new(file);
-        let Some(Ok(first_line)) = reader.lines().next() else {
-            return false;
-        };
+    let reader = BufReader::new(file);
+    let Some(Ok(first_line)) = reader.lines().next() else {
+        return false;
+    };
 
-        // Check for common private key headers
-        first_line.contains("PRIVATE KEY")
-            || first_line.contains("OPENSSH PRIVATE KEY")
-            || first_line.contains("RSA PRIVATE KEY")
-            || first_line.contains("EC PRIVATE KEY")
-            || first_line.contains("DSA PRIVATE KEY")
+    // Check for common private key headers
+    first_line.contains("PRIVATE KEY")
+        || first_line.contains("OPENSSH PRIVATE KEY")
+        || first_line.contains("RSA PRIVATE KEY")
+        || first_line.contains("EC PRIVATE KEY")
+        || first_line.contains("DSA PRIVATE KEY")
+}
+
+/// Lists private-key files in `ssh_dir`.
+///
+/// Looks for common key file patterns like `id_rsa`, `id_ed25519`, etc.
+/// Also detects other private key files by checking file content headers.
+/// A directory that does not exist yields an empty list, not an error: a
+/// caller scanning several candidate directories (`~/.ssh`,
+/// `~/.ssh/rustconn`, …) should not have to check existence first.
+///
+/// # Errors
+///
+/// Returns `AgentError::Io` if the directory exists but cannot be read.
+pub fn list_key_files_in(ssh_dir: &Path) -> AgentResult<Vec<PathBuf>> {
+    if !ssh_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut keys = Vec::new();
+
+    // Common key file patterns (private keys only)
+    let key_patterns = [
+        "id_rsa",
+        "id_ed25519",
+        "id_ecdsa",
+        "id_dsa",
+        "id_ecdsa_sk",
+        "id_ed25519_sk",
+    ];
+
+    // File extensions that indicate private keys
+    let key_extensions = ["pem", "key"];
+
+    // Files to skip (not private keys)
+    let skip_files = [
+        "known_hosts",
+        "known_hosts.old",
+        "config",
+        "authorized_keys",
+    ];
+
+    for entry in std::fs::read_dir(ssh_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_file()
+            && let Some(file_name) = path.file_name().and_then(|n| n.to_str())
+        {
+            // Skip public keys
+            let is_pub = Path::new(file_name)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("pub"));
+            if is_pub {
+                continue;
+            }
+
+            // Skip known non-key files
+            if skip_files.contains(&file_name) {
+                continue;
+            }
+
+            // Check if it matches a known pattern
+            let is_standard_key = key_patterns.contains(&file_name) || file_name.starts_with("id_");
+
+            // Check if it has a key extension (.pem, .key)
+            let has_key_extension = Path::new(file_name)
+                .extension()
+                .is_some_and(|ext| key_extensions.iter().any(|e| ext.eq_ignore_ascii_case(e)));
+
+            // Check file content for private key header
+            let is_private_key_content = if !is_standard_key && !has_key_extension {
+                is_private_key_file(&path)
+            } else {
+                false
+            };
+
+            if is_standard_key || has_key_extension || is_private_key_content {
+                keys.push(path);
+            }
+        }
+    }
+
+    keys.sort();
+    Ok(keys)
+}
+
+#[cfg(test)]
+mod list_key_files_tests {
+    use super::*;
+
+    #[test]
+    fn lists_only_private_keys_sorted() {
+        let dir = tempfile::tempdir().unwrap();
+        let ssh_dir = dir.path();
+        std::fs::write(ssh_dir.join("id_ed25519"), "fake").unwrap();
+        std::fs::write(ssh_dir.join("id_ed25519.pub"), "ssh-ed25519 AAAA").unwrap();
+        std::fs::write(ssh_dir.join("config"), "Host *").unwrap();
+        std::fs::write(ssh_dir.join("known_hosts"), "example.com AAAA").unwrap();
+        std::fs::write(ssh_dir.join("x.pem"), "-----BEGIN RSA PRIVATE KEY-----").unwrap();
+        std::fs::write(
+            ssh_dir.join("oddname"),
+            "-----BEGIN OPENSSH PRIVATE KEY-----\n",
+        )
+        .unwrap();
+
+        let keys = list_key_files_in(ssh_dir).unwrap();
+        let mut names: Vec<&str> = keys
+            .iter()
+            .map(|p| p.file_name().unwrap().to_str().unwrap())
+            .collect();
+        names.sort_unstable();
+        assert_eq!(names, vec!["id_ed25519", "oddname", "x.pem"]);
+        // Already sorted by the function itself.
+        assert!(keys.windows(2).all(|w| w[0] <= w[1]));
+    }
+
+    #[test]
+    fn missing_directory_is_empty_not_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("does-not-exist");
+        assert_eq!(list_key_files_in(&missing).unwrap(), Vec::<PathBuf>::new());
     }
 }
 

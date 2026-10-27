@@ -1822,3 +1822,233 @@ fn too_many_authentication_failures_is_an_auth_failure() {
     let error = classify_deploy(Some(255), "", &both).unwrap_err();
     assert_eq!(methods_of(error), ["publickey", "password"]);
 }
+
+// ---- K: existing_key (K5: "Use an Existing Key") ---------------------------
+
+/// A deterministic ed25519 public blob, built the way `fake_key` builds its
+/// `.pub` lines, so a private-key fixture and a `.pub` file can be made to
+/// agree (or disagree) on purpose.
+fn ed25519_blob() -> Vec<u8> {
+    fake_blob(KeyAlgorithm::Ed25519.ssh_type(), 32)
+}
+
+/// An OpenSSH private-key fixture (optionally "encrypted") whose public blob
+/// is `ed25519_blob()`, plus the public-key line it derives to.
+fn openssh_fixture(ciphername: &str) -> (String, String) {
+    let blob = ed25519_blob();
+    let pem = crate::ssh_agent::openssh_key_fixture(ciphername, &blob);
+    let line = format!(
+        "{} {}",
+        KeyAlgorithm::Ed25519.ssh_type(),
+        data_encoding::BASE64.encode(&blob)
+    );
+    (pem, line)
+}
+
+fn write_private(dir: &Path, name: &str, contents: &str) -> PathBuf {
+    let path = dir.join(name);
+    fs::write(&path, contents).unwrap();
+    path
+}
+
+#[test]
+fn existing_key_unencrypted_without_pub_derives_the_line() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (pem, line) = openssh_fixture("none");
+    let path = write_private(tmp.path(), "id_ed25519", &pem);
+
+    let key = existing_key(&path).unwrap();
+    assert_eq!(key.encryption, KeyEncryption::Unencrypted);
+    assert_eq!(key.public_key.as_str(), line);
+    assert_eq!(key.private_key_path, path);
+}
+
+#[test]
+fn existing_key_encrypted_without_pub_still_derives_the_line() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (pem, line) = openssh_fixture("aes256-ctr");
+    let path = write_private(tmp.path(), "id_ed25519", &pem);
+
+    let key = existing_key(&path).unwrap();
+    assert_eq!(key.encryption, KeyEncryption::Encrypted);
+    assert_eq!(key.public_key.as_str(), line);
+}
+
+#[test]
+fn existing_key_real_encrypted_key_from_ssh_keygen() {
+    if !have("ssh-keygen") {
+        return;
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let private = tmp.path().join("k");
+    let status = Command::new("ssh-keygen")
+        .args(["-q", "-t", "ed25519", "-N", "secret", "-C", "test", "-f"])
+        .arg(&private)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    fs::remove_file(public_path(&private)).unwrap();
+
+    let key = existing_key(&private).unwrap();
+    assert_eq!(key.encryption, KeyEncryption::Encrypted);
+    assert_eq!(key.public_key.algorithm(), KeyAlgorithm::Ed25519);
+}
+
+#[test]
+fn existing_key_prefers_a_matching_pub_file_for_its_comment() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (pem, _) = openssh_fixture("none");
+    let path = write_private(tmp.path(), "id_ed25519", &pem);
+    let pub_text = format!(
+        "{} {} tester@host\n",
+        KeyAlgorithm::Ed25519.ssh_type(),
+        data_encoding::BASE64.encode(&ed25519_blob())
+    );
+    fs::write(public_path(&path), &pub_text).unwrap();
+
+    let key = existing_key(&path).unwrap();
+    assert!(key.public_key.as_str().ends_with("tester@host"));
+}
+
+#[test]
+fn existing_key_ignores_a_mismatched_pub_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (pem, line) = openssh_fixture("none");
+    let path = write_private(tmp.path(), "id_ed25519", &pem);
+    // A different key entirely.
+    let other_blob = fake_blob(KeyAlgorithm::Ed25519.ssh_type(), 16);
+    fs::write(
+        public_path(&path),
+        format!(
+            "{} {} someone-else@host\n",
+            KeyAlgorithm::Ed25519.ssh_type(),
+            data_encoding::BASE64.encode(&other_blob)
+        ),
+    )
+    .unwrap();
+
+    let key = existing_key(&path).unwrap();
+    assert_eq!(key.public_key.as_str(), line);
+}
+
+#[test]
+fn existing_key_ignores_a_pub_file_with_a_bad_comment() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (pem, line) = openssh_fixture("none");
+    let path = write_private(tmp.path(), "id_ed25519", &pem);
+    fs::write(
+        public_path(&path),
+        format!(
+            "{} {} Київ\n",
+            KeyAlgorithm::Ed25519.ssh_type(),
+            data_encoding::BASE64.encode(&ed25519_blob())
+        ),
+    )
+    .unwrap();
+
+    let key = existing_key(&path).unwrap();
+    assert_eq!(key.public_key.as_str(), line);
+}
+
+#[test]
+fn existing_key_refuses_a_pub_file_random_text_or_an_oversized_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let as_pub = write_private(
+        tmp.path(),
+        "id_ed25519.pub",
+        &format!(
+            "{} {} tester@host\n",
+            KeyAlgorithm::Ed25519.ssh_type(),
+            data_encoding::BASE64.encode(&ed25519_blob())
+        ),
+    );
+    assert!(matches!(
+        existing_key(&as_pub),
+        Err(KeySetupError::NotAPrivateKey { .. })
+    ));
+
+    let random = write_private(tmp.path(), "random.txt", "not a key at all\n");
+    assert!(matches!(
+        existing_key(&random),
+        Err(KeySetupError::NotAPrivateKey { .. })
+    ));
+
+    let big = tmp.path().join("big");
+    fs::write(&big, vec![b'a'; 64 * 1024 + 1]).unwrap();
+    assert!(matches!(
+        existing_key(&big),
+        Err(KeySetupError::NotAPrivateKey { .. })
+    ));
+}
+
+#[test]
+fn existing_key_legacy_pem_needs_a_pub_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let pem = "-----BEGIN RSA PRIVATE KEY-----\nMII\n-----END RSA PRIVATE KEY-----\n";
+    let path = write_private(tmp.path(), "legacy", pem);
+    assert!(matches!(
+        existing_key(&path),
+        Err(KeySetupError::NoPublicKey { .. })
+    ));
+
+    fs::write(
+        public_path(&path),
+        format!(
+            "{} {} legacy@host\n",
+            KeyAlgorithm::Rsa4096.ssh_type(),
+            data_encoding::BASE64.encode(&fake_blob(KeyAlgorithm::Rsa4096.ssh_type(), 256))
+        ),
+    )
+    .unwrap();
+    let key = existing_key(&path).unwrap();
+    assert_eq!(key.encryption, KeyEncryption::Unknown);
+    assert!(key.public_key.as_str().ends_with("legacy@host"));
+}
+
+#[test]
+fn existing_key_unsupported_key_type_is_refused() {
+    let tmp = tempfile::tempdir().unwrap();
+    let blob = fake_blob("ecdsa-sha2-nistp256", 64);
+    let pem = crate::ssh_agent::openssh_key_fixture("none", &blob);
+    let path = write_private(tmp.path(), "id_ecdsa", &pem);
+
+    assert!(matches!(
+        existing_key(&path),
+        Err(KeySetupError::InvalidPublicKey(
+            PublicKeyError::UnsupportedType
+        ))
+    ));
+}
+
+#[test]
+fn existing_key_missing_file_is_a_key_file_error() {
+    let tmp = tempfile::tempdir().unwrap();
+    let missing = tmp.path().join("nope");
+    assert!(matches!(
+        existing_key(&missing),
+        Err(KeySetupError::KeyFile { .. })
+    ));
+}
+
+#[test]
+fn existing_key_candidates_in_dedupes_and_skips_missing_dirs() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir_a = tmp.path().join("a");
+    let dir_b = dir_a.join("rustconn");
+    fs::create_dir_all(&dir_b).unwrap();
+    let (pem, _) = openssh_fixture("none");
+    write_private(&dir_a, "id_ed25519", &pem);
+    write_private(&dir_b, "no_id_pattern_but_a_key", &pem);
+    let missing = tmp.path().join("does-not-exist");
+
+    let candidates = existing_key_candidates_in(&[
+        dir_a.clone(),
+        dir_b.clone(),
+        missing,
+        dir_a.clone(), // repeated directory: no duplicate entries.
+    ]);
+
+    assert_eq!(candidates.len(), 2);
+    assert!(candidates.contains(&dir_a.join("id_ed25519")));
+    assert!(candidates.contains(&dir_b.join("no_id_pattern_but_a_key")));
+}

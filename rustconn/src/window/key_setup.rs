@@ -30,7 +30,7 @@ use super::protocols::{resolve_globals_with_ask, substitute_variables};
 use super::protocols_ssh::build_key_setup_launch;
 use super::*;
 use crate::dialogs::key_setup::{
-    FailureContext, FailureView, KeySetupDialog, KeySetupStage, failure_view,
+    FailureContext, FailureView, KeyMode, KeyOrigin, KeySetupDialog, KeySetupStage, failure_view,
 };
 use crate::i18n::{i18n, i18n_f};
 use crate::utils::spawn_blocking_with_callback;
@@ -47,20 +47,34 @@ pub(super) struct KeySetupContext {
     pub(super) toast_overlay: SharedToastOverlay,
 }
 
+/// Where stage 1 gets the private key from: generate a new pair (K2/K3) or
+/// read one the user already has on disk (K5).
+enum KeySource {
+    /// `ssh-keygen`, in RustConn's own key directory.
+    Generate {
+        algorithm: KeyAlgorithm,
+        passphrase: Option<SecretString>,
+    },
+    /// A private key chosen from disk.
+    Existing { path: PathBuf },
+}
+
 /// What stage 1 hands to the main thread.
-struct Generated {
+struct PreparedKey {
     private_key_path: PathBuf,
     public_key: PublicKeyLine,
+    /// Where `private_key_path` came from — carried into [`KeyOnDisk`] so later
+    /// stages know whether deletion may ever be offered for it.
+    origin: KeyOrigin,
     /// `ssh -G`'s answer, only asked for when a password could be sent.
     declares_proxy: Option<bool>,
 }
 
 /// Everything stage 1 needs, owned so it can move to the worker thread.
-struct GenerateJob {
+struct PrepareJob {
     connection_name: String,
     connection_id: Uuid,
-    algorithm: KeyAlgorithm,
-    passphrase: Option<SecretString>,
+    source: KeySource,
     control: RunControl,
     host: String,
     port: u16,
@@ -76,6 +90,23 @@ struct KeySetupRun {
     public_key: PublicKeyLine,
     passphrase: Option<SecretString>,
     control: RunControl,
+}
+
+/// The private key of the run in progress (or just finished), and whether
+/// RustConn created it.
+#[derive(Debug, Clone)]
+struct KeyOnDisk {
+    path: PathBuf,
+    origin: KeyOrigin,
+}
+
+/// The path to offer "Delete Generated Key" for, or `None` when there is no
+/// key on disk yet or it is one the user brought (D5): the single place this
+/// module decides a path is safe to pass to
+/// [`ssh_key_setup::delete_generated_key`].
+fn deletable_key(key: Option<&KeyOnDisk>) -> Option<&Path> {
+    key.filter(|k| k.origin == KeyOrigin::Generated)
+        .map(|k| k.path.as_path())
 }
 
 /// One open dialog and what its callbacks share.
@@ -100,9 +131,15 @@ struct Controller {
     /// The cancel flag of the run in flight.
     cancel: RefCell<Option<Arc<AtomicBool>>>,
     /// The private key of this attempt, once it exists on disk.
-    key_path: RefCell<Option<PathBuf>>,
+    key: RefCell<Option<KeyOnDisk>>,
     failure_context: Cell<FailureContext>,
     busy: Cell<bool>,
+    /// The connection's own key file, if it has one (D2a): preselected once
+    /// the existing-key list is populated.
+    current_key_path: Option<PathBuf>,
+    /// Whether the existing-key dropdown has been filled yet; it is only
+    /// scanned once, the first time the mode switches to `Existing`.
+    existing_keys_loaded: Cell<bool>,
 }
 
 impl Controller {
@@ -137,11 +174,18 @@ pub(super) fn open_key_setup_dialog(ctx: Rc<KeySetupContext>, connection_id: Uui
         return;
     };
     let connection = state.get_connection(connection_id).cloned();
+    let groups = state.list_groups_owned();
     drop(state);
     let Some(connection) = connection else {
         tracing::debug!(%connection_id, "key setup: connection not found");
         return;
     };
+    // D2a: if the connection already points at a key file, that path is
+    // preselected once the existing-key list is shown — the common case is
+    // that the key already exists and only needs to be rolled out to a server.
+    let current_key_path =
+        rustconn_core::connection::ssh_inheritance::resolve_ssh_key_path(&connection, &groups)
+            .and_then(|path| rustconn_core::resolve_key_path(&path));
     if !matches!(
         connection.protocol_config,
         rustconn_core::ProtocolConfig::Ssh(_)
@@ -170,9 +214,11 @@ pub(super) fn open_key_setup_dialog(ctx: Rc<KeySetupContext>, connection_id: Uui
         target_label,
         stored_password: RefCell::new(None),
         cancel: RefCell::new(None),
-        key_path: RefCell::new(None),
+        key: RefCell::new(None),
         failure_context: Cell::new(FailureContext::default()),
         busy: Cell::new(false),
+        current_key_path,
+        existing_keys_loaded: Cell::new(false),
     });
     wire(&controller, &dialog);
     refresh_slot_hint(&controller);
@@ -208,7 +254,133 @@ fn wire(controller: &Rc<Controller>, dialog: &KeySetupDialog) {
     let c = Rc::clone(controller);
     dialog.connect_algorithm_changed(move || refresh_slot_hint(&c));
     let c = Rc::clone(controller);
+    dialog.connect_mode_changed(move || on_mode_changed(&c));
+    let c = Rc::clone(controller);
+    dialog.connect_existing_key_changed(move || inspect_selected(&c));
+    let c = Rc::clone(controller);
+    dialog.connect_passphrase_changed(move || {
+        if c.dialog().is_some_and(|d| d.mode() == KeyMode::Existing) {
+            inspect_selected(&c);
+        }
+    });
+    let c = Rc::clone(controller);
+    dialog.connect_choose_key_file(move || choose_key_file(&c));
+    let c = Rc::clone(controller);
     dialog.connect_closed(move || c.release());
+}
+
+/// The mode row changed: the first time it lands on `Existing`, scan for
+/// candidate keys and show them; every time, re-read whatever is selected.
+fn on_mode_changed(c: &Rc<Controller>) {
+    let Some(dialog) = c.dialog() else {
+        return;
+    };
+    let mode = dialog.mode();
+    dialog.set_mode(mode);
+    if mode == KeyMode::Existing {
+        if !c.existing_keys_loaded.get() {
+            c.existing_keys_loaded.set(true);
+            // ponytail: synchronous directory scan on the GTK thread, same
+            // precedent as `refresh_slot_hint` — a handful of local
+            // directories, not a network path.
+            let mut keys = ssh_key_setup::existing_key_candidates();
+            // D2a: the connection's current key file is always offered, even
+            // when it lives outside the scanned directories.
+            if let Some(current) = &c.current_key_path
+                && !keys.contains(current)
+            {
+                keys.push(current.clone());
+            }
+            dialog.set_existing_keys(&keys, c.current_key_path.as_deref());
+        }
+        inspect_selected(c);
+    }
+}
+
+/// Reads the key currently selected in the existing-key dropdown (if any) and
+/// shows its fingerprint, its encryption, or why it could not be read.
+///
+/// Synchronous (D8): the same precedent as `refresh_slot_hint`. The run
+/// itself re-reads the key on the worker thread, so a stale read here only
+/// affects the status line, never what gets deployed.
+fn inspect_selected(c: &Rc<Controller>) {
+    let Some(dialog) = c.dialog() else {
+        return;
+    };
+    if dialog.mode() != KeyMode::Existing {
+        return;
+    }
+    let Some(path) = dialog.selected_existing_key() else {
+        dialog.set_existing_key_state(None);
+        return;
+    };
+    let state = match ssh_key_setup::existing_key(&path) {
+        Ok(key) => Ok((key.public_key.fingerprint().to_owned(), key.encryption)),
+        Err(e) => {
+            // Not the run's own context (which may still be a previous
+            // run's): this is always about the key just chosen here.
+            let ctx = FailureContext {
+                key_origin: KeyOrigin::Existing,
+                ..FailureContext::default()
+            };
+            Err(failure_view(&e, &ctx).body)
+        }
+    };
+    dialog.set_existing_key_state(Some(state));
+}
+
+/// Choose File…: a portal file dialog over `~/.ssh`, falling back to a stable
+/// Flatpak copy for a portal path (mirrors
+/// `ConnectionDialog::setup_key_file_chooser`).
+fn choose_key_file(c: &Rc<Controller>) {
+    let Some(dialog) = c.dialog() else {
+        return;
+    };
+    let parent_window = dialog
+        .widget()
+        .root()
+        .and_then(|r| r.downcast::<gtk4::Window>().ok());
+    let file_dialog = gtk4::FileDialog::builder()
+        .title(i18n("Select SSH Key"))
+        .modal(true)
+        .build();
+    if let Some(home) = std::env::var_os("HOME") {
+        let ssh_dir = PathBuf::from(home).join(".ssh");
+        if ssh_dir.exists() {
+            file_dialog.set_initial_folder(Some(&gtk4::gio::File::for_path(&ssh_dir)));
+        }
+    }
+    let c = Rc::clone(c);
+    file_dialog.open(
+        parent_window.as_ref(),
+        gtk4::gio::Cancellable::NONE,
+        move |result| {
+            let path = match result {
+                Ok(file) => {
+                    let Some(path) = file.path() else {
+                        tracing::warn!("key setup: file dialog returned no local path");
+                        return;
+                    };
+                    path
+                }
+                Err(e) => {
+                    tracing::debug!(error = %e, "key setup: file chooser cancelled or failed");
+                    return;
+                }
+            };
+            let stable_path = if rustconn_core::is_flatpak() && rustconn_core::is_portal_path(&path)
+            {
+                rustconn_core::copy_key_to_flatpak_ssh(&path).unwrap_or_else(|| path.clone())
+            } else {
+                path
+            };
+            let Some(dialog) = c.dialog() else {
+                return;
+            };
+            dialog.add_existing_key(stable_path);
+            inspect_selected(&c);
+        },
+    );
 }
 
 /// Shows where the key will go, and whether a key from an earlier attempt waits there.
@@ -300,7 +472,8 @@ fn look_up_stored_password(c: &Rc<Controller>) {
     });
 }
 
-/// Set Up (or Try Again) was pressed: stage 1, generating the key.
+/// Set Up (or Try Again) was pressed: stage 1, getting the private key
+/// (generating one, or reading the one chosen in `Existing` mode).
 fn start_run(c: &Rc<Controller>) {
     if c.busy.get() {
         return;
@@ -308,23 +481,49 @@ fn start_run(c: &Rc<Controller>) {
     let Some(dialog) = c.dialog() else {
         return;
     };
+    let mode = dialog.mode();
+    let passphrase = dialog.passphrase();
+    let source = match mode {
+        KeyMode::Generate => KeySource::Generate {
+            algorithm: dialog.algorithm(),
+            passphrase: passphrase.clone(),
+        },
+        KeyMode::Existing => match dialog.selected_existing_key() {
+            Some(path) => KeySource::Existing { path },
+            // Nothing selected yet (an empty list): there is nothing to run.
+            None => return,
+        },
+    };
     let password = dialog
         .typed_password()
         .or_else(|| c.stored_password.borrow().clone());
-    let passphrase = dialog.passphrase();
     let control = RunControl {
         timeout: DEFAULT_TIMEOUT,
         cancel: Arc::new(AtomicBool::new(false)),
     };
     *c.cancel.borrow_mut() = Some(Arc::clone(&control.cancel));
     c.busy.set(true);
-    dialog.set_running(KeySetupStage::Generating, &c.target_label);
+    // Set before the run starts, so a failure *at* stage 1 (an unreadable
+    // existing key, say) already reads with the right wording and never
+    // offers to delete a key RustConn did not create.
+    let key_origin = match mode {
+        KeyMode::Generate => KeyOrigin::Generated,
+        KeyMode::Existing => KeyOrigin::Existing,
+    };
+    c.failure_context.set(FailureContext {
+        key_origin,
+        ..FailureContext::default()
+    });
+    let stage = match mode {
+        KeyMode::Generate => KeySetupStage::Generating,
+        KeyMode::Existing => KeySetupStage::ReadingKey,
+    };
+    dialog.set_running(stage, &c.target_label);
 
-    let job = GenerateJob {
+    let job = PrepareJob {
         connection_name: c.connection_name.clone(),
         connection_id: c.connection_id,
-        algorithm: dialog.algorithm(),
-        passphrase: passphrase.clone(),
+        source,
         control: control.clone(),
         host: c.host.clone(),
         port: c.port,
@@ -333,38 +532,58 @@ fn start_run(c: &Rc<Controller>) {
     };
     let c = Rc::clone(c);
     spawn_blocking_with_callback(
-        move || generate(job),
-        move |result| on_generated(&c, result, password, passphrase, control),
+        move || prepare_key(job),
+        move |result| on_prepared(&c, result, password, passphrase, control),
     );
 }
 
-/// Stage 1, off the GTK thread: the folder, the key (or the one from an earlier
-/// attempt), and `ssh -G` for the password gate.
-fn generate(job: GenerateJob) -> Result<Generated, KeySetupError> {
-    let dir = ssh_key_setup::default_key_setup_dir()?;
-    ssh_key_setup::ensure_key_setup_dir(&dir)?;
-    let (private_key_path, public_key) = match ssh_key_setup::resolve_key_slot(
-        &dir,
-        &job.connection_name,
-        job.connection_id,
-        job.algorithm,
-    )? {
-        KeySlot::Fresh(path) => {
-            let key = ssh_key_setup::generate_key(
-                &KeygenRequest {
-                    private_key_path: path,
-                    algorithm: job.algorithm,
-                    comment: ssh_key_setup::default_key_comment(),
-                    passphrase: job.passphrase,
-                },
-                &job.control,
-            )?;
-            (key.private_key_path, key.public_key)
+/// Stage 1, off the GTK thread: the private key (generated, reused from an
+/// earlier attempt, or read from disk) and `ssh -G` for the password gate.
+fn prepare_key(job: PrepareJob) -> Result<PreparedKey, KeySetupError> {
+    let (private_key_path, public_key, origin) = match job.source {
+        KeySource::Generate {
+            algorithm,
+            passphrase,
+        } => {
+            let dir = ssh_key_setup::default_key_setup_dir()?;
+            ssh_key_setup::ensure_key_setup_dir(&dir)?;
+            let (private_key_path, public_key) = match ssh_key_setup::resolve_key_slot(
+                &dir,
+                &job.connection_name,
+                job.connection_id,
+                algorithm,
+            )? {
+                KeySlot::Fresh(path) => {
+                    let key = ssh_key_setup::generate_key(
+                        &KeygenRequest {
+                            private_key_path: path,
+                            algorithm,
+                            comment: ssh_key_setup::default_key_comment(),
+                            passphrase,
+                        },
+                        &job.control,
+                    )?;
+                    (key.private_key_path, key.public_key)
+                }
+                KeySlot::Reusable {
+                    private_key_path,
+                    public_key,
+                } => (private_key_path, public_key),
+            };
+            (private_key_path, public_key, KeyOrigin::Generated)
         }
-        KeySlot::Reusable {
-            private_key_path,
-            public_key,
-        } => (private_key_path, public_key),
+        KeySource::Existing { path } => {
+            // Re-read rather than trust the GTK-thread inspection
+            // (`inspect_selected`) that chose this path: that read can be
+            // stale (the file changed since), and this is the read the
+            // deploy actually uses.
+            let existing = ssh_key_setup::existing_key(&path)?;
+            (
+                existing.private_key_path,
+                existing.public_key,
+                KeyOrigin::Existing,
+            )
+        }
     };
     let declares_proxy = job.check_proxy.then(|| {
         rustconn_core::ssh_tunnel::ssh_config_declares_proxy(
@@ -373,16 +592,17 @@ fn generate(job: GenerateJob) -> Result<Generated, KeySetupError> {
             job.username.as_deref(),
         )
     });
-    Ok(Generated {
+    Ok(PreparedKey {
         private_key_path,
         public_key,
+        origin,
         declares_proxy,
     })
 }
 
-fn on_generated(
+fn on_prepared(
     c: &Rc<Controller>,
-    result: Result<Generated, KeySetupError>,
+    result: Result<PreparedKey, KeySetupError>,
     password: Option<SecretString>,
     passphrase: Option<SecretString>,
     control: RunControl,
@@ -390,11 +610,14 @@ fn on_generated(
     if c.dialog().is_none() {
         return;
     }
-    let generated = match result {
-        Ok(generated) => generated,
+    let prepared = match result {
+        Ok(prepared) => prepared,
         Err(e) => return fail(c, &e, false),
     };
-    *c.key_path.borrow_mut() = Some(generated.private_key_path.clone());
+    *c.key.borrow_mut() = Some(KeyOnDisk {
+        path: prepared.private_key_path.clone(),
+        origin: prepared.origin,
+    });
 
     // Built here, on the GTK thread, because it reads the application state;
     // nothing is held across the call and no process is started in it.
@@ -406,7 +629,7 @@ fn on_generated(
         Err(_) => (None, Vec::new()),
     };
     let Some(connection) = connection else {
-        tracing::warn!("key setup: connection unavailable after key generation");
+        tracing::warn!("key setup: connection unavailable after key preparation");
         return fail_with(
             c,
             &FailureView::message(i18n("The connection could not be read. Try again."))
@@ -419,19 +642,20 @@ fn on_generated(
         &c.ctx.state,
         &groups,
         password,
-        generated.declares_proxy,
+        prepared.declares_proxy,
     );
     c.failure_context.set(FailureContext {
         password_sent: launch.password_sent,
         password_gated_off: launch.password_gated_off,
+        key_origin: prepared.origin,
     });
     install(
         c,
         KeySetupRun {
             target: launch.target,
             credentials: launch.credentials,
-            private_key_path: generated.private_key_path,
-            public_key: generated.public_key,
+            private_key_path: prepared.private_key_path,
+            public_key: prepared.public_key,
             passphrase,
             control,
         },
@@ -499,7 +723,8 @@ fn verify(c: &Rc<Controller>, run: KeySetupRun) {
                 Ok(VerifyOutcome::Accepted) => succeed(&c),
                 Ok(VerifyOutcome::AcceptedSecondFactorRequired) => {
                     finish_run(&c);
-                    dialog.show_second_factor(true);
+                    let origin = c.key.borrow().as_ref().map(|k| k.origin);
+                    dialog.show_second_factor(origin);
                 }
                 Err(e) => fail(&c, &e, true),
             }
@@ -516,31 +741,38 @@ fn fail(c: &Rc<Controller>, error: &KeySetupError, key_on_disk: bool) {
     tracing::warn!(error = %error, key_on_disk, "key setup failed");
     let view = failure_view(error, &c.failure_context.get());
     finish_run(c);
-    let key_kept = key_on_disk && c.key_path.borrow().is_some();
-    if key_kept {
+    let key = key_on_disk.then(|| c.key.borrow().clone()).flatten();
+    if key
+        .as_ref()
+        .is_some_and(|k| k.origin == KeyOrigin::Generated)
+    {
         // The key stays on disk, so the next attempt reuses it: say so.
+        // Meaningless (and the row is hidden) in `Existing` mode.
         refresh_slot_hint(c);
     }
     if let Some(dialog) = c.dialog() {
-        dialog.show_failure(&view, key_kept);
+        dialog.show_failure(&view, key.map(|k| k.origin));
     }
 }
 
 fn fail_with(c: &Rc<Controller>, view: &FailureView) {
     finish_run(c);
-    let key_kept = c.key_path.borrow().is_some();
-    if key_kept {
+    let key = c.key.borrow().clone();
+    if key
+        .as_ref()
+        .is_some_and(|k| k.origin == KeyOrigin::Generated)
+    {
         refresh_slot_hint(c);
     }
     if let Some(dialog) = c.dialog() {
-        dialog.show_failure(view, key_kept);
+        dialog.show_failure(view, key.map(|k| k.origin));
     }
 }
 
 /// The key works: switch the connection to it.
 fn succeed(c: &Rc<Controller>) {
     finish_run(c);
-    let Some(path) = c.key_path.borrow().clone() else {
+    let Some(path) = c.key.borrow().as_ref().map(|k| k.path.clone()) else {
         return;
     };
     switch_connection_to_key(c, &path);
@@ -548,7 +780,7 @@ fn succeed(c: &Rc<Controller>) {
 
 /// Use Key after a second-factor warning.
 fn use_key(c: &Rc<Controller>) {
-    let Some(path) = c.key_path.borrow().clone() else {
+    let Some(path) = c.key.borrow().as_ref().map(|k| k.path.clone()) else {
         return;
     };
     switch_connection_to_key(c, &path);
@@ -703,11 +935,17 @@ fn connect_session(c: &Rc<Controller>) {
 }
 
 /// Delete Generated Key: asks first, then removes the key files.
+///
+/// `deletable_key` is the only source of the path: an existing user key (D5)
+/// has no path to offer here even if the dialog somehow still called this
+/// (it does not — the button is hidden by `delete_offered`), so this is a
+/// second, independent gate.
 fn confirm_delete(c: &Rc<Controller>) {
     let Some(dialog) = c.dialog() else {
         return;
     };
-    let Some(path) = c.key_path.borrow().clone() else {
+    let Some(path) = deletable_key(c.key.borrow().as_ref()).map(Path::to_path_buf) else {
+        tracing::warn!("key setup: refusing to offer deletion of a key RustConn did not create");
         return;
     };
     let alert = adw::AlertDialog::new(
@@ -740,7 +978,7 @@ fn delete_key(c: &Rc<Controller>, path: PathBuf) {
             };
             match result {
                 Ok(()) => {
-                    *c.key_path.borrow_mut() = None;
+                    *c.key.borrow_mut() = None;
                     refresh_slot_hint(&c);
                     dialog.show_deleted();
                 }
@@ -817,5 +1055,46 @@ mod tests {
         assert_eq!(display_target(Some("anton"), "box"), "anton@box");
         assert_eq!(display_target(Some(""), "box"), "box");
         assert_eq!(display_target(None, "box"), "box");
+    }
+
+    #[test]
+    fn deletable_key_only_for_a_generated_key() {
+        assert_eq!(deletable_key(None), None);
+        let existing = KeyOnDisk {
+            path: PathBuf::from("/home/u/.ssh/id_ed25519"),
+            origin: KeyOrigin::Existing,
+        };
+        assert_eq!(deletable_key(Some(&existing)), None);
+        let generated = KeyOnDisk {
+            path: PathBuf::from("/home/u/.ssh/rustconn/web-1234abcd-ed25519"),
+            origin: KeyOrigin::Generated,
+        };
+        assert_eq!(
+            deletable_key(Some(&generated)),
+            Some(Path::new("/home/u/.ssh/rustconn/web-1234abcd-ed25519"))
+        );
+    }
+
+    #[test]
+    fn apply_key_auth_points_at_the_chosen_existing_key_and_keeps_the_password_source() {
+        // K5: switching to an existing key writes exactly what switching to a
+        // generated one writes — `apply_key_auth` does not distinguish them,
+        // by design (D4): only the chosen path differs.
+        let mut connection = Connection::new_ssh("web".into(), "web.example".into(), 22);
+        connection.password_source = PasswordSource::Vault;
+        let path = Path::new("/home/u/.ssh/id_ed25519");
+
+        assert!(apply_key_auth(&mut connection, path));
+
+        let config = ssh_config(&connection);
+        assert_eq!(config.auth_method, SshAuthMethod::PublicKey);
+        assert_eq!(
+            config.key_source,
+            SshKeySource::File {
+                path: path.to_path_buf()
+            }
+        );
+        assert!(config.identities_only);
+        assert_eq!(connection.password_source, PasswordSource::Vault);
     }
 }

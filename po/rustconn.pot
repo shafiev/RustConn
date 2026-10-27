@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.23.21\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-27 16:14+0200\n"
+"POT-Creation-Date: 2026-10-27 17:02+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -30,7 +30,7 @@ msgstr ""
 #: rustconn/src/dialogs/credential_transfer.rs:457
 #: rustconn/src/dialogs/flatpak_components.rs:299
 #: rustconn/src/dialogs/history.rs:199 rustconn/src/dialogs/kdbx_unlock.rs:112
-#: rustconn/src/dialogs/key_setup.rs:471
+#: rustconn/src/dialogs/key_setup.rs:622
 #: rustconn/src/dialogs/portable_migration.rs:58
 #: rustconn/src/dialogs/portable_passphrase_change.rs:93
 #: rustconn/src/dialogs/portable_unlock.rs:93
@@ -60,7 +60,7 @@ msgstr ""
 #: rustconn/src/window/edit_group.rs:1957
 #: rustconn/src/window/edit_group.rs:2006
 #: rustconn/src/window/group_broadcast.rs:379
-#: rustconn/src/window/key_setup.rs:719 rustconn/src/window/mod.rs:3387
+#: rustconn/src/window/key_setup.rs:938 rustconn/src/window/mod.rs:3387
 #: rustconn/src/window/mod.rs:3451 rustconn/src/window/mod.rs:4405
 #: rustconn/src/window/operations.rs:116 rustconn/src/window/operations.rs:487
 #: rustconn/src/window/operations.rs:670 rustconn/src/window/sessions.rs:339
@@ -211,7 +211,7 @@ msgid "‘{}’ needs the following before it can connect."
 msgstr ""
 
 #: rustconn/src/dialogs/ask_prompt.rs:73 rustconn/src/dialogs/history.rs:105
-#: rustconn/src/dialogs/key_setup.rs:438 rustconn/src/dialogs/widgets.rs:614
+#: rustconn/src/dialogs/key_setup.rs:589 rustconn/src/dialogs/widgets.rs:614
 #: rustconn/src/sidebar_ui.rs:396 rustconn/src/smart_folder_ui.rs:438
 #: rustconn/src/window/edit_dialogs.rs:760
 #: rustconn/src/window/edit_dialogs.rs:761
@@ -405,7 +405,7 @@ msgstr ""
 #: rustconn/src/dialogs/tunnel.rs:728 rustconn/src/dialogs/workspace.rs:119
 #: rustconn/src/dialogs/workspace.rs:292 rustconn/src/sidebar_ui.rs:559
 #: rustconn/src/smart_folder_ui.rs:406 rustconn/src/smart_folder_ui.rs:460
-#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:720
+#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:939
 #: rustconn/src/window/operations.rs:171 rustconn/src/window/snippets.rs:413
 #: rustconn/src/window/snippets.rs:503 rustconn/src/window/templates.rs:151
 msgid "Delete"
@@ -1596,7 +1596,7 @@ msgid ""
 msgstr ""
 
 #: rustconn/src/dialogs/connection/dialog/populate.rs:45
-#: rustconn/src/window/edit_group.rs:734
+#: rustconn/src/window/edit_group.rs:734 rustconn/src/window/key_setup.rs:329
 msgid "Select SSH Key"
 msgstr ""
 
@@ -3441,7 +3441,7 @@ msgstr ""
 #: rustconn/src/dialogs/connection/ssh.rs:360
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:124
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:336
-#: rustconn/src/dialogs/key_setup.rs:380
+#: rustconn/src/dialogs/key_setup.rs:512 rustconn/src/dialogs/key_setup.rs:536
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2333
 #: rustconn/src/dialogs/template.rs:677
 msgid "Key File"
@@ -3458,6 +3458,7 @@ msgid "(No keys loaded)"
 msgstr ""
 
 #: rustconn/src/dialogs/connection/ssh.rs:377
+#: rustconn/src/dialogs/key_setup.rs:496
 msgid "Key"
 msgstr ""
 
@@ -4379,7 +4380,7 @@ msgid "Copy"
 msgstr ""
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
-#: rustconn/src/dialogs/key_setup.rs:474 rustconn/src/dialogs/script.rs:171
+#: rustconn/src/dialogs/key_setup.rs:625 rustconn/src/dialogs/script.rs:171
 #: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:1127
 msgid "Stop"
 msgstr ""
@@ -4479,7 +4480,7 @@ msgstr ""
 #: rustconn/src/dialogs/credential_transfer.rs:719
 #: rustconn/src/dialogs/export.rs:1180 rustconn/src/dialogs/history.rs:340
 #: rustconn/src/dialogs/import/sources.rs:708
-#: rustconn/src/dialogs/key_setup.rs:709
+#: rustconn/src/dialogs/key_setup.rs:1030
 #: rustconn/src/dialogs/portable_passphrase_change.rs:376
 #: rustconn/src/dialogs/recording.rs:831 rustconn/src/dialogs/recording.rs:843
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
@@ -5539,54 +5540,65 @@ msgstr ""
 msgid "Verification failed"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:40
+#: rustconn/src/dialogs/key_setup.rs:45
 msgid "Looking up the stored password…"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:41
+#: rustconn/src/dialogs/key_setup.rs:46
 msgid "Generating key…"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:42
+#: rustconn/src/dialogs/key_setup.rs:47
+msgid "Reading the key…"
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:48
 msgid "Installing the key on {}…"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:43
+#: rustconn/src/dialogs/key_setup.rs:49
 msgid "Checking that the key signs in…"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:146
+#: rustconn/src/dialogs/key_setup.rs:240
 msgid ""
 "RustConn has not seen this server's host key yet, so nothing was sent. "
 "Connect once so the key is recorded, then try again. If the terminal asks "
 "about the key, check it before you accept."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:148
+#: rustconn/src/dialogs/key_setup.rs:242
 msgid "Unknown Host Key"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:152
+#: rustconn/src/dialogs/key_setup.rs:246
 msgid ""
 "The server's host key differs from the one on record. Someone may be "
 "intercepting the connection. Nothing was sent. Check the key with the "
 "server's administrator before connecting."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:154
+#: rustconn/src/dialogs/key_setup.rs:248
 msgid "Host Key Changed"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:158
+#: rustconn/src/dialogs/key_setup.rs:252
 msgid ""
 "The account password has expired. Change it on the server, then try again."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:162
+#: rustconn/src/dialogs/key_setup.rs:256
 msgid "The passphrase is not correct for this key."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:167
+#: rustconn/src/dialogs/key_setup.rs:262
+msgid ""
+"The key was installed, but the server does not accept it. Common causes are "
+"wrong permissions on the home folder or ~/.ssh (StrictModes), a custom "
+"AuthorizedKeysFile, SELinux, or key sign-in being disabled."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:267
 msgid ""
 "The key was installed, but the server does not accept it. Common causes are "
 "wrong permissions on the home folder or ~/.ssh (StrictModes), a custom "
@@ -5594,250 +5606,305 @@ msgid ""
 "so you can try again after fixing the server."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:172
+#: rustconn/src/dialogs/key_setup.rs:272
 msgid ""
 "Sign-in worked, but the server did not run the install command. The account "
 "may be limited to a fixed command or a restricted shell."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:176
+#: rustconn/src/dialogs/key_setup.rs:276
 msgid ""
 "The server has no POSIX shell, for example a Windows server. Key setup "
 "supports Linux and other Unix-like servers."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:183
+#: rustconn/src/dialogs/key_setup.rs:283
 msgid "ssh exited with code {}."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:188
+#: rustconn/src/dialogs/key_setup.rs:288
 msgid "ssh was stopped by a signal."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:193
+#: rustconn/src/dialogs/key_setup.rs:293
 msgid "ssh-keygen was not found. Install the OpenSSH client."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:196
+#: rustconn/src/dialogs/key_setup.rs:296
 msgid "ssh was not found. Install the OpenSSH client."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:199
+#: rustconn/src/dialogs/key_setup.rs:299
 msgid "ssh-keygen could not create the key."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:202
+#: rustconn/src/dialogs/key_setup.rs:302
 msgid "Your home folder could not be found."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:205
+#: rustconn/src/dialogs/key_setup.rs:305
 msgid "Could not use the key folder {}."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:210
+#: rustconn/src/dialogs/key_setup.rs:310
 msgid "A file already exists at {}."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:215
+#: rustconn/src/dialogs/key_setup.rs:315
 msgid "There is no free key file name in {}. Remove unused keys from it."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:219
+#: rustconn/src/dialogs/key_setup.rs:319
 msgid "Could not read the key file {}."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:224
+#: rustconn/src/dialogs/key_setup.rs:324
 msgid "{} was not created by RustConn, so it was not deleted."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:229
+#: rustconn/src/dialogs/key_setup.rs:332
+msgid "Key setup supports Ed25519 and RSA keys. Choose another key."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:336
+msgid "The public key of this key file is not valid."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:340
 msgid "The generated public key is not valid."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:232
+#: rustconn/src/dialogs/key_setup.rs:343
+msgid ""
+"{} is not a private key. Choose the private key file, not the .pub file."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:347
+msgid ""
+"The public key for {} was not found. Put its .pub file next to it, or choose "
+"a key in the OpenSSH format."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:351
 msgid "This host name or user name cannot be used for key setup."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:235
+#: rustconn/src/dialogs/key_setup.rs:354
 msgid "Could not prepare the password helper."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:238
+#: rustconn/src/dialogs/key_setup.rs:357
 msgid "Could not start {}."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:241
+#: rustconn/src/dialogs/key_setup.rs:360
 msgid "The server did not answer in time."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:245
+#: rustconn/src/dialogs/key_setup.rs:364
 msgid "Cancelled."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:254
+#: rustconn/src/dialogs/key_setup.rs:373
 msgid ""
 "Connection refused. Check the host, the port and that the SSH server is "
 "running."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:257
+#: rustconn/src/dialogs/key_setup.rs:376
 msgid "The connection timed out. Check that the host is reachable."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:260
+#: rustconn/src/dialogs/key_setup.rs:379
 msgid "The host is unreachable. Check the network connection."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:263
+#: rustconn/src/dialogs/key_setup.rs:382
 msgid "The host name could not be resolved. Check the host name."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:265
+#: rustconn/src/dialogs/key_setup.rs:384
 msgid "The server closed the connection."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:271
+#: rustconn/src/dialogs/key_setup.rs:390
 msgid "Could not create ~/.ssh on the server."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:273
+#: rustconn/src/dialogs/key_setup.rs:392
 msgid "Could not create ~/.ssh/authorized_keys on the server."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:275
+#: rustconn/src/dialogs/key_setup.rs:394
 msgid "The server did not receive the key."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:277
+#: rustconn/src/dialogs/key_setup.rs:396
 msgid ""
 "Could not add the key to ~/.ssh/authorized_keys on the server. Check the "
 "disk space and file permissions."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:298
+#: rustconn/src/dialogs/key_setup.rs:417
 msgid ""
 "Too many authentication attempts. Remove unused keys from the SSH agent and "
 "try again."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:304
+#: rustconn/src/dialogs/key_setup.rs:423
 msgid ""
 "The server does not allow password sign-in (it offers: {}), so the key "
 "cannot be installed this way."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:312
+#: rustconn/src/dialogs/key_setup.rs:431
 msgid ""
 "The server did not accept the password. Enter the account password and try "
 "again."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:319
+#: rustconn/src/dialogs/key_setup.rs:438
 msgid ""
 "The server asks for a password, but this connection's options or proxy "
 "prevent RustConn from passing the stored one safely."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:323
+#: rustconn/src/dialogs/key_setup.rs:442
 msgid ""
 "The server asks for a password. Enter the account password and try again."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:367
-msgid ""
-"RustConn creates a key, installs it on {} and checks that it signs in. The "
-"stored password is kept."
+#: rustconn/src/dialogs/key_setup.rs:498
+msgid "Create a New Key"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:372
+#: rustconn/src/dialogs/key_setup.rs:499
+msgid "Use an Existing Key"
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:504
 msgid "Key Type"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:374
+#: rustconn/src/dialogs/key_setup.rs:506
 msgid "Ed25519 (Recommended)"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:375
+#: rustconn/src/dialogs/key_setup.rs:507
 msgid "RSA 4096"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:388
+#: rustconn/src/dialogs/key_setup.rs:520
 msgid ""
 "In the snap, the key is kept in the snap's own folder and is deleted when "
 "the snap is removed. Without an SSH agent, a key passphrase is asked on "
 "every connect."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:394 rustconn/src/toast.rs:72
+#: rustconn/src/dialogs/key_setup.rs:526 rustconn/src/toast.rs:72
 msgid "Warning"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:403
+#: rustconn/src/dialogs/key_setup.rs:537 rustconn/src/dialogs/key_setup.rs:817
+#: rustconn/src/dialogs/key_setup.rs:861
+msgid "No keys found. Choose a key file."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:543 rustconn/src/dialogs/key_setup.rs:545
+#: rustconn/src/window/edit_group.rs:714 rustconn/src/window/edit_group.rs:716
+msgid "Select SSH key file"
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:554 rustconn/src/dialogs/key_setup.rs:792
 msgid "Passphrase (Optional)"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:408
+#: rustconn/src/dialogs/key_setup.rs:559
 msgid "Used once to install the key. Not saved."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:412
+#: rustconn/src/dialogs/key_setup.rs:563
 msgid "Account Password"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:439
+#: rustconn/src/dialogs/key_setup.rs:590
 msgid "Delete Generated Key"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:441
+#: rustconn/src/dialogs/key_setup.rs:592
 msgid "Use Key"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:442
+#: rustconn/src/dialogs/key_setup.rs:593
 msgid "Keep Current Settings"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:455
+#: rustconn/src/dialogs/key_setup.rs:606
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1003
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:45
 msgid "Status"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:469 rustconn/src/dialogs/key_setup.rs:754
+#: rustconn/src/dialogs/key_setup.rs:620 rustconn/src/dialogs/key_setup.rs:1078
 msgid "Set Up"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:479
+#: rustconn/src/dialogs/key_setup.rs:630
 msgid "Set Up Key Authentication"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:530
+#: rustconn/src/dialogs/key_setup.rs:689
+msgid ""
+"RustConn creates a key, installs it on {} and checks that it signs in. The "
+"stored password is kept."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:693
+msgid ""
+"RustConn installs the key on {} and checks that it signs in. The stored "
+"password is kept."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:702
 msgid ""
 "A key from an earlier attempt is ready and will be used again. Enter its "
 "passphrase if it has one."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:534
+#: rustconn/src/dialogs/key_setup.rs:706
 msgid ""
 "A passphrase protects the key if someone copies it. Without an SSH agent it "
 "is asked on every connect."
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:718
+#: rustconn/src/dialogs/key_setup.rs:874
+msgid "Key Passphrase"
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:879
+msgid "Key Passphrase (Optional)"
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:887
+msgid "Used once to check that the key signs in. Not saved."
+msgstr ""
+
+#: rustconn/src/dialogs/key_setup.rs:1040
 #: rustconn/src/embedded_rdp/file_dnd.rs:229
 msgid "Try Again"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:733
+#: rustconn/src/dialogs/key_setup.rs:1056
 msgid "Key Accepted, More Required"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:735
+#: rustconn/src/dialogs/key_setup.rs:1058
 msgid ""
 "The server accepted the key but also asks for another factor, such as a one-"
 "time code. Use the key for this connection anyway?"
 msgstr ""
 
-#: rustconn/src/dialogs/key_setup.rs:751
+#: rustconn/src/dialogs/key_setup.rs:1075
 msgid "The generated key was deleted."
 msgstr ""
 
@@ -11896,7 +11963,7 @@ msgid "Info"
 msgstr ""
 
 #: rustconn/src/toast.rs:295 rustconn/src/window/batch_edit.rs:239
-#: rustconn/src/window/key_setup.rs:583
+#: rustconn/src/window/key_setup.rs:794
 msgid "Undo"
 msgstr ""
 
@@ -12668,10 +12735,6 @@ msgstr ""
 msgid "SSH Key Path"
 msgstr ""
 
-#: rustconn/src/window/edit_group.rs:714 rustconn/src/window/edit_group.rs:716
-msgid "Select SSH key file"
-msgstr ""
-
 #: rustconn/src/window/edit_group.rs:830
 msgid "(unknown connection)"
 msgstr ""
@@ -12895,49 +12958,49 @@ msgstr ""
 msgid "Global variables could not be saved to disk."
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:412
+#: rustconn/src/window/key_setup.rs:620
 msgid "The connection could not be read. Try again."
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:570
+#: rustconn/src/window/key_setup.rs:781
 msgid "The key works, but the connection could not be switched to it: {}"
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:582
+#: rustconn/src/window/key_setup.rs:793
 msgid "'{}' now signs in with a key"
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:610
+#: rustconn/src/window/key_setup.rs:821
 msgid "the application is busy"
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:614
+#: rustconn/src/window/key_setup.rs:825
 msgid "the connection no longer exists"
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:617
+#: rustconn/src/window/key_setup.rs:828
 msgid "the connection is not an SSH connection"
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:641
+#: rustconn/src/window/key_setup.rs:852
 msgid "Restored the previous sign-in settings for '{}'"
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:648
+#: rustconn/src/window/key_setup.rs:859
 msgid "The previous sign-in settings could not be restored."
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:692
+#: rustconn/src/window/key_setup.rs:903
 msgid ""
 "Once the session is open and the host key is recorded, choose Set Up Key "
 "Authentication again."
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:714
+#: rustconn/src/window/key_setup.rs:933
 msgid "Delete Generated Key?"
 msgstr ""
 
-#: rustconn/src/window/key_setup.rs:716
+#: rustconn/src/window/key_setup.rs:935
 msgid ""
 "The key files are removed from this computer. If the public key was already "
 "installed, it stays in the server's authorized_keys."

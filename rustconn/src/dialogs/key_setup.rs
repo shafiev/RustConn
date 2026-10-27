@@ -10,11 +10,14 @@
 //! function over [`KeySetupError`], so each outcome has a unit test even though
 //! the dialog itself cannot be built without a display.
 
-use std::path::Path;
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use adw::prelude::*;
 use gtk4::prelude::*;
 use libadwaita as adw;
+use rustconn_core::ssh_agent::KeyEncryption;
 use rustconn_core::ssh_key_setup::{DeployStep, KeyAlgorithm, KeySetupError, NetworkFailure};
 use secrecy::SecretString;
 
@@ -27,6 +30,8 @@ pub enum KeySetupStage {
     ResolvingPassword,
     /// `ssh-keygen`.
     Generating,
+    /// Reading the chosen existing key from disk.
+    ReadingKey,
     /// Appending the key to the server's `authorized_keys`.
     Installing,
     /// Signing in with the new key.
@@ -39,9 +44,84 @@ pub fn stage_label(stage: KeySetupStage, host: &str) -> String {
     match stage {
         KeySetupStage::ResolvingPassword => i18n("Looking up the stored password…"),
         KeySetupStage::Generating => i18n("Generating key…"),
+        KeySetupStage::ReadingKey => i18n("Reading the key…"),
         KeySetupStage::Installing => i18n_f("Installing the key on {}…", &[host]),
         KeySetupStage::Verifying => i18n("Checking that the key signs in…"),
     }
+}
+
+/// Where the private key on disk came from.
+///
+/// This is the one thing the "never delete a key RustConn did not create"
+/// guarantee (D5) is built on: a key generated for *another* connection and
+/// then picked here as "existing" still has a RustConn-shaped name, so the
+/// guard in `ssh_key_setup::delete_generated_key` cannot be the only line of
+/// defence. [`delete_offered`] is the single place that decides from this.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum KeyOrigin {
+    /// `ssh-keygen`, written into RustConn's own `rustconn/` key directory.
+    #[default]
+    Generated,
+    /// A private key the user already had, chosen from disk.
+    Existing,
+}
+
+/// Whether "Delete Generated Key" may be offered: only when the failure
+/// view asks for it **and** the key on disk is one RustConn generated.
+///
+/// An existing user key (`key == Some(KeyOrigin::Existing)`) or no key on
+/// disk at all (`None`) is never offered deletion.
+#[must_use]
+pub fn delete_offered(view: &FailureView, key: Option<KeyOrigin>) -> bool {
+    view.delete_key && key == Some(KeyOrigin::Generated)
+}
+
+/// Which key source the dialog's mode row selects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyMode {
+    /// Generate a new key pair (K2/K3).
+    Generate,
+    /// Use a private key already on disk (K5).
+    Existing,
+}
+
+/// The [`KeyMode`] for a position in the mode combo row.
+#[must_use]
+pub fn key_mode_for_index(index: u32) -> KeyMode {
+    match index {
+        1 => KeyMode::Existing,
+        _ => KeyMode::Generate,
+    }
+}
+
+/// Whether Set Up may be pressed for the key chosen in `Existing` mode.
+///
+/// An encrypted key needs its passphrase typed first; an unencrypted key, or
+/// one whose encryption could not be classified (legacy PEM/PKCS#8), does
+/// not.
+#[must_use]
+pub fn existing_key_ready(encryption: KeyEncryption, passphrase_entered: bool) -> bool {
+    match encryption {
+        KeyEncryption::Encrypted => passphrase_entered,
+        KeyEncryption::Unencrypted | KeyEncryption::Unknown => true,
+    }
+}
+
+/// How a candidate key path is shown in the key list: `~/…` under the home
+/// directory (so a dropdown of file paths does not force the dialog wide),
+/// the full path otherwise.
+#[must_use]
+pub fn display_key_path(path: &Path, home: Option<&Path>) -> String {
+    match home.and_then(|home| path.strip_prefix(home).ok()) {
+        Some(rest) => format!("~/{}", rest.display()),
+        None => path.display().to_string(),
+    }
+}
+
+/// `$HOME`, for [`display_key_path`]. `None` when unset, which just means a
+/// full path is shown instead of a `~/…` one.
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
 }
 
 /// What the dialog knows about how the account password was handled, which
@@ -53,6 +133,9 @@ pub struct FailureContext {
     /// A password was available but the connection's options or proxy route
     /// stopped RustConn from passing it (the same gate as a normal connect).
     pub password_gated_off: bool,
+    /// Where the private key came from: decides the wording of a couple of
+    /// outcomes and, unconditionally, whether deletion is ever offered.
+    pub key_origin: KeyOrigin,
 }
 
 /// The one extra thing a failure can ask for besides retrying.
@@ -136,11 +219,25 @@ impl FailureView {
 /// Exhaustive on purpose: a new [`KeySetupError`] variant in the core fails to
 /// compile here instead of reaching the user as a blank message.
 #[must_use]
+pub fn failure_view(err: &KeySetupError, ctx: &FailureContext) -> FailureView {
+    let view = failure_view_inner(err, *ctx);
+    if ctx.key_origin == KeyOrigin::Existing {
+        // D5: an existing user key is never offered for deletion, whatever
+        // the arm below set. This is the net the per-arm wording changes
+        // below do not need to repeat.
+        return FailureView {
+            delete_key: false,
+            ..view
+        };
+    }
+    view
+}
+
 #[expect(
     clippy::too_many_lines,
     reason = "one arm per error variant; splitting would only scatter the wording"
 )]
-pub fn failure_view(err: &KeySetupError, ctx: &FailureContext) -> FailureView {
+fn failure_view_inner(err: &KeySetupError, ctx: FailureContext) -> FailureView {
     match err {
         KeySetupError::HostKeyUnknown => FailureView::message(i18n(
             "RustConn has not seen this server's host key yet, so nothing was sent. Connect once so the key is recorded, then try again. If the terminal asks about the key, check it before you accept.",
@@ -153,7 +250,7 @@ pub fn failure_view(err: &KeySetupError, ctx: &FailureContext) -> FailureView {
         ))
         .titled(i18n("Host Key Changed")),
         KeySetupError::Network(failure) => FailureView::message(network_text(*failure)).retry(),
-        KeySetupError::AuthFailed { server_methods } => auth_failed_view(server_methods, *ctx),
+        KeySetupError::AuthFailed { server_methods } => auth_failed_view(server_methods, ctx),
         KeySetupError::PasswordExpired => FailureView::message(i18n(
             "The account password has expired. Change it on the server, then try again.",
         ))
@@ -162,6 +259,12 @@ pub fn failure_view(err: &KeySetupError, ctx: &FailureContext) -> FailureView {
             FailureView::message(i18n("The passphrase is not correct for this key."))
                 .retry()
                 .with_delete()
+        }
+        KeySetupError::KeyNotAccepted if ctx.key_origin == KeyOrigin::Existing => {
+            FailureView::message(i18n(
+                "The key was installed, but the server does not accept it. Common causes are wrong permissions on the home folder or ~/.ssh (StrictModes), a custom AuthorizedKeysFile, SELinux, or key sign-in being disabled.",
+            ))
+            .retry()
         }
         KeySetupError::KeyNotAccepted => FailureView::message(i18n(
             "The key was installed, but the server does not accept it. Common causes are wrong permissions on the home folder or ~/.ssh (StrictModes), a custom AuthorizedKeysFile, SELinux, or key sign-in being disabled. The key is kept so you can try again after fixing the server.",
@@ -224,10 +327,29 @@ pub fn failure_view(err: &KeySetupError, ctx: &FailureContext) -> FailureView {
             "{} was not created by RustConn, so it was not deleted.",
             &[&path.display().to_string()],
         )),
+        KeySetupError::InvalidPublicKey(reason)
+            if ctx.key_origin == KeyOrigin::Existing
+                && *reason == rustconn_core::ssh_key_setup::PublicKeyError::UnsupportedType =>
+        {
+            FailureView::message(i18n(
+                "Key setup supports Ed25519 and RSA keys. Choose another key.",
+            ))
+        }
+        KeySetupError::InvalidPublicKey(_) if ctx.key_origin == KeyOrigin::Existing => {
+            FailureView::message(i18n("The public key of this key file is not valid."))
+        }
         // The reason is for the log; the user can do nothing with it.
         KeySetupError::InvalidPublicKey(_) => {
             FailureView::message(i18n("The generated public key is not valid.")).with_delete()
         }
+        KeySetupError::NotAPrivateKey { path } => FailureView::message(i18n_f(
+            "{} is not a private key. Choose the private key file, not the .pub file.",
+            &[&path.display().to_string()],
+        )),
+        KeySetupError::NoPublicKey { path } => FailureView::message(i18n_f(
+            "The public key for {} was not found. Put its .pub file next to it, or choose a key in the OpenSSH format.",
+            &[&path.display().to_string()],
+        )),
         KeySetupError::InvalidTarget => FailureView::message(i18n(
             "This host name or user name cannot be used for key setup.",
         )),
@@ -339,8 +461,16 @@ pub fn algorithm_for_index(index: u32) -> KeyAlgorithm {
 #[derive(Clone)]
 pub struct KeySetupDialog {
     dialog: adw::Dialog,
+    target: String,
+    intro: adw::PreferencesGroup,
+    mode_row: adw::ComboRow,
     algorithm_row: adw::ComboRow,
     key_row: adw::ActionRow,
+    snap_row: Option<adw::ActionRow>,
+    existing_row: adw::ComboRow,
+    existing_model: gtk4::StringList,
+    existing_keys: Rc<RefCell<Vec<PathBuf>>>,
+    choose_file_button: gtk4::Button,
     passphrase_group: adw::PreferencesGroup,
     passphrase_row: adw::PasswordEntryRow,
     password_group: adw::PreferencesGroup,
@@ -363,11 +493,16 @@ impl KeySetupDialog {
     #[must_use]
     pub fn new(target: &str) -> Self {
         let intro = adw::PreferencesGroup::builder()
-            .description(i18n_f(
-                "RustConn creates a key, installs it on {} and checks that it signs in. The stored password is kept.",
-                &[target],
-            ))
+            .description(Self::intro_description(KeyMode::Generate, target))
             .build();
+        let mode_row = adw::ComboRow::builder()
+            .title(i18n("Key"))
+            .model(&gtk4::StringList::new(&[
+                &i18n("Create a New Key"),
+                &i18n("Use an Existing Key"),
+            ]))
+            .build();
+        intro.add(&mode_row);
         let algorithm_row = adw::ComboRow::builder()
             .title(i18n("Key Type"))
             .model(&gtk4::StringList::new(&[
@@ -382,7 +517,7 @@ impl KeySetupDialog {
             .activatable(false)
             .build();
         intro.add(&key_row);
-        if rustconn_core::snap::is_snap() {
+        let snap_row = if rustconn_core::snap::is_snap() {
             let snap_row = adw::ActionRow::builder()
                 .title(i18n(
                     "In the snap, the key is kept in the snap's own folder and is deleted when the snap is removed. Without an SSH agent, a key passphrase is asked on every connect.",
@@ -394,7 +529,26 @@ impl KeySetupDialog {
             icon.update_property(&[gtk4::accessible::Property::Label(&i18n("Warning"))]);
             snap_row.add_prefix(&icon);
             intro.add(&snap_row);
-        }
+            Some(snap_row)
+        } else {
+            None
+        };
+
+        let existing_model = gtk4::StringList::new(&[]);
+        let existing_row = adw::ComboRow::builder()
+            .title(i18n("Key File"))
+            .subtitle(i18n("No keys found. Choose a key file."))
+            .model(&existing_model)
+            .visible(false)
+            .build();
+        let choose_file_button = gtk4::Button::from_icon_name("document-open-symbolic");
+        choose_file_button.set_valign(gtk4::Align::Center);
+        choose_file_button.set_tooltip_text(Some(&i18n("Select SSH key file")));
+        choose_file_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+            "Select SSH key file",
+        ))]);
+        existing_row.add_suffix(&choose_file_button);
+        intro.add(&existing_row);
 
         let passphrase_group = adw::PreferencesGroup::builder()
             .description(Self::passphrase_hint(false))
@@ -499,8 +653,16 @@ impl KeySetupDialog {
 
         let this = Self {
             dialog,
+            target: target.to_owned(),
+            intro,
+            mode_row,
             algorithm_row,
             key_row,
+            snap_row,
+            existing_row,
+            existing_model,
+            existing_keys: Rc::new(RefCell::new(Vec::new())),
+            choose_file_button,
             passphrase_group,
             passphrase_row,
             password_group,
@@ -522,6 +684,19 @@ impl KeySetupDialog {
             dialog.close();
         });
         this
+    }
+
+    fn intro_description(mode: KeyMode, target: &str) -> String {
+        match mode {
+            KeyMode::Generate => i18n_f(
+                "RustConn creates a key, installs it on {} and checks that it signs in. The stored password is kept.",
+                &[target],
+            ),
+            KeyMode::Existing => i18n_f(
+                "RustConn installs the key on {} and checks that it signs in. The stored password is kept.",
+                &[target],
+            ),
+        }
     }
 
     fn passphrase_hint(reusable: bool) -> String {
@@ -596,10 +771,160 @@ impl KeySetupDialog {
         self.password_group.set_visible(visible);
     }
 
+    /// The key source chosen in the mode row.
+    #[must_use]
+    pub fn mode(&self) -> KeyMode {
+        key_mode_for_index(self.mode_row.selected())
+    }
+
+    /// Switches the dialog between generating a new key and using an existing
+    /// one: which rows show, the intro wording, and the passphrase row (which
+    /// means something different in each mode, so it is cleared on switch).
+    pub fn set_mode(&self, mode: KeyMode) {
+        let generate = matches!(mode, KeyMode::Generate);
+        self.algorithm_row.set_visible(generate);
+        self.key_row.set_visible(generate);
+        if let Some(snap_row) = &self.snap_row {
+            snap_row.set_visible(generate);
+        }
+        self.existing_row.set_visible(!generate);
+        self.intro
+            .set_description(Some(&Self::intro_description(mode, &self.target)));
+        self.passphrase_row.set_text("");
+        if generate {
+            self.passphrase_row
+                .set_title(&i18n("Passphrase (Optional)"));
+            self.passphrase_group.set_visible(true);
+            self.passphrase_group
+                .set_description(Some(&Self::passphrase_hint(false)));
+            self.setup_button.set_sensitive(true);
+        } else {
+            self.passphrase_group.set_visible(false);
+            self.setup_button.set_sensitive(false);
+        }
+    }
+
+    /// Fills the existing-key dropdown. `preselect`, when present among
+    /// `keys`, is selected instead of the first entry — used to default to
+    /// the connection's current key file.
+    pub fn set_existing_keys(&self, keys: &[PathBuf], preselect: Option<&Path>) {
+        let home = home_dir();
+        let labels: Vec<String> = keys
+            .iter()
+            .map(|path| display_key_path(path, home.as_deref()))
+            .collect();
+        let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
+        self.existing_model
+            .splice(0, self.existing_model.n_items(), &label_refs);
+        *self.existing_keys.borrow_mut() = keys.to_vec();
+        self.existing_row.set_subtitle(&if keys.is_empty() {
+            i18n("No keys found. Choose a key file.")
+        } else {
+            String::new()
+        });
+        if let Some(index) = keys
+            .iter()
+            .position(|path| Some(path.as_path()) == preselect)
+        {
+            self.existing_row
+                .set_selected(u32::try_from(index).unwrap_or(0));
+        } else if !keys.is_empty() {
+            self.existing_row.set_selected(0);
+        }
+    }
+
+    /// Adds `path` to the existing-key dropdown (from the file chooser) and
+    /// selects it; a path already in the list is just selected again.
+    pub fn add_existing_key(&self, path: PathBuf) {
+        let existing_index = self.existing_keys.borrow().iter().position(|p| p == &path);
+        if let Some(index) = existing_index {
+            self.existing_row
+                .set_selected(u32::try_from(index).unwrap_or(0));
+            return;
+        }
+        let label = display_key_path(&path, home_dir().as_deref());
+        self.existing_model.append(&label);
+        let index = self.existing_keys.borrow().len();
+        self.existing_keys.borrow_mut().push(path);
+        self.existing_row
+            .set_selected(u32::try_from(index).unwrap_or(0));
+    }
+
+    /// The path selected in the existing-key dropdown, `None` when the list
+    /// is empty.
+    #[must_use]
+    pub fn selected_existing_key(&self) -> Option<PathBuf> {
+        let index = usize::try_from(self.existing_row.selected()).ok()?;
+        self.existing_keys.borrow().get(index).cloned()
+    }
+
+    /// Shows what was found about the selected existing key: its fingerprint,
+    /// or why it could not be read. Also decides whether the passphrase row
+    /// shows (D6) and whether Set Up may be pressed yet.
+    pub fn set_existing_key_state(&self, state: Option<Result<(String, KeyEncryption), String>>) {
+        match state {
+            None => {
+                self.existing_row
+                    .set_subtitle(&i18n("No keys found. Choose a key file."));
+                self.passphrase_group.set_visible(false);
+                self.setup_button.set_sensitive(false);
+            }
+            Some(Err(message)) => {
+                self.existing_row.set_subtitle(&message);
+                self.passphrase_group.set_visible(false);
+                self.setup_button.set_sensitive(false);
+            }
+            Some(Ok((fingerprint, encryption))) => {
+                self.existing_row.set_subtitle(&fingerprint);
+                match encryption {
+                    KeyEncryption::Encrypted => {
+                        self.passphrase_row.set_title(&i18n("Key Passphrase"));
+                        self.passphrase_group.set_visible(true);
+                    }
+                    KeyEncryption::Unknown => {
+                        self.passphrase_row
+                            .set_title(&i18n("Key Passphrase (Optional)"));
+                        self.passphrase_group.set_visible(true);
+                    }
+                    KeyEncryption::Unencrypted => {
+                        self.passphrase_group.set_visible(false);
+                    }
+                }
+                self.passphrase_group.set_description(Some(&i18n(
+                    "Used once to check that the key signs in. Not saved.",
+                )));
+                let ready = existing_key_ready(encryption, !self.passphrase_row.text().is_empty());
+                self.setup_button.set_sensitive(ready);
+            }
+        }
+    }
+
     /// Re-reads the key type when the user changes it.
     pub fn connect_algorithm_changed(&self, handler: impl Fn() + 'static) {
         self.algorithm_row
             .connect_selected_notify(move |_| handler());
+    }
+
+    /// Runs `handler` when the mode row (Create a New Key / Use an Existing
+    /// Key) changes.
+    pub fn connect_mode_changed(&self, handler: impl Fn() + 'static) {
+        self.mode_row.connect_selected_notify(move |_| handler());
+    }
+
+    /// Runs `handler` when the selected existing key changes.
+    pub fn connect_existing_key_changed(&self, handler: impl Fn() + 'static) {
+        self.existing_row
+            .connect_selected_notify(move |_| handler());
+    }
+
+    /// Runs `handler` when the "Choose file…" suffix button is pressed.
+    pub fn connect_choose_key_file(&self, handler: impl Fn() + 'static) {
+        self.choose_file_button.connect_clicked(move |_| handler());
+    }
+
+    /// Runs `handler` when the passphrase row's text changes.
+    pub fn connect_passphrase_changed(&self, handler: impl Fn() + 'static) {
+        self.passphrase_row.connect_changed(move |_| handler());
     }
 
     /// Runs `handler` when the dialog has closed, however it was closed.
@@ -641,7 +966,10 @@ impl KeySetupDialog {
     }
 
     fn set_inputs_sensitive(&self, sensitive: bool) {
+        self.mode_row.set_sensitive(sensitive);
         self.algorithm_row.set_sensitive(sensitive);
+        self.existing_row.set_sensitive(sensitive);
+        self.choose_file_button.set_sensitive(sensitive);
         self.passphrase_row.set_sensitive(sensitive);
         self.password_row.set_sensitive(sensitive);
     }
@@ -709,9 +1037,10 @@ impl KeySetupDialog {
         self.cancel_button.set_label(&i18n("Close"));
     }
 
-    /// A run ended in failure. `key_on_disk` says whether a generated key
-    /// exists, which is what makes "Delete Generated Key" meaningful.
-    pub fn show_failure(&self, view: &FailureView, key_on_disk: bool) {
+    /// A run ended in failure. `key` is the origin of the key on disk, when
+    /// one exists — `delete_offered` decides from it whether "Delete
+    /// Generated Key" is meaningful (never for an existing user key).
+    pub fn show_failure(&self, view: &FailureView, key: Option<KeyOrigin>) {
         self.show_status(view.title.as_deref(), &view.body, false);
         self.hide_result_buttons();
         self.finish_run();
@@ -719,8 +1048,7 @@ impl KeySetupDialog {
         self.setup_button.set_visible(view.retry);
         self.setup_button.set_sensitive(true);
         self.connect_button.set_visible(view.offers_connect());
-        self.delete_button
-            .set_visible(view.delete_key && key_on_disk);
+        self.delete_button.set_visible(delete_offered(view, key));
         if view.asks_password() {
             self.password_group.set_visible(true);
             self.password_row.grab_focus();
@@ -728,7 +1056,9 @@ impl KeySetupDialog {
     }
 
     /// The server accepted the key but wants another factor: the user decides.
-    pub fn show_second_factor(&self, key_on_disk: bool) {
+    /// `key` is the origin of the key on disk: never offer deletion of an
+    /// existing user key.
+    pub fn show_second_factor(&self, key: Option<KeyOrigin>) {
         self.show_status(
             Some(&i18n("Key Accepted, More Required")),
             &i18n(
@@ -743,7 +1073,8 @@ impl KeySetupDialog {
         self.use_key_button.add_css_class("suggested-action");
         self.use_key_button.set_visible(true);
         self.keep_button.set_visible(true);
-        self.delete_button.set_visible(key_on_disk);
+        self.delete_button
+            .set_visible(key == Some(KeyOrigin::Generated));
     }
 
     /// The generated key was deleted: only a fresh run is left.
@@ -848,10 +1179,12 @@ mod tests {
         let sent = FailureContext {
             password_sent: true,
             password_gated_off: false,
+            key_origin: KeyOrigin::Generated,
         };
         let gated = FailureContext {
             password_sent: false,
             password_gated_off: true,
+            key_origin: KeyOrigin::Generated,
         };
         let methods = ["publickey", "password"];
         let rejected = failure_view(&auth(&methods), &sent);
@@ -892,6 +1225,7 @@ mod tests {
         let sent = FailureContext {
             password_sent: true,
             password_gated_off: false,
+            key_origin: KeyOrigin::Generated,
         };
         let view = failure_view(&auth(&["publickey"]), &sent);
         assert!(!view.retry);
@@ -1023,6 +1357,7 @@ mod tests {
         let stages = [
             KeySetupStage::ResolvingPassword,
             KeySetupStage::Generating,
+            KeySetupStage::ReadingKey,
             KeySetupStage::Installing,
             KeySetupStage::Verifying,
         ];
@@ -1034,5 +1369,123 @@ mod tests {
             }
         }
         assert!(stage_label(KeySetupStage::Installing, "me@box").contains("me@box"));
+    }
+
+    // ---- K5: "Use an Existing Key" ------------------------------------
+
+    fn existing_ctx() -> FailureContext {
+        FailureContext {
+            key_origin: KeyOrigin::Existing,
+            ..FailureContext::default()
+        }
+    }
+
+    #[test]
+    fn delete_offered_only_for_a_generated_key_with_a_deletable_view() {
+        let deletable = FailureView::message(String::new()).with_delete();
+        let not_deletable = FailureView::message(String::new());
+        assert!(delete_offered(&deletable, Some(KeyOrigin::Generated)));
+        assert!(!delete_offered(&deletable, Some(KeyOrigin::Existing)));
+        assert!(!delete_offered(&deletable, None));
+        assert!(!delete_offered(&not_deletable, Some(KeyOrigin::Generated)));
+    }
+
+    #[test]
+    fn an_existing_key_is_never_offered_for_deletion() {
+        // Every KeySetupError that `with_delete()`s for a generated key must
+        // not do so for an existing one, whatever the per-arm wording.
+        let deletable_for_generated = [
+            KeySetupError::WrongPassphrase,
+            KeySetupError::KeyNotAccepted,
+            KeySetupError::Timeout,
+            KeySetupError::Cancelled,
+            KeySetupError::NoSentinel { code: Some(0) },
+            KeySetupError::DeployScriptFailed(DeployStep::AppendKey),
+            KeySetupError::InvalidPublicKey(PublicKeyError::TooLong),
+        ];
+        for err in deletable_for_generated {
+            assert!(failure_view(&err, &ctx()).delete_key, "{err} (generated)");
+            assert!(
+                !failure_view(&err, &existing_ctx()).delete_key,
+                "{err} (existing)"
+            );
+        }
+    }
+
+    #[test]
+    fn not_a_private_key_and_no_public_key_name_the_path_and_offer_nothing() {
+        let path = PathBuf::from("/home/u/.ssh/id_ed25519.pub");
+        let view = failure_view(
+            &KeySetupError::NotAPrivateKey { path: path.clone() },
+            &ctx(),
+        );
+        assert!(view.body.contains("/home/u/.ssh/id_ed25519.pub"));
+        assert!(!view.retry && !view.delete_key && !view.offers_connect());
+
+        let view = failure_view(&KeySetupError::NoPublicKey { path: path.clone() }, &ctx());
+        assert!(view.body.contains("/home/u/.ssh/id_ed25519.pub"));
+        assert!(!view.retry && !view.delete_key);
+    }
+
+    #[test]
+    fn unsupported_key_type_reads_differently_for_an_existing_key() {
+        let err = KeySetupError::InvalidPublicKey(PublicKeyError::UnsupportedType);
+        let generated = failure_view(&err, &ctx());
+        let existing = failure_view(&err, &existing_ctx());
+        assert_ne!(generated.body, existing.body);
+        assert!(existing.body.contains("Ed25519"));
+        assert!(!existing.delete_key);
+    }
+
+    #[test]
+    fn key_not_accepted_drops_the_kept_sentence_for_an_existing_key() {
+        let generated = failure_view(&KeySetupError::KeyNotAccepted, &ctx());
+        let existing = failure_view(&KeySetupError::KeyNotAccepted, &existing_ctx());
+        assert_ne!(generated.body, existing.body);
+        assert!(generated.retry && existing.retry);
+        assert!(generated.delete_key);
+        assert!(!existing.delete_key);
+    }
+
+    #[test]
+    fn host_key_unknown_still_offers_connect_for_an_existing_key() {
+        let view = failure_view(&KeySetupError::HostKeyUnknown, &existing_ctx());
+        assert!(view.offers_connect());
+        assert!(view.retry);
+    }
+
+    #[test]
+    fn key_mode_defaults_to_generate() {
+        assert_eq!(key_mode_for_index(0), KeyMode::Generate);
+        assert_eq!(key_mode_for_index(1), KeyMode::Existing);
+        assert_eq!(key_mode_for_index(2), KeyMode::Generate);
+        assert_eq!(key_mode_for_index(u32::MAX), KeyMode::Generate);
+    }
+
+    #[test]
+    fn existing_key_ready_needs_a_passphrase_only_when_encrypted() {
+        assert!(existing_key_ready(KeyEncryption::Unencrypted, false));
+        assert!(existing_key_ready(KeyEncryption::Unencrypted, true));
+        assert!(existing_key_ready(KeyEncryption::Unknown, false));
+        assert!(existing_key_ready(KeyEncryption::Unknown, true));
+        assert!(!existing_key_ready(KeyEncryption::Encrypted, false));
+        assert!(existing_key_ready(KeyEncryption::Encrypted, true));
+    }
+
+    #[test]
+    fn display_key_path_shortens_under_home() {
+        let home = PathBuf::from("/home/anton");
+        assert_eq!(
+            display_key_path(Path::new("/home/anton/.ssh/id_ed25519"), Some(&home)),
+            "~/.ssh/id_ed25519"
+        );
+        assert_eq!(
+            display_key_path(Path::new("/etc/ssh/host_key"), Some(&home)),
+            "/etc/ssh/host_key"
+        );
+        assert_eq!(
+            display_key_path(Path::new("/home/anton/.ssh/id_ed25519"), None),
+            "/home/anton/.ssh/id_ed25519"
+        );
     }
 }

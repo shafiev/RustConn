@@ -61,7 +61,7 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 use crate::proc::{self, Waited};
-use crate::ssh_agent::PublicKeyInfo;
+use crate::ssh_agent::{self, KeyEncryption, KeyFormat, PublicKeyInfo};
 use crate::ssh_askpass::{self, AskpassSlot};
 use crate::ssh_tunnel;
 
@@ -309,6 +309,21 @@ pub enum KeySetupError {
         /// The underlying failure.
         #[source]
         source: io::Error,
+    },
+    /// A file chosen as an existing private key is too large, or not a
+    /// recognised private-key format (a `.pub` file, for instance).
+    #[error("{path} is not a private key")]
+    NotAPrivateKey {
+        /// The refused path.
+        path: PathBuf,
+    },
+    /// A legacy PEM/PKCS#8 private key (a format the key-file inspector does
+    /// not parse) has no `.pub` file next to it, so its public key cannot be
+    /// derived without a passphrase.
+    #[error("no public key next to {path}")]
+    NoPublicKey {
+        /// The private-key path with no matching `.pub`.
+        path: PathBuf,
     },
     /// [`delete_generated_key`] was pointed at a file RustConn did not generate.
     #[error("refusing to delete {path}: not a RustConn-generated key")]
@@ -928,6 +943,154 @@ fn public_path(private: &Path) -> PathBuf {
     let mut name = private.as_os_str().to_owned();
     name.push(".pub");
     PathBuf::from(name)
+}
+
+// ---------------------------------------------------------------------------
+// Existing key (K5: "Use an Existing Key")
+// ---------------------------------------------------------------------------
+
+/// Longest private-key file [`existing_key`] will read, in bytes. A real key
+/// file is a few KiB; this is generous headroom while still refusing to read
+/// an arbitrary large file that was not meant to be a key.
+const MAX_PRIVATE_KEY_LEN: u64 = 64 * 1024;
+
+/// A private key chosen for "Use an Existing Key", with its public half
+/// resolved and its encryption known — everything [`run_deploy`] and
+/// [`run_verify`] need, without ever touching a passphrase.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExistingKey {
+    /// The chosen private-key file, unchanged from what was passed in.
+    pub private_key_path: PathBuf,
+    /// The public key: from a matching `.pub` file when one exists and agrees
+    /// with the private key's fingerprint, otherwise derived from the private
+    /// key itself (OpenSSH only).
+    pub public_key: PublicKeyLine,
+    /// Whether the private key needs a passphrase to use.
+    pub encryption: KeyEncryption,
+}
+
+/// Reads a private key the user picked and resolves its public half, without
+/// ever asking for or using a passphrase.
+///
+/// An OpenSSH private key (even an encrypted one) carries its public key in
+/// the clear, so the public line can always be rebuilt from it
+/// ([`ssh_agent::openssh_public_key_line`]). A `.pub` file next to the private
+/// key is preferred when it parses and its fingerprint agrees with the
+/// private key — it keeps the comment the user's tooling wrote; an
+/// unparseable or mismatched `.pub` is silently ignored in favour of the
+/// derived line. A legacy PEM or PKCS#8 key is not parsed by this module (see
+/// the `ssh_agent` key-file inspector), so it needs a valid `.pub` file; its
+/// fingerprint is not cross-checked against the private key here, so a
+/// `.pub` for a different key is only caught later, by [`run_verify`].
+///
+// ponytail: a legacy PEM/PKCS#8 key with no `.pub` is not supported (needs
+// `ssh-keygen -y`, which needs the passphrase through askpass); upgrade by
+// running it through the askpass path the way `generate_key` already does
+// for `ssh-keygen`. ECDSA and `…-sk` keys are rejected by `PublicKeyLine`
+// (`InvalidPublicKey(UnsupportedType)`) for the same reason `KeyAlgorithm`
+// does not offer them for generation.
+///
+/// # Errors
+///
+/// - [`KeySetupError::KeyFile`] if the file cannot be read.
+/// - [`KeySetupError::NotAPrivateKey`] if the file is larger than 64 KiB, is a
+///   `.pub` file, or is not a recognised private-key format.
+/// - [`KeySetupError::NoPublicKey`] if the format is legacy PEM/PKCS#8 and no
+///   valid `.pub` file sits next to it.
+/// - [`KeySetupError::InvalidPublicKey`] if the resolved public key is not
+///   `ssh-ed25519` or `ssh-rsa`.
+pub fn existing_key(private_key_path: &Path) -> Result<ExistingKey, KeySetupError> {
+    let not_a_key = || KeySetupError::NotAPrivateKey {
+        path: private_key_path.to_path_buf(),
+    };
+    let key_file = |source| KeySetupError::KeyFile {
+        path: private_key_path.to_path_buf(),
+        source,
+    };
+    let size = fs::metadata(private_key_path).map_err(key_file)?.len();
+    if size > MAX_PRIVATE_KEY_LEN {
+        return Err(not_a_key());
+    }
+    let contents = Zeroizing::new(fs::read_to_string(private_key_path).map_err(key_file)?);
+    let info = ssh_agent::inspect_key_file(&contents).map_err(|_| not_a_key())?;
+
+    let matching_pub = PublicKeyLine::read(&public_path(private_key_path)).ok();
+    let public_key = match info.format {
+        KeyFormat::OpenSsh => {
+            let derived_fingerprint = info.public_key.as_ref().map(|pk| pk.fingerprint.as_str());
+            match matching_pub {
+                Some(pub_key) if Some(pub_key.fingerprint()) == derived_fingerprint => pub_key,
+                _ => {
+                    let line =
+                        ssh_agent::openssh_public_key_line(&contents).map_err(|_| not_a_key())?;
+                    PublicKeyLine::parse(&line)?
+                }
+            }
+        }
+        KeyFormat::LegacyPem | KeyFormat::Pkcs8 => {
+            matching_pub.ok_or_else(|| KeySetupError::NoPublicKey {
+                path: private_key_path.to_path_buf(),
+            })?
+        }
+        KeyFormat::Unknown => return Err(not_a_key()),
+    };
+
+    Ok(ExistingKey {
+        private_key_path: private_key_path.to_path_buf(),
+        public_key,
+        encryption: info.encryption,
+    })
+}
+
+/// [`crate::ssh_agent::list_key_files_in`] over each of `dirs`, deduplicated
+/// while keeping the order they were first seen in.
+///
+/// A directory that cannot be scanned is logged and skipped, not
+/// propagated, so one bad directory does not empty the whole list.
+#[must_use]
+pub fn existing_key_candidates_in(dirs: &[PathBuf]) -> Vec<PathBuf> {
+    let mut seen = std::collections::HashSet::new();
+    let mut candidates = Vec::new();
+    for dir in dirs {
+        match crate::ssh_agent::list_key_files_in(dir) {
+            Ok(files) => {
+                for file in files {
+                    if seen.insert(file.clone()) {
+                        candidates.push(file);
+                    }
+                }
+            }
+            Err(error) => {
+                tracing::debug!(
+                    dir = %dir.display(),
+                    %error,
+                    "key setup: could not scan directory for existing keys",
+                );
+            }
+        }
+    }
+    candidates
+}
+
+/// [`existing_key_candidates_in`] over likely key directories: `~/.ssh`, the
+/// Flatpak SSH directory when sandboxed, and [`default_key_setup_dir`].
+///
+/// The last of those is RustConn's own `rustconn/` subdirectory, which also
+/// holds keys generated by an earlier run that a later run may want to reuse
+/// as "existing".
+#[must_use]
+pub fn existing_key_candidates() -> Vec<PathBuf> {
+    let mut scan_dirs = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        scan_dirs.push(home.join(".ssh"));
+    }
+    if let Some(flatpak_ssh_dir) = crate::flatpak::get_flatpak_ssh_dir() {
+        scan_dirs.push(flatpak_ssh_dir);
+    }
+    if let Ok(dir) = default_key_setup_dir() {
+        scan_dirs.push(dir);
+    }
+    existing_key_candidates_in(&scan_dirs)
 }
 
 /// Deletes a key pair this module generated ("Delete Generated Key").

@@ -192,6 +192,36 @@ impl PublicKeyInfo {
     }
 }
 
+/// The public-key line (`<type> <base64>`, no comment) of an OpenSSH private
+/// key, rebuilt from its public section without touching the (possibly
+/// encrypted) private section.
+///
+/// Used for "Use an Existing Key" (K5) when no `.pub` file sits next to the
+/// private key: the line this returns is the source of truth, since the
+/// OpenSSH format carries the public key in the clear.
+///
+/// # Errors
+///
+/// Returns [`AgentError::ParseError`] when `contents` is not an OpenSSH
+/// private key, its public section cannot be read, or the key type inside it
+/// is missing or not valid UTF-8.
+pub fn openssh_public_key_line(contents: &str) -> AgentResult<String> {
+    let body = decode_openssh_body(contents)?;
+    let blob = openssh_public_blob(&body)?;
+    let (algo, _) = read_ssh_string(&blob, 0).ok_or_else(|| {
+        AgentError::ParseError("OpenSSH public blob has no type string".to_string())
+    })?;
+    let algo = std::str::from_utf8(algo).map_err(|_| {
+        AgentError::ParseError("OpenSSH public blob type is not valid UTF-8".to_string())
+    })?;
+    if algo.is_empty() {
+        return Err(AgentError::ParseError(
+            "OpenSSH public blob type is empty".to_string(),
+        ));
+    }
+    Ok(format!("{algo} {}", data_encoding::BASE64.encode(&blob)))
+}
+
 /// Inspects a key file's contents: format, encryption, and the public key when
 /// it can be read without a passphrase.
 ///
@@ -337,6 +367,39 @@ fn read_ssh_string(buf: &[u8], offset: usize) -> Option<(&[u8], usize)> {
     Some((bytes, end))
 }
 
+/// Test fixture: an OpenSSH private-key body carrying `pub_blob` as its single
+/// public key, armoured as PEM text. `ciphername` is the OpenSSH `ciphername`
+/// field (`"none"` for unencrypted); the private section is a dummy that no
+/// reader here ever parses.
+///
+/// Shared with `ssh_key_setup`'s tests, which need a realistic private-key
+/// file without running `ssh-keygen`.
+#[cfg(test)]
+pub(crate) fn openssh_key_fixture(ciphername: &str, pub_blob: &[u8]) -> String {
+    fn ssh_string(out: &mut Vec<u8>, bytes: &[u8]) {
+        out.extend_from_slice(&u32::try_from(bytes.len()).unwrap().to_be_bytes());
+        out.extend_from_slice(bytes);
+    }
+    let mut body = Vec::new();
+    body.extend_from_slice(OPENSSH_MAGIC);
+    ssh_string(&mut body, ciphername.as_bytes());
+    ssh_string(
+        &mut body,
+        if ciphername == "none" {
+            b"none"
+        } else {
+            b"bcrypt"
+        },
+    );
+    ssh_string(&mut body, b""); // kdfoptions (empty for this fixture)
+    body.extend_from_slice(&1u32.to_be_bytes()); // nkeys
+    ssh_string(&mut body, pub_blob); // the public blob
+    ssh_string(&mut body, b"encrypted-or-plain-private-section-ignored");
+
+    let b64 = data_encoding::BASE64.encode(&body);
+    format!("{OPENSSH_BEGIN}\n{b64}\n{OPENSSH_END}\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,9 +473,7 @@ mod tests {
         assert_eq!(detect_format("not a key at all"), KeyFormat::Unknown);
     }
 
-    /// Builds a minimal OpenSSH private-key body: magic + ciphername +
-    /// kdfname + kdfoptions + nkeys(1) + one public blob, then a dummy private
-    /// section (ignored by the public reader). Returned as armoured PEM text.
+    /// An ed25519 fixture: [`openssh_key_fixture`] with a fixed public blob.
     fn make_openssh_key(ciphername: &str) -> String {
         fn ssh_string(out: &mut Vec<u8>, bytes: &[u8]) {
             out.extend_from_slice(&u32::try_from(bytes.len()).unwrap().to_be_bytes());
@@ -421,25 +482,7 @@ mod tests {
         let mut pub_blob = Vec::new();
         ssh_string(&mut pub_blob, b"ssh-ed25519");
         ssh_string(&mut pub_blob, &[9u8; 32]);
-
-        let mut body = Vec::new();
-        body.extend_from_slice(OPENSSH_MAGIC);
-        ssh_string(&mut body, ciphername.as_bytes());
-        ssh_string(
-            &mut body,
-            if ciphername == "none" {
-                b"none"
-            } else {
-                b"bcrypt"
-            },
-        );
-        ssh_string(&mut body, b""); // kdfoptions (empty for this fixture)
-        body.extend_from_slice(&1u32.to_be_bytes()); // nkeys
-        ssh_string(&mut body, &pub_blob); // the public blob
-        ssh_string(&mut body, b"encrypted-or-plain-private-section-ignored");
-
-        let b64 = data_encoding::BASE64.encode(&body);
-        format!("{OPENSSH_BEGIN}\n{b64}\n{OPENSSH_END}\n")
+        openssh_key_fixture(ciphername, &pub_blob)
     }
 
     #[test]
@@ -482,6 +525,34 @@ mod tests {
         assert_eq!(info.encryption, KeyEncryption::Unknown);
         assert!(info.public_key.is_none());
         assert!(info.needs_ssh_add_fallback());
+    }
+
+    #[test]
+    fn public_key_line_matches_the_private_key_fingerprint() {
+        let pem = make_openssh_key("none");
+        let line = openssh_public_key_line(&pem).unwrap();
+        assert!(line.starts_with("ssh-ed25519 "));
+        let from_line = PublicKeyInfo::from_pub_line(&line).unwrap();
+        let from_private = PublicKeyInfo::from_private_key_file(&pem).unwrap();
+        assert_eq!(from_line.fingerprint, from_private.fingerprint);
+    }
+
+    #[test]
+    fn public_key_line_works_on_an_encrypted_key_without_a_passphrase() {
+        let pem = make_openssh_key("aes256-ctr");
+        let line = openssh_public_key_line(&pem).unwrap();
+        assert!(line.starts_with("ssh-ed25519 "));
+        let from_line = PublicKeyInfo::from_pub_line(&line).unwrap();
+        let from_private = PublicKeyInfo::from_private_key_file(&pem).unwrap();
+        assert_eq!(from_line.fingerprint, from_private.fingerprint);
+    }
+
+    #[test]
+    fn public_key_line_of_non_openssh_text_is_a_parse_error() {
+        assert!(matches!(
+            openssh_public_key_line("not a key at all"),
+            Err(AgentError::ParseError(_))
+        ));
     }
 
     #[test]
