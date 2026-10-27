@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-27 14:31+0200\n"
+"POT-Creation-Date: 2026-10-27 16:14+0200\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: p-bo <https://github.com/p-bo>\n"
 "Language-Team: Czech\n"
@@ -26,7 +26,7 @@ msgstr "OK"
 #: rustconn/src/dialogs/credential_transfer.rs:457
 #: rustconn/src/dialogs/flatpak_components.rs:299
 #: rustconn/src/dialogs/history.rs:199 rustconn/src/dialogs/kdbx_unlock.rs:112
-#: rustconn/src/dialogs/key_setup.rs:465
+#: rustconn/src/dialogs/key_setup.rs:471
 #: rustconn/src/dialogs/portable_migration.rs:58
 #: rustconn/src/dialogs/portable_passphrase_change.rs:93
 #: rustconn/src/dialogs/portable_unlock.rs:93
@@ -56,7 +56,7 @@ msgstr "OK"
 #: rustconn/src/window/edit_group.rs:1957
 #: rustconn/src/window/edit_group.rs:2006
 #: rustconn/src/window/group_broadcast.rs:379
-#: rustconn/src/window/key_setup.rs:705 rustconn/src/window/mod.rs:3387
+#: rustconn/src/window/key_setup.rs:719 rustconn/src/window/mod.rs:3387
 #: rustconn/src/window/mod.rs:3451 rustconn/src/window/mod.rs:4405
 #: rustconn/src/window/operations.rs:116 rustconn/src/window/operations.rs:487
 #: rustconn/src/window/operations.rs:670 rustconn/src/window/sessions.rs:339
@@ -173,8 +173,8 @@ msgstr "Neplatná zkratka, např. <Control><Alt>r"
 msgid ""
 "A macro shortcut needs Ctrl, Alt or Super; only F1 to F24 can be used alone"
 msgstr ""
-"Zkratka makra potřebuje Ctrl, Alt nebo Super; samostatně lze použít jen F1 "
-"až F24"
+"Zkratka makra potřebuje Ctrl, Alt nebo Super; samostatně lze použít jen F1 až"
+" F24"
 
 #: rustconn/src/command_macros.rs:107
 msgid "Enter the command to send"
@@ -221,7 +221,7 @@ msgid "‘{}’ needs the following before it can connect."
 msgstr "„{}“ před připojením vyžaduje následující."
 
 #: rustconn/src/dialogs/ask_prompt.rs:73 rustconn/src/dialogs/history.rs:105
-#: rustconn/src/dialogs/key_setup.rs:432 rustconn/src/dialogs/widgets.rs:614
+#: rustconn/src/dialogs/key_setup.rs:438 rustconn/src/dialogs/widgets.rs:614
 #: rustconn/src/sidebar_ui.rs:396 rustconn/src/smart_folder_ui.rs:438
 #: rustconn/src/window/edit_dialogs.rs:760
 #: rustconn/src/window/edit_dialogs.rs:761
@@ -429,7 +429,7 @@ msgstr "Tento cluster bude trvale odstraněn."
 #: rustconn/src/dialogs/tunnel.rs:728 rustconn/src/dialogs/workspace.rs:119
 #: rustconn/src/dialogs/workspace.rs:292 rustconn/src/sidebar_ui.rs:559
 #: rustconn/src/smart_folder_ui.rs:406 rustconn/src/smart_folder_ui.rs:460
-#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:706
+#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:720
 #: rustconn/src/window/operations.rs:171 rustconn/src/window/snippets.rs:413
 #: rustconn/src/window/snippets.rs:503 rustconn/src/window/templates.rs:151
 msgid "Delete"
@@ -819,8 +819,7 @@ msgstr "Název pravidla"
 msgid ""
 "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields "
 "to the right."
-msgstr ""
-"Regulární výraz, například (?i)\\bINFO\\b. Barvu nastavte v polích vpravo."
+msgstr "Regulární výraz, například (?i)\\bINFO\\b. Barvu nastavte v polích vpravo."
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:924
 #: rustconn/src/dialogs/connection/advanced_tab.rs:928
@@ -868,11 +867,11 @@ msgstr "Automaticky odpovídat na vzory terminálu (pořadí priority)"
 #: rustconn/src/dialogs/connection/automation_tab.rs:115
 #: rustconn/src/window/edit_group.rs:1166
 msgid ""
-"Responses support ${password}, ${username}, and ${VARIABLE_NAME} "
-"placeholders resolved at connection time"
+"Responses support ${password}, ${username}, and ${VARIABLE_NAME} placeholders"
+" resolved at connection time"
 msgstr ""
-"Odpovědi podporují zástupné symboly ${password}, ${username} a $"
-"{VARIABLE_NAME} vyhodnocené při připojení"
+"Odpovědi podporují zástupné symboly ${password}, ${username} a "
+"${VARIABLE_NAME} vyhodnocené při připojení"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:128
 #: rustconn/src/window/edit_group.rs:1179
@@ -1733,8 +1732,8 @@ msgid ""
 "Saved jump host no longer exists and is skipped when connecting — pick "
 "another"
 msgstr ""
-"Uložený mezihostitel již neexistuje a při připojování se přeskakuje — "
-"vyberte jiný"
+"Uložený mezihostitel již neexistuje a při připojování se přeskakuje — vyberte"
+" jiný"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:49
 #: rustconn/src/dialogs/connection/dialog/rows.rs:580
@@ -1836,11 +1835,11 @@ msgstr "Text k odeslání (např. ${password}\\n)"
 #: rustconn/src/dialogs/connection/dialog/rows.rs:323
 #: rustconn/src/window/edit_group.rs:2159
 msgid ""
-"Response to send when pattern matches. Use ${password}, ${username}, or $"
-"{VAR_NAME} for variables."
+"Response to send when pattern matches. Use ${password}, ${username}, or "
+"${VAR_NAME} for variables."
 msgstr ""
-"Odpověď k odeslání při shodě vzoru. Použijte ${password}, ${username} nebo $"
-"{VAR_NAME} pro proměnné."
+"Odpověď k odeslání při shodě vzoru. Použijte ${password}, ${username} nebo "
+"${VAR_NAME} pro proměnné."
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:331
 #: rustconn/src/window/edit_group.rs:2167
@@ -1944,8 +1943,8 @@ msgid ""
 msgstr ""
 "Jeden řádek napsaný do terminálu. ${username}, ${host}, ${port} a vaše "
 "proměnné se doplní; ${password} použije heslo, kterým bylo toto připojení "
-"otevřeno, a neodešle se, pokud žádné není. Na proměnnou, jejíž hodnota "
-"začíná @ask:, se nejprve zeptá."
+"otevřeno, a neodešle se, pokud žádné není. Na proměnnou, jejíž hodnota začíná"
+" @ask:, se nejprve zeptá."
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:619
 msgid "Shortcut:"
@@ -2706,8 +2705,8 @@ msgstr "Dynamické rozlišení"
 
 #: rustconn/src/dialogs/connection/rdp.rs:422
 msgid ""
-"Resize the remote desktop to match the window (External client). Turn off "
-"for legacy servers"
+"Resize the remote desktop to match the window (External client). Turn off for"
+" legacy servers"
 msgstr ""
 "Přizpůsobit velikost vzdálené plochy oknu (externí klient). Vypněte pro "
 "starší servery"
@@ -2786,13 +2785,13 @@ msgstr ""
 #: rustconn/src/dialogs/connection/rdp.rs:495
 msgid ""
 "Passes /admin to the external FreeRDP client, connecting to the server's "
-"console/administrative session instead of a normal RDS session. This "
-"bypasses RDS CAL licensing. External client only; the embedded client cannot "
-"request it yet."
+"console/administrative session instead of a normal RDS session. This bypasses"
+" RDS CAL licensing. External client only; the embedded client cannot request "
+"it yet."
 msgstr ""
-"Předá /admin externímu klientu FreeRDP a připojí se ke konzolové/"
-"administrativní relaci serveru místo běžné relace RDS. Tím se obchází "
-"licencování RDS CAL. Pouze externí klient; vestavěný klient to zatím "
+"Předá /admin externímu klientu FreeRDP a připojí se ke "
+"konzolové/administrativní relaci serveru místo běžné relace RDS. Tím se "
+"obchází licencování RDS CAL. Pouze externí klient; vestavěný klient to zatím "
 "nedokáže vyžádat."
 
 #: rustconn/src/dialogs/connection/rdp.rs:506
@@ -2815,15 +2814,15 @@ msgstr "Adresa KDC"
 
 #: rustconn/src/dialogs/connection/rdp.rs:522
 msgid ""
-"Optional. A domain controller name or IP address, a tcp:// or udp:// "
-"address, or an https:// KDC proxy URL. Leave empty to find it automatically. "
-"The External client uses only an https://…/KdcProxy proxy and otherwise "
-"follows the system Kerberos configuration."
+"Optional. A domain controller name or IP address, a tcp:// or udp:// address,"
+" or an https:// KDC proxy URL. Leave empty to find it automatically. The "
+"External client uses only an https://…/KdcProxy proxy and otherwise follows "
+"the system Kerberos configuration."
 msgstr ""
-"Volitelné. Název nebo IP adresa řadiče domény, adresa tcp:// nebo udp:// "
-"nebo URL proxy KDC https://. Ponechte prázdné pro automatické nalezení. "
-"Externí klient používá pouze proxy https://…/KdcProxy, jinak se řídí "
-"systémovou konfigurací Kerberosu."
+"Volitelné. Název nebo IP adresa řadiče domény, adresa tcp:// nebo udp:// nebo"
+" URL proxy KDC https://. Ponechte prázdné pro automatické nalezení. Externí "
+"klient používá pouze proxy https://…/KdcProxy, jinak se řídí systémovou "
+"konfigurací Kerberosu."
 
 #: rustconn/src/dialogs/connection/rdp.rs:537
 msgid "Disable NLA"
@@ -3569,7 +3568,7 @@ msgstr "Vyhledat soubor klíče SSH"
 #: rustconn/src/dialogs/connection/ssh.rs:360
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:124
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:336
-#: rustconn/src/dialogs/key_setup.rs:374
+#: rustconn/src/dialogs/key_setup.rs:380
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2333
 #: rustconn/src/dialogs/template.rs:677
 msgid "Key File"
@@ -3756,11 +3755,11 @@ msgstr "Poskytovatel PKCS#11"
 
 #: rustconn/src/dialogs/connection/ssh.rs:760
 msgid ""
-"Path to a PKCS#11 library for hardware-token login (e.g. /usr/lib64/"
-"libykcs11.so.2)"
+"Path to a PKCS#11 library for hardware-token login (e.g. "
+"/usr/lib64/libykcs11.so.2)"
 msgstr ""
-"Cesta ke knihovně PKCS#11 pro přihlášení pomocí hardwarového tokenu (např. /"
-"usr/lib64/libykcs11.so.2)"
+"Cesta ke knihovně PKCS#11 pro přihlášení pomocí hardwarového tokenu (např. "
+"/usr/lib64/libykcs11.so.2)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:786
 msgid "SFTP Remote Directory"
@@ -3782,8 +3781,8 @@ msgstr "Klávesnice"
 #: rustconn/src/dialogs/connection/ssh.rs:820
 #: rustconn/src/dialogs/connection/telnet.rs:54
 msgid ""
-"If Backspace or Delete is not recognised, try Backspace (^H) or Delete (^?) "
-"—              devices that reject one default usually reject both"
+"If Backspace or Delete is not recognised, try Backspace (^H) or Delete (^?) —"
+"              devices that reject one default usually reject both"
 msgstr ""
 "Pokud Backspace nebo Delete není rozpoznán, vyzkoušejte Backspace (^H) nebo "
 "Delete (^?) — zařízení, která odmítají jednu výchozí hodnotu, obvykle "
@@ -3886,9 +3885,8 @@ msgstr "Odebrat přesměrování portu"
 #: rustconn/src/dialogs/connection/telnet.rs:38
 msgid "⚠ Telnet transmits data in plain text. Use SSH for secure connections."
 msgstr ""
-"⚠ Telnet přenáší data jako prostý text. Pro bezpečné připojení použijte "
-"SSH.⚠ Telnet přenáší data v otevřeném textu. Použijte SSH pro bezpečná "
-"připojení."
+"⚠ Telnet přenáší data jako prostý text. Pro bezpečné připojení použijte SSH.⚠"
+" Telnet přenáší data v otevřeném textu. Použijte SSH pro bezpečná připojení."
 
 #: rustconn/src/dialogs/connection/vnc.rs:98
 #: rustconn/src/dialogs/connection/vnc.rs:100
@@ -4014,8 +4012,8 @@ msgstr "Tunel přes SSH"
 
 #: rustconn/src/dialogs/connection/web.rs:107
 msgid ""
-"Browse via a SOCKS proxy over the chosen SSH connection (embedded or "
-"Chromium browser)"
+"Browse via a SOCKS proxy over the chosen SSH connection (embedded or Chromium"
+" browser)"
 msgstr ""
 "Procházet přes SOCKS proxy zvoleného SSH připojení (vestavěný nebo Chromium "
 "prohlížeč)"
@@ -4028,8 +4026,8 @@ msgstr "Obecné"
 
 #: rustconn/src/dialogs/connection/web.rs:198
 msgid ""
-"In the snap, Embedded opens in the system browser unless the embedded "
-"browser is allowed in Settings"
+"In the snap, Embedded opens in the system browser unless the embedded browser"
+" is allowed in Settings"
 msgstr ""
 "Ve snapu se režim Vestavěné otevře v systémovém prohlížeči, pokud není "
 "vestavěný prohlížeč povolen v Nastavení"
@@ -4312,8 +4310,8 @@ msgid ""
 "tab; ${host}, ${port}, ${username} and ${name} come from the connection "
 "itself"
 msgstr ""
-"Zástupné symboly jako ${id} se berou z lokálních proměnných na kartě Data; $"
-"{host}, ${port}, ${username} a ${name} pocházejí ze samotného připojení"
+"Zástupné symboly jako ${id} se berou z lokálních proměnných na kartě Data; "
+"${host}, ${port}, ${username} a ${name} pocházejí ze samotného připojení"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:68
 #: rustconn/src/dialogs/export.rs:780
@@ -4498,11 +4496,11 @@ msgstr "Kopírování uložených hesel"
 
 #: rustconn/src/dialogs/credential_transfer.rs:79
 msgid ""
-"Copies the passwords of every connection, group and secret variable that "
-"uses the password store. The originals are left where they are."
+"Copies the passwords of every connection, group and secret variable that uses"
+" the password store. The originals are left where they are."
 msgstr ""
-"Zkopíruje hesla všech připojení, skupin a tajných proměnných, které "
-"používají úložiště hesel. Originály zůstanou na svém místě."
+"Zkopíruje hesla všech připojení, skupin a tajných proměnných, které používají"
+" úložiště hesel. Originály zůstanou na svém místě."
 
 #: rustconn/src/dialogs/credential_transfer.rs:88
 msgid "From"
@@ -4537,7 +4535,7 @@ msgid "Copy"
 msgstr "Zkopírovat"
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
-#: rustconn/src/dialogs/key_setup.rs:468 rustconn/src/dialogs/script.rs:171
+#: rustconn/src/dialogs/key_setup.rs:474 rustconn/src/dialogs/script.rs:171
 #: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:1127
 msgid "Stop"
 msgstr "Zastavit"
@@ -4552,9 +4550,9 @@ msgstr "Vyber dvě různá úložiště hesel"
 
 #: rustconn/src/dialogs/credential_transfer.rs:223
 msgid ""
-"These entries would end up in the same place in the destination, so one "
-"would overwrite the other. Rename one of them, or choose a destination that "
-"keeps groups apart."
+"These entries would end up in the same place in the destination, so one would"
+" overwrite the other. Rename one of them, or choose a destination that keeps "
+"groups apart."
 msgstr ""
 "Tyto položky by v cíli skončily na stejném místě, takže by jedna přepsala "
 "druhou. Přejmenujte jednu z nich, nebo vyberte cíl, který skupiny odlišuje."
@@ -4605,8 +4603,8 @@ msgstr ""
 
 #: rustconn/src/dialogs/credential_transfer.rs:597
 msgid ""
-"There is no portable file at {}. Check the path in Settings, or wait for "
-"your cloud client to deliver it."
+"There is no portable file at {}. Check the path in Settings, or wait for your"
+" cloud client to deliver it."
 msgstr ""
 "V cestě {} žádný přenosný soubor není. Zkontrolujte cestu v nastavení, nebo "
 "vyčkejte, až ho doručí váš cloudový klient."
@@ -4650,7 +4648,7 @@ msgstr "Kopírování zastaveno"
 #: rustconn/src/dialogs/credential_transfer.rs:719
 #: rustconn/src/dialogs/export.rs:1180 rustconn/src/dialogs/history.rs:340
 #: rustconn/src/dialogs/import/sources.rs:708
-#: rustconn/src/dialogs/key_setup.rs:695
+#: rustconn/src/dialogs/key_setup.rs:709
 #: rustconn/src/dialogs/portable_passphrase_change.rs:376
 #: rustconn/src/dialogs/recording.rs:831 rustconn/src/dialogs/recording.rs:843
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
@@ -4780,12 +4778,10 @@ msgstr "Umístění výstupu"
 
 #: rustconn/src/dialogs/export.rs:305
 msgid ""
-"Remmina, SecureCRT and RDP Files export to a directory (one file per "
-"connection).\n"
+"Remmina, SecureCRT and RDP Files export to a directory (one file per connection).\n"
 "Other formats export to a single file."
 msgstr ""
-"Remmina, SecureCRT a soubory RDP se exportují do adresáře (jeden soubor na "
-"připojení).\n"
+"Remmina, SecureCRT a soubory RDP se exportují do adresáře (jeden soubor na připojení).\n"
 "Ostatní formáty se exportují do jednoho souboru."
 
 #: rustconn/src/dialogs/export.rs:311
@@ -5223,8 +5219,8 @@ msgstr ""
 
 #: rustconn/src/dialogs/import/mod.rs:393
 msgid ""
-"Passwords were not imported: {} keeps them encrypted inside the document. "
-"The affected connections ask for a password on connect."
+"Passwords were not imported: {} keeps them encrypted inside the document. The"
+" affected connections ask for a password on connect."
 msgstr ""
 "Hesla nebyla importována: {} je uchovává zašifrovaná v dokumentu. Dotčená "
 "připojení si při připojování vyžádají heslo."
@@ -5757,11 +5753,12 @@ msgstr "Ověřování přihlášení klíčem…"
 #: rustconn/src/dialogs/key_setup.rs:146
 msgid ""
 "RustConn has not seen this server's host key yet, so nothing was sent. "
-"Connect once, check and accept the key in the terminal, then try again."
+"Connect once so the key is recorded, then try again. If the terminal asks "
+"about the key, check it before you accept."
 msgstr ""
 "RustConn zatím nezná klíč hostitele tohoto serveru, takže nebylo nic "
-"odesláno. Připojte se jednou, zkontrolujte a přijměte klíč v terminálu a "
-"zkuste to znovu."
+"odesláno. Připojte se jednou, aby se klíč zaznamenal, a zkuste to znovu. "
+"Pokud se terminál na klíč zeptá, před přijetím jej zkontrolujte."
 
 #: rustconn/src/dialogs/key_setup.rs:148
 msgid "Unknown Host Key"
@@ -5773,9 +5770,8 @@ msgid ""
 "intercepting the connection. Nothing was sent. Check the key with the "
 "server's administrator before connecting."
 msgstr ""
-"Klíč hostitele serveru se liší od uloženého. Připojení může někdo "
-"zachytávat. Nebylo nic odesláno. Před připojením klíč ověřte u správce "
-"serveru."
+"Klíč hostitele serveru se liší od uloženého. Připojení může někdo zachytávat."
+" Nebylo nic odesláno. Před připojením klíč ověřte u správce serveru."
 
 #: rustconn/src/dialogs/key_setup.rs:154
 msgid "Host Key Changed"
@@ -5929,8 +5925,8 @@ msgstr "Server klíč nepřijal."
 
 #: rustconn/src/dialogs/key_setup.rs:277
 msgid ""
-"Could not add the key to ~/.ssh/authorized_keys on the server. Check the "
-"disk space and file permissions."
+"Could not add the key to ~/.ssh/authorized_keys on the server. Check the disk"
+" space and file permissions."
 msgstr ""
 "Na serveru se nepodařilo přidat klíč do ~/.ssh/authorized_keys. Zkontrolujte "
 "volné místo na disku a oprávnění k souborům."
@@ -5945,17 +5941,19 @@ msgstr ""
 
 #: rustconn/src/dialogs/key_setup.rs:304
 msgid ""
-"The server does not allow password sign-in (it offers: {}), so the key "
-"cannot be installed this way."
+"The server does not allow password sign-in (it offers: {}), so the key cannot"
+" be installed this way."
 msgstr ""
 "Server nepovoluje přihlášení heslem (nabízí: {}), takže klíč tímto způsobem "
 "nainstalovat nelze."
 
-#: rustconn/src/dialogs/key_setup.rs:309
-msgid "The server did not accept the password."
-msgstr "Server heslo nepřijal."
+#: rustconn/src/dialogs/key_setup.rs:312
+msgid ""
+"The server did not accept the password. Enter the account password and try "
+"again."
+msgstr "Server heslo nepřijal. Zadejte heslo k účtu a zkuste to znovu."
 
-#: rustconn/src/dialogs/key_setup.rs:313
+#: rustconn/src/dialogs/key_setup.rs:319
 msgid ""
 "The server asks for a password, but this connection's options or proxy "
 "prevent RustConn from passing the stored one safely."
@@ -5963,84 +5961,84 @@ msgstr ""
 "Server žádá heslo, ale volby tohoto připojení nebo proxy brání RustConn v "
 "bezpečném předání uloženého hesla."
 
-#: rustconn/src/dialogs/key_setup.rs:317
+#: rustconn/src/dialogs/key_setup.rs:323
 msgid ""
 "The server asks for a password. Enter the account password and try again."
 msgstr "Server žádá heslo. Zadejte heslo k účtu a zkuste to znovu."
 
-#: rustconn/src/dialogs/key_setup.rs:361
+#: rustconn/src/dialogs/key_setup.rs:367
 msgid ""
 "RustConn creates a key, installs it on {} and checks that it signs in. The "
 "stored password is kept."
 msgstr ""
-"RustConn vytvoří klíč, nainstaluje ho na {} a ověří, že se jím lze "
-"přihlásit. Uložené heslo zůstane zachováno."
+"RustConn vytvoří klíč, nainstaluje ho na {} a ověří, že se jím lze přihlásit."
+" Uložené heslo zůstane zachováno."
 
-#: rustconn/src/dialogs/key_setup.rs:366
+#: rustconn/src/dialogs/key_setup.rs:372
 msgid "Key Type"
 msgstr "Typ klíče"
 
-#: rustconn/src/dialogs/key_setup.rs:368
+#: rustconn/src/dialogs/key_setup.rs:374
 msgid "Ed25519 (Recommended)"
 msgstr "Ed25519 (doporučeno)"
 
-#: rustconn/src/dialogs/key_setup.rs:369
+#: rustconn/src/dialogs/key_setup.rs:375
 msgid "RSA 4096"
 msgstr "RSA 4096"
 
-#: rustconn/src/dialogs/key_setup.rs:382
+#: rustconn/src/dialogs/key_setup.rs:388
 msgid ""
-"In the snap, the key is kept in the snap's own folder and is deleted when "
-"the snap is removed. Without an SSH agent, a key passphrase is asked on "
-"every connect."
+"In the snap, the key is kept in the snap's own folder and is deleted when the"
+" snap is removed. Without an SSH agent, a key passphrase is asked on every "
+"connect."
 msgstr ""
 "Ve snapu je klíč uložen ve vlastní složce snapu a při odebrání snapu se "
 "smaže. Bez agenta SSH se přístupová fráze klíče vyžaduje při každém "
 "připojení."
 
-#: rustconn/src/dialogs/key_setup.rs:388 rustconn/src/toast.rs:72
+#: rustconn/src/dialogs/key_setup.rs:394 rustconn/src/toast.rs:72
 msgid "Warning"
 msgstr "Varování"
 
-#: rustconn/src/dialogs/key_setup.rs:397
+#: rustconn/src/dialogs/key_setup.rs:403
 msgid "Passphrase (Optional)"
 msgstr "Přístupová fráze (volitelné)"
 
-#: rustconn/src/dialogs/key_setup.rs:402
+#: rustconn/src/dialogs/key_setup.rs:408
 msgid "Used once to install the key. Not saved."
 msgstr "Použije se jednou k instalaci klíče. Neukládá se."
 
-#: rustconn/src/dialogs/key_setup.rs:406
+#: rustconn/src/dialogs/key_setup.rs:412
 msgid "Account Password"
 msgstr "Heslo k účtu"
 
-#: rustconn/src/dialogs/key_setup.rs:433
+#: rustconn/src/dialogs/key_setup.rs:439
 msgid "Delete Generated Key"
 msgstr "Smazat vygenerovaný klíč"
 
-#: rustconn/src/dialogs/key_setup.rs:435
+#: rustconn/src/dialogs/key_setup.rs:441
 msgid "Use Key"
 msgstr "Použít klíč"
 
-#: rustconn/src/dialogs/key_setup.rs:436
+#: rustconn/src/dialogs/key_setup.rs:442
 msgid "Keep Current Settings"
 msgstr "Ponechat současné nastavení"
 
-#: rustconn/src/dialogs/key_setup.rs:449
+#: rustconn/src/dialogs/key_setup.rs:455
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1003
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:45
 msgid "Status"
 msgstr "Stav"
 
-#: rustconn/src/dialogs/key_setup.rs:463 rustconn/src/dialogs/key_setup.rs:740
+#: rustconn/src/dialogs/key_setup.rs:469 rustconn/src/dialogs/key_setup.rs:754
 msgid "Set Up"
 msgstr "Nastavit"
 
-#: rustconn/src/dialogs/key_setup.rs:473
+#: rustconn/src/dialogs/key_setup.rs:479
 msgid "Set Up Key Authentication"
 msgstr "Nastavit ověřování klíčem"
 
-#: rustconn/src/dialogs/key_setup.rs:524
+#: rustconn/src/dialogs/key_setup.rs:530
 msgid ""
 "A key from an earlier attempt is ready and will be used again. Enter its "
 "passphrase if it has one."
@@ -6048,7 +6046,7 @@ msgstr ""
 "Klíč z dřívějšího pokusu je připraven a použije se znovu. Pokud má "
 "přístupovou frázi, zadejte ji."
 
-#: rustconn/src/dialogs/key_setup.rs:528
+#: rustconn/src/dialogs/key_setup.rs:534
 msgid ""
 "A passphrase protects the key if someone copies it. Without an SSH agent it "
 "is asked on every connect."
@@ -6056,16 +6054,16 @@ msgstr ""
 "Přístupová fráze chrání klíč, pokud ho někdo zkopíruje. Bez agenta SSH se "
 "vyžaduje při každém připojení."
 
-#: rustconn/src/dialogs/key_setup.rs:704
+#: rustconn/src/dialogs/key_setup.rs:718
 #: rustconn/src/embedded_rdp/file_dnd.rs:229
 msgid "Try Again"
 msgstr "Zkusit znovu"
 
-#: rustconn/src/dialogs/key_setup.rs:719
+#: rustconn/src/dialogs/key_setup.rs:733
 msgid "Key Accepted, More Required"
 msgstr "Klíč přijat, vyžadován další krok"
 
-#: rustconn/src/dialogs/key_setup.rs:721
+#: rustconn/src/dialogs/key_setup.rs:735
 msgid ""
 "The server accepted the key but also asks for another factor, such as a one-"
 "time code. Use the key for this connection anyway?"
@@ -6073,7 +6071,7 @@ msgstr ""
 "Server klíč přijal, ale žádá i další faktor, například jednorázový kód. "
 "Použít klíč pro toto připojení i přesto?"
 
-#: rustconn/src/dialogs/key_setup.rs:737
+#: rustconn/src/dialogs/key_setup.rs:751
 msgid "The generated key was deleted."
 msgstr "Vygenerovaný klíč byl smazán."
 
@@ -6326,15 +6324,11 @@ msgstr "Zkopírovat přihlašovací údaje do přenosného souboru?"
 
 #: rustconn/src/dialogs/portable_migration.rs:52
 msgid ""
-"{} stored passwords are currently protected by a key that only works on this "
-"computer. Copying them into the portable file re-encrypts them with your "
-"passphrase, so they can be opened on your other devices.\n"
+"{} stored passwords are currently protected by a key that only works on this computer. Copying them into the portable file re-encrypts them with your passphrase, so they can be opened on your other devices.\n"
 "\n"
 "The originals are kept, so nothing is lost if you change your mind."
 msgstr ""
-"{} uložených hesel je nyní chráněno klíčem, který funguje pouze na tomto "
-"počítači. Zkopírováním do přenosného souboru se znovu zašifrují vaší "
-"přístupovou frází, takže je bude možné otevřít i na ostatních zařízeních.\n"
+"{} uložených hesel je nyní chráněno klíčem, který funguje pouze na tomto počítači. Zkopírováním do přenosného souboru se znovu zašifrují vaší přístupovou frází, takže je bude možné otevřít i na ostatních zařízeních.\n"
 "\n"
 "Originály zůstávají zachovány, takže se nic neztratí, pokud si to rozmyslíte."
 
@@ -6374,8 +6368,8 @@ msgstr ""
 
 #: rustconn/src/dialogs/portable_migration.rs:201
 msgid ""
-"These connections still work on this computer. To use them on another "
-"device, open each one and save its password again."
+"These connections still work on this computer. To use them on another device,"
+" open each one and save its password again."
 msgstr ""
 "Tato připojení na tomto počítači stále fungují. Chcete-li je použít na jiném "
 "zařízení, otevřete každé z nich a uložte jeho heslo znovu."
@@ -6391,11 +6385,11 @@ msgstr "Změna přístupové fráze"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:56
 msgid ""
-"Every password in the file is encrypted again under the new passphrase. "
-"There is still no way to recover it, so it is asked for twice."
+"Every password in the file is encrypted again under the new passphrase. There"
+" is still no way to recover it, so it is asked for twice."
 msgstr ""
-"Každé heslo v souboru bude znovu zašifrováno novou přístupovou frází. "
-"Obnovit ji stále nelze, proto se zadává dvakrát."
+"Každé heslo v souboru bude znovu zašifrováno novou přístupovou frází. Obnovit"
+" ji stále nelze, proto se zadává dvakrát."
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:61
 msgid "Current passphrase"
@@ -6779,8 +6773,8 @@ msgid ""
 "“{}” will be removed from the script library, and every connection and group "
 "that runs it will stop running it."
 msgstr ""
-"„{}“ bude odebrán z knihovny skriptů a žádné připojení ani skupina, která "
-"jej spouští, jej už nespustí."
+"„{}“ bude odebrán z knihovny skriptů a žádné připojení ani skupina, která jej"
+" spouští, jej už nespustí."
 
 #: rustconn/src/dialogs/script.rs:697
 msgid "Deleted script “{}”"
@@ -6820,8 +6814,8 @@ msgstr "Mediální kodeky"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:111
 msgid ""
-"OpenH264 Video Codec provided by Cisco Systems, Inc. — optional H.264 "
-"decoder for RDP graphics (GFX) sessions."
+"OpenH264 Video Codec provided by Cisco Systems, Inc. — optional H.264 decoder"
+" for RDP graphics (GFX) sessions."
 msgstr ""
 "OpenH264 Video Codec provided by Cisco Systems, Inc. — volitelný dekodér "
 "H.264 pro grafické relace RDP (GFX)."
@@ -6878,15 +6872,13 @@ msgstr "Odstranění selhalo"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:343
 msgid ""
-"This downloads the OpenH264 Video Codec provided by Cisco Systems, Inc. "
-"from:\n"
+"This downloads the OpenH264 Video Codec provided by Cisco Systems, Inc. from:\n"
 "{}\n"
 "\n"
 "and installs it to:\n"
 "{}\n"
 "\n"
-"Cisco — not RustConn — provides this binary and holds the MPEG-LA patent "
-"licence for it. By downloading you accept Cisco's binary licence:\n"
+"Cisco — not RustConn — provides this binary and holds the MPEG-LA patent licence for it. By downloading you accept Cisco's binary licence:\n"
 "{}\n"
 "\n"
 "Download it?"
@@ -6897,8 +6889,7 @@ msgstr ""
 "a nainstaluje jej do:\n"
 "{}\n"
 "\n"
-"Tento binární soubor poskytuje Cisco — nikoli RustConn — a Cisco drží "
-"patentovou licenci MPEG-LA. Stažením přijímáte binární licenci Cisco:\n"
+"Tento binární soubor poskytuje Cisco — nikoli RustConn — a Cisco drží patentovou licenci MPEG-LA. Stažením přijímáte binární licenci Cisco:\n"
 "{}\n"
 "\n"
 "Stáhnout?"
@@ -7012,26 +7003,21 @@ msgstr "Importovat synchronizační soubor"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:230
 msgid ""
-"The Flatpak sandbox cannot directly access this directory. File monitoring "
-"will not work through the document portal.\n"
+"The Flatpak sandbox cannot directly access this directory. File monitoring will not work through the document portal.\n"
 "\n"
 "To grant access, run in a terminal:\n"
 "\n"
 "flatpak override --user --filesystem={} {}\n"
 "\n"
-"Adjust the path if needed to match the actual location on your filesystem. "
-"Then restart RustConn and set the sync directory again."
+"Adjust the path if needed to match the actual location on your filesystem. Then restart RustConn and set the sync directory again."
 msgstr ""
-"Sandbox Flatpak nemůže přímo přistupovat k tomuto adresáři. Monitorování "
-"souborů nebude fungovat přes portál dokumentů.\n"
+"Sandbox Flatpak nemůže přímo přistupovat k tomuto adresáři. Monitorování souborů nebude fungovat přes portál dokumentů.\n"
 "\n"
 "Pro udělení přístupu spusťte v terminálu:\n"
 "\n"
 "flatpak override --user --filesystem={} {}\n"
 "\n"
-"V případě potřeby upravte cestu tak, aby odpovídala skutečnému umístění ve "
-"vašem souborovém systému. Poté restartujte RustConn a znovu nastavte adresář "
-"synchronizace."
+"V případě potřeby upravte cestu tak, aby odpovídala skutečnému umístění ve vašem souborovém systému. Poté restartujte RustConn a znovu nastavte adresář synchronizace."
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:235
 msgid "Flatpak: filesystem access required"
@@ -7173,8 +7159,8 @@ msgid ""
 "Built-in rules that colour common log levels. Turn off to use only your own "
 "rules."
 msgstr ""
-"Vestavěná pravidla, která obarvují běžné úrovně protokolu. Vypněte, chcete-"
-"li používat pouze vlastní pravidla."
+"Vestavěná pravidla, která obarvují běžné úrovně protokolu. Vypněte, chcete-li"
+" používat pouze vlastní pravidla."
 
 #: rustconn/src/dialogs/settings/mod.rs:463
 msgid "Backup & Restore"
@@ -7286,9 +7272,9 @@ msgid ""
 "Connections that switch monitoring on or off themselves: {}. After the reset "
 "they follow the global switch. Polling intervals set per connection are kept."
 msgstr ""
-"Připojení, která si sama zapínají nebo vypínají monitorování: {}. Po "
-"obnovení se řídí globálním přepínačem. Intervaly dotazování nastavené pro "
-"jednotlivá připojení zůstanou zachovány."
+"Připojení, která si sama zapínají nebo vypínají monitorování: {}. Po obnovení"
+" se řídí globálním přepínačem. Intervaly dotazování nastavené pro jednotlivá "
+"připojení zůstanou zachovány."
 
 #: rustconn/src/dialogs/settings/mod.rs:954
 msgid "Connections reset to the global monitoring setting: {}"
@@ -7330,9 +7316,9 @@ msgid ""
 "Everything else you changed was. Open Secrets again and type the passphrase "
 "in both fields."
 msgstr ""
-"Přístupová fráze k přenosnému souboru nebyla potvrzena, proto nebyla "
-"uložena. Všechny ostatní změny uloženy byly. Otevřete znovu Tajemství a "
-"zadejte přístupovou frázi do obou polí."
+"Přístupová fráze k přenosnému souboru nebyla potvrzena, proto nebyla uložena."
+" Všechny ostatní změny uloženy byly. Otevřete znovu Tajemství a zadejte "
+"přístupovou frázi do obou polí."
 
 #: rustconn/src/dialogs/settings/mod.rs:1947
 msgid "Untitled rule"
@@ -7342,8 +7328,7 @@ msgstr "Nepojmenované pravidlo"
 msgid ""
 "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields "
 "below."
-msgstr ""
-"Regulární výraz, například (?i)\\bINFO\\b. Barvu nastavte v polích níže."
+msgstr "Regulární výraz, například (?i)\\bINFO\\b. Barvu nastavte v polích níže."
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:52
 msgid "Monitoring"
@@ -7359,8 +7344,8 @@ msgstr "Povolit monitorování"
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:65
 msgid ""
-"Global switch for all connections (per-connection: Advanced tab in "
-"connection settings)"
+"Global switch for all connections (per-connection: Advanced tab in connection"
+" settings)"
 msgstr ""
 "Globální přepínač pro všechna připojení (pro jednotlivá připojení: karta "
 "Pokročilé v nastavení připojení)"
@@ -8017,9 +8002,9 @@ msgstr "Zašifrovaný soubor"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1656
 msgid ""
-"Credentials in a file on this computer. The key is derived from this "
-"machine, so the file cannot be opened anywhere else — and cannot be "
-"recovered if the machine is lost."
+"Credentials in a file on this computer. The key is derived from this machine,"
+" so the file cannot be opened anywhere else — and cannot be recovered if the "
+"machine is lost."
 msgstr ""
 "Přihlašovací údaje v souboru v tomto počítači. Klíč se odvozuje z tohoto "
 "stroje, soubor tedy nelze otevřít nikde jinde — a nelze jej obnovit, pokud "
@@ -8219,8 +8204,8 @@ msgstr "Slot YubiKey (výzva-odpověď)"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2345
 msgid ""
-"YubiKey Challenge-Response slot for unlocking, as slot or slot:serial (e.g. "
-"2 or 2:12345678). Touch the key when it blinks."
+"YubiKey Challenge-Response slot for unlocking, as slot or slot:serial (e.g. 2"
+" or 2:12345678). Touch the key when it blinks."
 msgstr ""
 "Slot výzva-odpověď YubiKey pro odemčení ve formátu slot nebo slot:serial "
 "(např. 2 nebo 2:12345678). Dotkněte se klíče, když bliká."
@@ -8444,13 +8429,11 @@ msgstr "Nepodařilo se otevřít výběr souborů"
 msgid ""
 "{}\n"
 "\n"
-"Keys already in ~/.ssh are listed under Available Key Files, and can be "
-"added from there without the file chooser."
+"Keys already in ~/.ssh are listed under Available Key Files, and can be added from there without the file chooser."
 msgstr ""
 "{}\n"
 "\n"
-"Klíče, které už jsou v ~/.ssh, jsou uvedeny v části Dostupné soubory klíčů a "
-"lze je přidat odtud bez výběru souborů."
+"Klíče, které už jsou v ~/.ssh, jsou uvedeny v části Dostupné soubory klíčů a lze je přidat odtud bez výběru souborů."
 
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:749
 msgid "Remove from agent"
@@ -8853,9 +8836,9 @@ msgstr "Otevřít panel relace při najetí"
 #: rustconn/src/dialogs/settings/ui_tab.rs:290
 msgid ""
 "Reveal the floating viewer toolbar (RDP, VNC and the embedded browser) from "
-"its handle on the top edge of the pane when the pointer touches it. When "
-"off, the handle must be clicked. Does not affect terminal sessions, which "
-"have no floating toolbar"
+"its handle on the top edge of the pane when the pointer touches it. When off,"
+" the handle must be clicked. Does not affect terminal sessions, which have no"
+" floating toolbar"
 msgstr ""
 "Zobrazit plovoucí nástrojovou lištu prohlížeče (RDP, VNC a vestavěný "
 "prohlížeč) pomocí úchytu na horním okraji panelu, když se jej dotkne "
@@ -8925,11 +8908,11 @@ msgstr "Zobrazit připojení v záhlaví okna"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:437
 msgid ""
-"Append the active connection name to the window title, so time-tracking "
-"tools can identify it"
+"Append the active connection name to the window title, so time-tracking tools"
+" can identify it"
 msgstr ""
-"Připojit název aktivního připojení k záhlaví okna, aby nástroje pro "
-"sledování času mohly identifikovat"
+"Připojit název aktivního připojení k záhlaví okna, aby nástroje pro sledování"
+" času mohly identifikovat"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:443
 msgid "Show hierarchy path in header"
@@ -9004,9 +8987,8 @@ msgid ""
 "In the snap, pages in the embedded browser run without a sandbox and can "
 "reach your files, SSH keys and stored credentials"
 msgstr ""
-"V balíčku snap běží stránky ve vestavěném prohlížeči bez izolace (sandboxu) "
-"a mohou se dostat k vašim souborům, klíčům SSH a uloženým přihlašovacím "
-"údajům"
+"V balíčku snap běží stránky ve vestavěném prohlížeči bez izolace (sandboxu) a"
+" mohou se dostat k vašim souborům, klíčům SSH a uloženým přihlašovacím údajům"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:519
 msgid "Open tunnelled browser in the embedded browser"
@@ -9017,8 +8999,8 @@ msgid ""
 "‘Open Browser via Tunnel’ uses the in-app browser; turn off to launch an "
 "external Chromium browser in incognito mode instead"
 msgstr ""
-"„Otevřít prohlížeč přes tunel“ používá vestavěný prohlížeč; vypnutím "
-"spustíte externí prohlížeč Chromium v anonymním režimu"
+"„Otevřít prohlížeč přes tunel“ používá vestavěný prohlížeč; vypnutím spustíte"
+" externí prohlížeč Chromium v anonymním režimu"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:530
 msgid ""
@@ -10074,8 +10056,8 @@ msgid ""
 "“{}” refers to an SSH connection that no longer exists. Edit the tunnel and "
 "pick a connection."
 msgstr ""
-"“{}” odkazuje na SSH připojení, které již neexistuje. Upravte tunel a "
-"vyberte připojení."
+"“{}” odkazuje na SSH připojení, které již neexistuje. Upravte tunel a vyberte"
+" připojení."
 
 #: rustconn/src/dialogs/tunnel.rs:647
 msgid "“{}” needs {}, which is not installed or not on PATH. {}"
@@ -10360,11 +10342,11 @@ msgstr "Globální proměnné"
 
 #: rustconn/src/dialogs/variables.rs:171
 msgid ""
-"Define variables that can be used in connections                  with $"
-"{variable_name} syntax"
+"Define variables that can be used in connections                  with "
+"${variable_name} syntax"
 msgstr ""
-"Definujte proměnné použitelné v připojeních                  se syntaxí $"
-"{variable_name}"
+"Definujte proměnné použitelné v připojeních                  se syntaxí "
+"${variable_name}"
 
 #: rustconn/src/dialogs/variables.rs:233
 msgid "variable_name"
@@ -10393,9 +10375,9 @@ msgstr "např. Internet/MyRouter (volitelné)"
 
 #: rustconn/src/dialogs/variables.rs:305
 msgid ""
-"Custom KeePass entry path. If set, the password is read from "
-"this                  existing entry instead of the default RustConn/"
-"rustconn/var/ path."
+"Custom KeePass entry path. If set, the password is read from this"
+"                  existing entry instead of the default "
+"RustConn/rustconn/var/ path."
 msgstr ""
 "Vlastní cesta záznamu KeePass. Pokud je nastavena, heslo se čte z tohoto "
 "existujícího záznamu místo z výchozí cesty RustConn/rustconn/var/."
@@ -10410,8 +10392,8 @@ msgstr "např. AD Credentials (volitelné)"
 
 #: rustconn/src/dialogs/variables.rs:324
 msgid ""
-"Existing vault entry name. If set, the password is fetched from "
-"this                  entry at connection time — no need to enter a password "
+"Existing vault entry name. If set, the password is fetched from this"
+"                  entry at connection time — no need to enter a password "
 "above.                  Nothing is written back to the vault."
 msgstr ""
 "Název existující položky trezoru. Pokud je nastaven, heslo se z této položky "
@@ -10633,8 +10615,8 @@ msgstr ""
 #: rustconn/src/embedded.rs:641
 msgid ""
 "The installed FreeRDP client rejected one of the connection options. Your "
-"FreeRDP version may be too old; update FreeRDP or report this at the "
-"RustConn issue tracker."
+"FreeRDP version may be too old; update FreeRDP or report this at the RustConn"
+" issue tracker."
 msgstr ""
 "Nainstalovaný klient FreeRDP odmítl jednu z možností připojení. Vaše verze "
 "FreeRDP může být příliš stará; aktualizujte FreeRDP nebo to nahlaste v "
@@ -10778,8 +10760,8 @@ msgid ""
 "or password is likely incorrect — check your credentials and try again."
 msgstr ""
 "Tento server vyžaduje ověření na úrovni sítě (NLA). Uživatelské jméno nebo "
-"heslo jsou pravděpodobně nesprávné — zkontrolujte přihlašovací údaje a "
-"zkuste to znovu."
+"heslo jsou pravděpodobně nesprávné — zkontrolujte přihlašovací údaje a zkuste"
+" to znovu."
 
 #: rustconn/src/embedded_rdp/connection.rs:309
 msgid ""
@@ -10819,8 +10801,8 @@ msgid ""
 "The embedded client does not support TLS security levels below 2. Using "
 "FreeRDP instead."
 msgstr ""
-"Vestavěný klient nepodporuje úrovně zabezpečení TLS nižší než 2. Místo něj "
-"se používá FreeRDP."
+"Vestavěný klient nepodporuje úrovně zabezpečení TLS nižší než 2. Místo něj se"
+" používá FreeRDP."
 
 #: rustconn/src/embedded_rdp/connection.rs:697
 msgid "The embedded client does not support RemoteApp. Using FreeRDP instead."
@@ -10842,9 +10824,8 @@ msgstr ""
 
 #: rustconn/src/embedded_rdp/connection.rs:922
 msgid ""
-"Custom FreeRDP arguments are ignored by the embedded "
-"client.                          Set the RDP client mode to External to "
-"apply them."
+"Custom FreeRDP arguments are ignored by the embedded client."
+"                          Set the RDP client mode to External to apply them."
 msgstr ""
 "Vestavěný klient ignoruje vlastní argumenty FreeRDP. Chcete-li je použít, "
 "přepněte režim klienta RDP na Externí."
@@ -10916,9 +10897,9 @@ msgstr ""
 #: rustconn/src/embedded_rdp/connection.rs:2875
 msgid ""
 "Authentication failed: invalid username or password. If the credentials are "
-"correct and the server is a Linux RDP host (KDE KRdp, xrdp), this can "
-"instead be the server's NLA regression with FreeRDP 3.32 — update KRdp to "
-"6.7.90 or newer, or set ExtSecurity=0 on the server (FreeRDP issue #13567)."
+"correct and the server is a Linux RDP host (KDE KRdp, xrdp), this can instead"
+" be the server's NLA regression with FreeRDP 3.32 — update KRdp to 6.7.90 or "
+"newer, or set ExtSecurity=0 on the server (FreeRDP issue #13567)."
 msgstr ""
 "Ověření se nezdařilo: neplatné uživatelské jméno nebo heslo. Pokud jsou "
 "přihlašovací údaje správné a server je linuxový RDP host (KDE KRdp, xrdp), "
@@ -10928,11 +10909,11 @@ msgstr ""
 
 #: rustconn/src/embedded_rdp/connection.rs:2880
 msgid ""
-"Account restrictions refused this sign-in. Protected Users members cannot "
-"use NTLM: turn on Kerberos Authentication in the connection's RDP settings."
+"Account restrictions refused this sign-in. Protected Users members cannot use"
+" NTLM: turn on Kerberos Authentication in the connection's RDP settings."
 msgstr ""
-"Omezení účtu odmítla toto přihlášení. Členové skupiny Protected Users "
-"nemohou používat NTLM: zapněte ověřování Kerberos v nastavení RDP připojení."
+"Omezení účtu odmítla toto přihlášení. Členové skupiny Protected Users nemohou"
+" používat NTLM: zapněte ověřování Kerberos v nastavení RDP připojení."
 
 #: rustconn/src/embedded_rdp/connection.rs:2883
 msgid "Authentication failed: account restrictions prevent this login."
@@ -12407,7 +12388,7 @@ msgid "Info"
 msgstr "Informace"
 
 #: rustconn/src/toast.rs:295 rustconn/src/window/batch_edit.rs:239
-#: rustconn/src/window/key_setup.rs:574
+#: rustconn/src/window/key_setup.rs:583
 msgid "Undo"
 msgstr "Zpět"
 
@@ -12464,8 +12445,8 @@ msgid ""
 "passphrase the file was created with."
 msgstr ""
 "Heslo nebylo uloženo. Použité heslo nedešifruje přenosný soubor "
-"přihlašovacích údajů. Otevřete Nastavení, poté Tajemství, a zadejte heslo, "
-"se kterým byl soubor vytvořen."
+"přihlašovacích údajů. Otevřete Nastavení, poté Tajemství, a zadejte heslo, se"
+" kterým byl soubor vytvořen."
 
 #: rustconn/src/vault_ops.rs:57
 msgid "Portable File Is Locked"
@@ -12520,8 +12501,8 @@ msgid ""
 "You can also save it to this computer's encrypted file instead — it will "
 "still be found when you connect."
 msgstr ""
-"Můžete jej také uložit do šifrovaného souboru tohoto počítače — při "
-"připojení bude stále nalezeno."
+"Můžete jej také uložit do šifrovaného souboru tohoto počítače — při připojení"
+" bude stále nalezeno."
 
 #: rustconn/src/vault_ops.rs:304
 msgid ""
@@ -12623,8 +12604,8 @@ msgid ""
 "Most of them may come from its auto-membership pattern. If that is more than "
 "you expected, cancel and narrow the pattern."
 msgstr ""
-"Většina z nich může pocházet z jeho vzoru automatického členství. Pokud je "
-"to více, než jste čekali, zrušte to a vzor zužte."
+"Většina z nich může pocházet z jeho vzoru automatického členství. Pokud je to"
+" více, než jste čekali, zrušte to a vzor zužte."
 
 #: rustconn/src/window/clusters.rs:400
 msgid "Open All Connections?"
@@ -12641,8 +12622,8 @@ msgstr[0] ""
 "{} člen klastru má mezihostitele, který již neexistuje nebo odkazuje sám na "
 "sebe: {}."
 msgstr[1] ""
-"{} členové klastru mají mezihostitele, který již neexistuje nebo odkazuje "
-"sám na sebe: {}."
+"{} členové klastru mají mezihostitele, který již neexistuje nebo odkazuje sám"
+" na sebe: {}."
 msgstr[2] ""
 "{} členů klastru má mezihostitele, který již neexistuje nebo odkazuje sám na "
 "sebe: {}."
@@ -12824,8 +12805,8 @@ msgstr "Importovat duplikáty?"
 
 #: rustconn/src/window/connection_dialogs.rs:935
 msgid ""
-"{} of {} connections have the same name as existing ones. Imported copies "
-"are kept alongside the existing connections under a numbered name."
+"{} of {} connections have the same name as existing ones. Imported copies are"
+" kept alongside the existing connections under a numbered name."
 msgstr ""
 "{} z {} připojení má stejný název jako stávající. Importované kopie se "
 "uchovávají vedle stávajících připojení pod číslovaným názvem."
@@ -12900,8 +12881,8 @@ msgstr "Tato relace už má vlastní okno."
 
 #: rustconn/src/window/detach_actions.rs:79
 msgid ""
-"This session is displayed by a separate viewer, which already runs in its "
-"own window."
+"This session is displayed by a separate viewer, which already runs in its own"
+" window."
 msgstr ""
 "Tato relace se zobrazuje v externím prohlížeči, který už běží ve vlastním "
 "okně."
@@ -12918,8 +12899,8 @@ msgstr ""
 msgid ""
 "This session is displayed in a split layout. Return it to its own tab first."
 msgstr ""
-"Tato relace se zobrazuje v rozděleném zobrazení. Nejprve ji vraťte do "
-"vlastní karty."
+"Tato relace se zobrazuje v rozděleném zobrazení. Nejprve ji vraťte do vlastní"
+" karty."
 
 #: rustconn/src/window/detach_actions.rs:224
 #: rustconn/src/window/detach_actions.rs:235
@@ -13003,9 +12984,9 @@ msgstr "Otevírání mc SFTP…"
 #: rustconn/src/window/edit_actions.rs:866
 #: rustconn/src/window/edit_actions.rs:2459
 msgid ""
-"External file managers cannot access SSH agent in "
-"Flatpak.                          Enable \"SFTP via mc\" in Settings for "
-"reliable access."
+"External file managers cannot access SSH agent in Flatpak."
+"                          Enable \"SFTP via mc\" in Settings for reliable "
+"access."
 msgstr ""
 "Externí správci souborů nemají přístup k SSH agentovi ve Flatpaku. Pro "
 "spolehlivý přístup povolte \"SFTP přes mc\" v Nastavení."
@@ -13055,8 +13036,9 @@ msgstr "Spouští se tunel…"
 #: rustconn/src/window/edit_actions.rs:1583
 msgid ""
 "The tunnelled browser command ‘{}’ is not Chromium-based and can't be "
-"tunnelled; opening the embedded browser instead. Set a chromium/chrome/brave/"
-"vivaldi/edge command in Settings to use an external browser."
+"tunnelled; opening the embedded browser instead. Set a "
+"chromium/chrome/brave/vivaldi/edge command in Settings to use an external "
+"browser."
 msgstr ""
 "Příkaz tunelovaného prohlížeče ‘{}’ není na bázi Chromium a nelze jej "
 "tunelovat; otevírám vestavěný prohlížeč. Nastavte v předvolbách příkaz "
@@ -13065,12 +13047,12 @@ msgstr ""
 #: rustconn/src/window/edit_actions.rs:1587
 msgid ""
 "The tunnelled browser command ‘{}’ is not a Chromium-based browser. Only "
-"Chromium-family browsers can be proxied through the tunnel; set a chromium/"
-"chrome/brave/vivaldi/edge command in Settings."
+"Chromium-family browsers can be proxied through the tunnel; set a "
+"chromium/chrome/brave/vivaldi/edge command in Settings."
 msgstr ""
 "Příkaz tunelovaného prohlížeče ‘{}’ není prohlížeč na bázi Chromium. Přes "
-"tunel lze proxovat pouze prohlížeče z rodiny Chromium; nastavte v "
-"předvolbách příkaz chromium/chrome/brave/vivaldi/edge."
+"tunel lze proxovat pouze prohlížeče z rodiny Chromium; nastavte v předvolbách"
+" příkaz chromium/chrome/brave/vivaldi/edge."
 
 #: rustconn/src/window/edit_actions.rs:1593
 msgid ""
@@ -13079,16 +13061,16 @@ msgid ""
 "detect a browser."
 msgstr ""
 "Příkaz tunelovaného prohlížeče ‘{}’ nebyl nalezen v PATH; otevírám vestavěný "
-"prohlížeč. Zkontrolujte příkaz v předvolbách nebo jej vymažte pro "
-"automatické zjištění prohlížeče."
+"prohlížeč. Zkontrolujte příkaz v předvolbách nebo jej vymažte pro automatické"
+" zjištění prohlížeče."
 
 #: rustconn/src/window/edit_actions.rs:1597
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH. Check the command "
 "in Settings, or clear it to auto-detect a browser."
 msgstr ""
-"Příkaz tunelovaného prohlížeče ‘{}’ nebyl nalezen v PATH. Zkontrolujte "
-"příkaz v předvolbách nebo jej vymažte pro automatické zjištění prohlížeče."
+"Příkaz tunelovaného prohlížeče ‘{}’ nebyl nalezen v PATH. Zkontrolujte příkaz"
+" v předvolbách nebo jej vymažte pro automatické zjištění prohlížeče."
 
 #: rustconn/src/window/edit_actions.rs:1603
 msgid ""
@@ -13100,11 +13082,11 @@ msgstr ""
 
 #: rustconn/src/window/edit_actions.rs:1608
 msgid ""
-"No Chromium-based browser found, and the embedded browser is off in the "
-"snap. Turn it on in Settings to open a tunnelled browser."
+"No Chromium-based browser found, and the embedded browser is off in the snap."
+" Turn it on in Settings to open a tunnelled browser."
 msgstr ""
-"Nebyl nalezen prohlížeč založený na Chromiu a vestavěný prohlížeč je ve "
-"snapu vypnutý. Zapněte jej v nastavení a otevřete tunelovaný prohlížeč."
+"Nebyl nalezen prohlížeč založený na Chromiu a vestavěný prohlížeč je ve snapu"
+" vypnutý. Zapněte jej v nastavení a otevřete tunelovaný prohlížeč."
 
 #: rustconn/src/window/edit_actions.rs:1612
 msgid ""
@@ -13509,35 +13491,47 @@ msgstr "Globální proměnné se nepodařilo uložit na disk."
 msgid "The connection could not be read. Try again."
 msgstr "Připojení se nepodařilo načíst. Zkuste to znovu."
 
-#: rustconn/src/window/key_setup.rs:561
+#: rustconn/src/window/key_setup.rs:570
 msgid "The key works, but the connection could not be switched to it: {}"
 msgstr "Klíč funguje, ale připojení se na něj nepodařilo přepnout: {}"
 
-#: rustconn/src/window/key_setup.rs:573
+#: rustconn/src/window/key_setup.rs:582
 msgid "'{}' now signs in with a key"
 msgstr "„{}“ se nyní přihlašuje klíčem"
 
-#: rustconn/src/window/key_setup.rs:632
+#: rustconn/src/window/key_setup.rs:610
+msgid "the application is busy"
+msgstr "aplikace je zaneprázdněna"
+
+#: rustconn/src/window/key_setup.rs:614
+msgid "the connection no longer exists"
+msgstr "připojení již neexistuje"
+
+#: rustconn/src/window/key_setup.rs:617
+msgid "the connection is not an SSH connection"
+msgstr "připojení není připojením SSH"
+
+#: rustconn/src/window/key_setup.rs:641
 msgid "Restored the previous sign-in settings for '{}'"
 msgstr "Obnovena předchozí nastavení přihlášení pro „{}“"
 
-#: rustconn/src/window/key_setup.rs:639
+#: rustconn/src/window/key_setup.rs:648
 msgid "The previous sign-in settings could not be restored."
 msgstr "Předchozí nastavení přihlášení se nepodařilo obnovit."
 
-#: rustconn/src/window/key_setup.rs:678
+#: rustconn/src/window/key_setup.rs:692
 msgid ""
-"Accept the host key in the terminal, then choose Set Up Key Authentication "
-"again."
+"Once the session is open and the host key is recorded, choose Set Up Key "
+"Authentication again."
 msgstr ""
-"Přijměte klíč hostitele v terminálu a potom znovu zvolte Nastavit ověřování "
-"klíčem."
+"Až bude relace otevřená a klíč hostitele zaznamenán, znovu zvolte Nastavit "
+"ověřování klíčem."
 
-#: rustconn/src/window/key_setup.rs:700
+#: rustconn/src/window/key_setup.rs:714
 msgid "Delete Generated Key?"
 msgstr "Smazat vygenerovaný klíč?"
 
-#: rustconn/src/window/key_setup.rs:702
+#: rustconn/src/window/key_setup.rs:716
 msgid ""
 "The key files are removed from this computer. If the public key was already "
 "installed, it stays in the server's authorized_keys."
@@ -13645,8 +13639,7 @@ msgid ""
 "Now points to:\n"
 "{}\n"
 "\n"
-"If you did not make this change, cancel — connecting could send saved "
-"credentials to a different machine."
+"If you did not make this change, cancel — connecting could send saved credentials to a different machine."
 msgstr ""
 "Toto připojení už nevede tam co dřív.\n"
 "\n"
@@ -13656,8 +13649,7 @@ msgstr ""
 "Nyní míří na:\n"
 "{}\n"
 "\n"
-"Pokud jste tuto změnu neprovedli, zrušte ji — připojení by mohlo odeslat "
-"uložené přihlašovací údaje na jiný počítač."
+"Pokud jste tuto změnu neprovedli, zrušte ji — připojení by mohlo odeslat uložené přihlašovací údaje na jiný počítač."
 
 #: rustconn/src/window/mod.rs:3384
 msgid "Routing changed for “{}”"
@@ -13726,8 +13718,8 @@ msgid ""
 "Settings could not be read, so defaults are in use. The unreadable file was "
 "kept as {}."
 msgstr ""
-"Nastavení se nepodařilo načíst, proto se používají výchozí hodnoty. "
-"Nečitelný soubor byl zachován jako {}."
+"Nastavení se nepodařilo načíst, proto se používají výchozí hodnoty. Nečitelný"
+" soubor byl zachován jako {}."
 
 #: rustconn/src/window/mod.rs:4443
 msgid ""
@@ -13771,8 +13763,8 @@ msgid ""
 "none of the passwords in it can be read. Open Settings ▸ Secrets and enter "
 "the passphrase the file was created with."
 msgstr ""
-"Uložené heslo nedešifruje přenosný soubor přihlašovacích údajů, takže žádné "
-"z hesel v něm nelze přečíst. Otevřete Nastavení ▸ Tajemství a zadejte heslo, "
+"Uložené heslo nedešifruje přenosný soubor přihlašovacích údajů, takže žádné z"
+" hesel v něm nelze přečíst. Otevřete Nastavení ▸ Tajemství a zadejte heslo, "
 "se kterým byl soubor vytvořen."
 
 #: rustconn/src/window/navigation_actions.rs:230
@@ -14488,8 +14480,13 @@ msgid "RustConn"
 msgstr "RustConn"
 
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
-msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
-msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+msgid ""
+"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+msgstr ""
+"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+
+#~ msgid "The server did not accept the password."
+#~ msgstr "Server heslo nepřijal."
 
 #~ msgid "Downloaded {}/{} files"
 #~ msgstr "Staženo {}/{} souborů"
@@ -14501,18 +14498,17 @@ msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kuber
 #~ msgstr "p-bo https://github.com/p-bo (čeština)"
 
 #~ msgid ""
-#~ "Reveal the floating RDP/VNC toolbar when the pointer touches its handle. "
-#~ "When off, the handle must be clicked"
+#~ "Reveal the floating RDP/VNC toolbar when the pointer touches its handle. When"
+#~ " off, the handle must be clicked"
 #~ msgstr ""
-#~ "Zobrazit plovoucí panel nástrojů RDP/VNC, když kurzor najede na úchyt. "
-#~ "Pokud je vypnuto, vyžaduje se kliknutí"
+#~ "Zobrazit plovoucí panel nástrojů RDP/VNC, když kurzor najede na úchyt. Pokud "
+#~ "je vypnuto, vyžaduje se kliknutí"
 
 #~ msgid ""
-#~ "Hide the top-right reveal arrow with close/detach buttons on split-view "
-#~ "panes"
+#~ "Hide the top-right reveal arrow with close/detach buttons on split-view panes"
 #~ msgstr ""
-#~ "Skrýt šipku pro odhalení vpravo nahoře s tlačítky zavřít/oddělit na "
-#~ "panelech rozděleného zobrazení"
+#~ "Skrýt šipku pro odhalení vpravo nahoře s tlačítky zavřít/oddělit na panelech "
+#~ "rozděleného zobrazení"
 
 #~ msgid "Do nothing"
 #~ msgstr "Nedělat nic"
@@ -14527,11 +14523,11 @@ msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kuber
 #~ msgstr "Vytvořit cluster z vybraných připojení"
 
 #~ msgid ""
-#~ "Reduce header bar, tab bar, and toolbar height. Applied instantly; useful "
-#~ "on small screens, macOS and KDE"
+#~ "Reduce header bar, tab bar, and toolbar height. Applied instantly; useful on "
+#~ "small screens, macOS and KDE"
 #~ msgstr ""
-#~ "Zmenšit výšku záhlaví, panelu karet a panelu nástrojů. Aplikováno "
-#~ "okamžitě; užitečné na malých obrazovkách, macOS a KDE"
+#~ "Zmenšit výšku záhlaví, panelu karet a panelu nástrojů. Aplikováno okamžitě; "
+#~ "užitečné na malých obrazovkách, macOS a KDE"
 
 #~ msgid "Connection list options"
 #~ msgstr "Možnosti seznamu připojení"
@@ -14547,18 +14543,17 @@ msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kuber
 #~ "\"Protected Users\". Signs in with the saved password; Host must be the "
 #~ "server's DNS name"
 #~ msgstr ""
-#~ "Použít pro NLA protokol Kerberos místo NTLM (vestavěný klient). "
-#~ "Vyžadováno pro \"Protected Users\" v AD. Přihlašuje se uloženým heslem; "
-#~ "Hostitel musí být název DNS serveru"
+#~ "Použít pro NLA protokol Kerberos místo NTLM (vestavěný klient). Vyžadováno "
+#~ "pro \"Protected Users\" v AD. Přihlašuje se uloženým heslem; Hostitel musí "
+#~ "být název DNS serveru"
 
 #~ msgid ""
-#~ "Optional. A domain controller name or IP address, a tcp:// or udp:// "
-#~ "address, or an https:// KDC proxy URL. Leave empty to find it "
-#~ "automatically."
+#~ "Optional. A domain controller name or IP address, a tcp:// or udp:// address,"
+#~ " or an https:// KDC proxy URL. Leave empty to find it automatically."
 #~ msgstr ""
-#~ "Volitelné. Název nebo IP adresa řadiče domény, adresa tcp:// nebo udp:// "
-#~ "nebo adresa URL serveru proxy KDC https://. Ponechte prázdné pro "
-#~ "automatické vyhledání."
+#~ "Volitelné. Název nebo IP adresa řadiče domény, adresa tcp:// nebo udp:// nebo"
+#~ " adresa URL serveru proxy KDC https://. Ponechte prázdné pro automatické "
+#~ "vyhledání."
 
 #~ msgid "Color tabs by protocol"
 #~ msgstr "Obarvit karty podle protokolu"

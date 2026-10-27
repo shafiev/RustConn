@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-27 14:31+0200\n"
+"POT-Creation-Date: 2026-10-27 16:14+0200\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: German\n"
@@ -29,7 +29,7 @@ msgstr "OK"
 #: rustconn/src/dialogs/credential_transfer.rs:457
 #: rustconn/src/dialogs/flatpak_components.rs:299
 #: rustconn/src/dialogs/history.rs:199 rustconn/src/dialogs/kdbx_unlock.rs:112
-#: rustconn/src/dialogs/key_setup.rs:465
+#: rustconn/src/dialogs/key_setup.rs:471
 #: rustconn/src/dialogs/portable_migration.rs:58
 #: rustconn/src/dialogs/portable_passphrase_change.rs:93
 #: rustconn/src/dialogs/portable_unlock.rs:93
@@ -59,7 +59,7 @@ msgstr "OK"
 #: rustconn/src/window/edit_group.rs:1957
 #: rustconn/src/window/edit_group.rs:2006
 #: rustconn/src/window/group_broadcast.rs:379
-#: rustconn/src/window/key_setup.rs:705 rustconn/src/window/mod.rs:3387
+#: rustconn/src/window/key_setup.rs:719 rustconn/src/window/mod.rs:3387
 #: rustconn/src/window/mod.rs:3451 rustconn/src/window/mod.rs:4405
 #: rustconn/src/window/operations.rs:116 rustconn/src/window/operations.rs:487
 #: rustconn/src/window/operations.rs:670 rustconn/src/window/sessions.rs:339
@@ -224,7 +224,7 @@ msgid "‘{}’ needs the following before it can connect."
 msgstr "‚{}‘ benötigt Folgendes, bevor eine Verbindung möglich ist."
 
 #: rustconn/src/dialogs/ask_prompt.rs:73 rustconn/src/dialogs/history.rs:105
-#: rustconn/src/dialogs/key_setup.rs:432 rustconn/src/dialogs/widgets.rs:614
+#: rustconn/src/dialogs/key_setup.rs:438 rustconn/src/dialogs/widgets.rs:614
 #: rustconn/src/sidebar_ui.rs:396 rustconn/src/smart_folder_ui.rs:438
 #: rustconn/src/window/edit_dialogs.rs:760
 #: rustconn/src/window/edit_dialogs.rs:761
@@ -255,10 +255,10 @@ msgid ""
 "it may be locked, not logged in, or not set up on this computer. Open "
 "Settings, then Secrets, to check its status."
 msgstr ""
-"Diese Verbindung speichert ihr Passwort in {}, das gerade nicht verfügbar "
-"ist – es ist möglicherweise gesperrt, nicht angemeldet oder auf diesem "
-"Computer nicht eingerichtet. Öffnen Sie die Einstellungen und dann "
-"Geheimnisse, um den Status zu prüfen."
+"Diese Verbindung speichert ihr Passwort in {}, das gerade nicht verfügbar ist"
+" – es ist möglicherweise gesperrt, nicht angemeldet oder auf diesem Computer "
+"nicht eingerichtet. Öffnen Sie die Einstellungen und dann Geheimnisse, um den"
+" Status zu prüfen."
 
 #: rustconn/src/dialogs/backend_missing.rs:55
 msgid "Enter Password Manually"
@@ -431,7 +431,7 @@ msgstr "Dieser Cluster wird dauerhaft entfernt."
 #: rustconn/src/dialogs/tunnel.rs:728 rustconn/src/dialogs/workspace.rs:119
 #: rustconn/src/dialogs/workspace.rs:292 rustconn/src/sidebar_ui.rs:559
 #: rustconn/src/smart_folder_ui.rs:406 rustconn/src/smart_folder_ui.rs:460
-#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:706
+#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:720
 #: rustconn/src/window/operations.rs:171 rustconn/src/window/snippets.rs:413
 #: rustconn/src/window/snippets.rs:503 rustconn/src/window/templates.rs:151
 msgid "Delete"
@@ -872,8 +872,8 @@ msgstr "Automatisch auf Terminalmuster antworten (Prioritätsreihenfolge)"
 #: rustconn/src/dialogs/connection/automation_tab.rs:115
 #: rustconn/src/window/edit_group.rs:1166
 msgid ""
-"Responses support ${password}, ${username}, and ${VARIABLE_NAME} "
-"placeholders resolved at connection time"
+"Responses support ${password}, ${username}, and ${VARIABLE_NAME} placeholders"
+" resolved at connection time"
 msgstr ""
 "Antworten unterstützen ${password}, ${username} und ${VARIABLE_NAME} "
 "Platzhalter, die zur Verbindungszeit aufgelöst werden"
@@ -1063,8 +1063,8 @@ msgstr "Nur erste Verbindung"
 msgid ""
 "Only run when opening the first connection in a folder (useful for VPN setup)"
 msgstr ""
-"Nur beim Öffnen der ersten Verbindung in einem Ordner ausführen (nützlich "
-"für VPN)"
+"Nur beim Öffnen der ersten Verbindung in einem Ordner ausführen (nützlich für"
+" VPN)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:485
 msgid "Last Connection Only"
@@ -1074,8 +1074,8 @@ msgstr "Nur letzte Verbindung"
 msgid ""
 "Only run when closing the last connection in a folder (useful for cleanup)"
 msgstr ""
-"Nur beim Schließen der letzten Verbindung in einem Ordner ausführen "
-"(nützlich für Aufräumen)"
+"Nur beim Schließen der letzten Verbindung in einem Ordner ausführen (nützlich"
+" für Aufräumen)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:531
 msgid "Output Filter"
@@ -1359,8 +1359,8 @@ msgid ""
 "session instead."
 msgstr ""
 "Der Host ist nicht im ARP-Cache dieses Computers. Er muss eingeschaltet und "
-"im selben lokalen Netzwerk sein. Für einen Host hinter einem Router lesen "
-"Sie dessen MAC stattdessen über eine SSH-Sitzung aus."
+"im selben lokalen Netzwerk sein. Für einen Host hinter einem Router lesen Sie"
+" dessen MAC stattdessen über eine SSH-Sitzung aus."
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:831
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1196
@@ -1454,8 +1454,8 @@ msgid ""
 "The test failed without a specific error. Check the host address and port, "
 "then try again."
 msgstr ""
-"Der Test ist ohne konkreten Fehler fehlgeschlagen. Prüfen Sie die "
-"Hostadresse und den Port und versuchen Sie es erneut."
+"Der Test ist ohne konkreten Fehler fehlgeschlagen. Prüfen Sie die Hostadresse"
+" und den Port und versuchen Sie es erneut."
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:1402
 msgid "Test timed out"
@@ -1851,8 +1851,8 @@ msgstr "Zu sendender Text (z.B. ${password}\\n)"
 #: rustconn/src/dialogs/connection/dialog/rows.rs:323
 #: rustconn/src/window/edit_group.rs:2159
 msgid ""
-"Response to send when pattern matches. Use ${password}, ${username}, or $"
-"{VAR_NAME} for variables."
+"Response to send when pattern matches. Use ${password}, ${username}, or "
+"${VAR_NAME} for variables."
 msgstr ""
 "Antwort bei Musterübereinstimmung. Verwenden Sie ${password}, ${username} "
 "oder ${VAR_NAME} für Variablen."
@@ -2686,8 +2686,8 @@ msgid ""
 "and the toolbar buttons go with it."
 msgstr ""
 "Ausschalten, um die schwebende Werkzeugleiste und ihren Einblendpfeil zu "
-"entfernen. Ctrl+Alt+Del und die Schaltflächen der Werkzeugleiste "
-"verschwinden mit ihr."
+"entfernen. Ctrl+Alt+Del und die Schaltflächen der Werkzeugleiste verschwinden"
+" mit ihr."
 
 #: rustconn/src/dialogs/connection/rdp.rs:363
 msgid "Mouse Jiggler"
@@ -2727,8 +2727,8 @@ msgstr "Dynamische Auflösung"
 
 #: rustconn/src/dialogs/connection/rdp.rs:422
 msgid ""
-"Resize the remote desktop to match the window (External client). Turn off "
-"for legacy servers"
+"Resize the remote desktop to match the window (External client). Turn off for"
+" legacy servers"
 msgstr ""
 "Größe des Remote-Desktops an das Fenster anpassen (externer Client). Für "
 "ältere Server deaktivieren"
@@ -2789,8 +2789,8 @@ msgstr "FIDO2-Passkey-Weiterleitung"
 msgid ""
 "Use local security keys in the remote session (External client, FreeRDP 3.x)"
 msgstr ""
-"Lokale Sicherheitsschlüssel in der Remote-Sitzung verwenden (externer "
-"Client, FreeRDP 3.x)"
+"Lokale Sicherheitsschlüssel in der Remote-Sitzung verwenden (externer Client,"
+" FreeRDP 3.x)"
 
 #: rustconn/src/dialogs/connection/rdp.rs:488
 msgid "Admin/console session (/admin)"
@@ -2807,14 +2807,14 @@ msgstr ""
 #: rustconn/src/dialogs/connection/rdp.rs:495
 msgid ""
 "Passes /admin to the external FreeRDP client, connecting to the server's "
-"console/administrative session instead of a normal RDS session. This "
-"bypasses RDS CAL licensing. External client only; the embedded client cannot "
-"request it yet."
+"console/administrative session instead of a normal RDS session. This bypasses"
+" RDS CAL licensing. External client only; the embedded client cannot request "
+"it yet."
 msgstr ""
 "Übergibt /admin an den externen FreeRDP-Client und verbindet sich mit der "
-"Konsolen-/Verwaltungssitzung des Servers anstelle einer normalen RDS-"
-"Sitzung. Dies umgeht die RDS-CAL-Lizenzierung. Nur externer Client; der "
-"eingebettete Client kann dies noch nicht anfordern."
+"Konsolen-/Verwaltungssitzung des Servers anstelle einer normalen RDS-Sitzung."
+" Dies umgeht die RDS-CAL-Lizenzierung. Nur externer Client; der eingebettete "
+"Client kann dies noch nicht anfordern."
 
 #: rustconn/src/dialogs/connection/rdp.rs:506
 msgid "Kerberos Authentication"
@@ -2837,15 +2837,16 @@ msgstr "KDC-Adresse"
 
 #: rustconn/src/dialogs/connection/rdp.rs:522
 msgid ""
-"Optional. A domain controller name or IP address, a tcp:// or udp:// "
-"address, or an https:// KDC proxy URL. Leave empty to find it automatically. "
-"The External client uses only an https://…/KdcProxy proxy and otherwise "
-"follows the system Kerberos configuration."
+"Optional. A domain controller name or IP address, a tcp:// or udp:// address,"
+" or an https:// KDC proxy URL. Leave empty to find it automatically. The "
+"External client uses only an https://…/KdcProxy proxy and otherwise follows "
+"the system Kerberos configuration."
 msgstr ""
 "Optional. Ein Domänencontroller-Name oder eine IP-Adresse, eine tcp://- oder "
 "udp://-Adresse oder eine https://-KDC-Proxy-URL. Leer lassen, um ihn "
-"automatisch zu finden. Der externe Client verwendet nur einen https://…/"
-"KdcProxy-Proxy und folgt ansonsten der System-Kerberos-Konfiguration."
+"automatisch zu finden. Der externe Client verwendet nur einen "
+"https://…/KdcProxy-Proxy und folgt ansonsten der System-Kerberos-"
+"Konfiguration."
 
 #: rustconn/src/dialogs/connection/rdp.rs:537
 msgid "Disable NLA"
@@ -3496,8 +3497,8 @@ msgid ""
 "use the built-in sudo, su, doas and enable patterns."
 msgstr ""
 "Ein auf die ganze Zeile verankerter regulärer Ausdruck pro Zeile, z. B. "
-"^Secret code:\\s*$. Leer lassen für die eingebauten Muster für sudo, su, "
-"doas und enable."
+"^Secret code:\\s*$. Leer lassen für die eingebauten Muster für sudo, su, doas"
+" und enable."
 
 #: rustconn/src/dialogs/connection/ssh.rs:236
 msgid "Custom Prompt Patterns"
@@ -3600,7 +3601,7 @@ msgstr "SSH-Schlüsseldatei auswählen"
 #: rustconn/src/dialogs/connection/ssh.rs:360
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:124
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:336
-#: rustconn/src/dialogs/key_setup.rs:374
+#: rustconn/src/dialogs/key_setup.rs:380
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2333
 #: rustconn/src/dialogs/template.rs:677
 msgid "Key File"
@@ -3745,8 +3746,8 @@ msgid ""
 "Use multiple network paths (mptcpize run). Not available: kernel MPTCP is "
 "disabled"
 msgstr ""
-"Mehrere Netzwerkpfade verwenden (mptcpize run). Nicht verfügbar: Kernel-"
-"MPTCP ist deaktiviert"
+"Mehrere Netzwerkpfade verwenden (mptcpize run). Nicht verfügbar: Kernel-MPTCP"
+" ist deaktiviert"
 
 #: rustconn/src/dialogs/connection/ssh.rs:712
 #: rustconn/src/dialogs/template.rs:740
@@ -3790,11 +3791,11 @@ msgstr "PKCS#11-Anbieter"
 
 #: rustconn/src/dialogs/connection/ssh.rs:760
 msgid ""
-"Path to a PKCS#11 library for hardware-token login (e.g. /usr/lib64/"
-"libykcs11.so.2)"
+"Path to a PKCS#11 library for hardware-token login (e.g. "
+"/usr/lib64/libykcs11.so.2)"
 msgstr ""
-"Pfad zu einer PKCS#11-Bibliothek für die Anmeldung mit Hardware-Token (z. "
-"B. /usr/lib64/libykcs11.so.2)"
+"Pfad zu einer PKCS#11-Bibliothek für die Anmeldung mit Hardware-Token (z. B. "
+"/usr/lib64/libykcs11.so.2)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:786
 msgid "SFTP Remote Directory"
@@ -3816,12 +3817,12 @@ msgstr "Tastatur"
 #: rustconn/src/dialogs/connection/ssh.rs:820
 #: rustconn/src/dialogs/connection/telnet.rs:54
 msgid ""
-"If Backspace or Delete is not recognised, try Backspace (^H) or Delete (^?) "
-"—              devices that reject one default usually reject both"
+"If Backspace or Delete is not recognised, try Backspace (^H) or Delete (^?) —"
+"              devices that reject one default usually reject both"
 msgstr ""
 "Wenn Backspace oder Delete nicht erkannt wird, Backspace (^H) oder Delete "
-"(^?) versuchen — Geräte, die eine Voreinstellung ablehnen, lehnen meist "
-"beide ab"
+"(^?) versuchen — Geräte, die eine Voreinstellung ablehnen, lehnen meist beide"
+" ab"
 
 #: rustconn/src/dialogs/connection/ssh.rs:831
 #: rustconn/src/dialogs/connection/telnet.rs:74
@@ -4049,8 +4050,8 @@ msgstr "Tunnel über SSH"
 
 #: rustconn/src/dialogs/connection/web.rs:107
 msgid ""
-"Browse via a SOCKS proxy over the chosen SSH connection (embedded or "
-"Chromium browser)"
+"Browse via a SOCKS proxy over the chosen SSH connection (embedded or Chromium"
+" browser)"
 msgstr ""
 "Über einen SOCKS-Proxy der gewählten SSH-Verbindung surfen (eingebetteter "
 "oder Chromium-Browser)"
@@ -4063,8 +4064,8 @@ msgstr "Allgemein"
 
 #: rustconn/src/dialogs/connection/web.rs:198
 msgid ""
-"In the snap, Embedded opens in the system browser unless the embedded "
-"browser is allowed in Settings"
+"In the snap, Embedded opens in the system browser unless the embedded browser"
+" is allowed in Settings"
 msgstr ""
 "Im Snap öffnet „Eingebettet“ im Systembrowser, sofern der eingebettete "
 "Browser nicht in den Einstellungen erlaubt ist"
@@ -4347,8 +4348,8 @@ msgid ""
 "tab; ${host}, ${port}, ${username} and ${name} come from the connection "
 "itself"
 msgstr ""
-"Platzhalter wie ${id} stammen aus den lokalen Variablen im Tab „Daten“; $"
-"{host}, ${port}, ${username} und ${name} kommen aus der Verbindung selbst"
+"Platzhalter wie ${id} stammen aus den lokalen Variablen im Tab „Daten“; "
+"${host}, ${port}, ${username} und ${name} kommen aus der Verbindung selbst"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:68
 #: rustconn/src/dialogs/export.rs:780
@@ -4533,8 +4534,8 @@ msgstr "Gespeicherte Passwörter kopieren"
 
 #: rustconn/src/dialogs/credential_transfer.rs:79
 msgid ""
-"Copies the passwords of every connection, group and secret variable that "
-"uses the password store. The originals are left where they are."
+"Copies the passwords of every connection, group and secret variable that uses"
+" the password store. The originals are left where they are."
 msgstr ""
 "Kopiert die Passwörter jeder Verbindung, Gruppe und geheimen Variable, die "
 "den Passwortspeicher nutzt. Die Originale bleiben, wo sie sind."
@@ -4572,7 +4573,7 @@ msgid "Copy"
 msgstr "Kopieren"
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
-#: rustconn/src/dialogs/key_setup.rs:468 rustconn/src/dialogs/script.rs:171
+#: rustconn/src/dialogs/key_setup.rs:474 rustconn/src/dialogs/script.rs:171
 #: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:1127
 msgid "Stop"
 msgstr "Stopp"
@@ -4587,9 +4588,9 @@ msgstr "Wähle zwei verschiedene Passwortspeicher"
 
 #: rustconn/src/dialogs/credential_transfer.rs:223
 msgid ""
-"These entries would end up in the same place in the destination, so one "
-"would overwrite the other. Rename one of them, or choose a destination that "
-"keeps groups apart."
+"These entries would end up in the same place in the destination, so one would"
+" overwrite the other. Rename one of them, or choose a destination that keeps "
+"groups apart."
 msgstr ""
 "Diese Einträge würden im Ziel an derselben Stelle landen, sodass einer den "
 "anderen überschreiben würde. Benennen Sie einen davon um oder wählen Sie ein "
@@ -4621,8 +4622,8 @@ msgid ""
 "{} entries will be read from {} and written to {}. Nothing is removed from "
 "{}."
 msgstr ""
-"{} Einträge werden aus {} gelesen und nach {} geschrieben. Aus {} wird "
-"nichts entfernt."
+"{} Einträge werden aus {} gelesen und nach {} geschrieben. Aus {} wird nichts"
+" entfernt."
 
 #: rustconn/src/dialogs/credential_transfer.rs:451
 msgid "Destination file: {}"
@@ -4642,8 +4643,8 @@ msgstr ""
 
 #: rustconn/src/dialogs/credential_transfer.rs:597
 msgid ""
-"There is no portable file at {}. Check the path in Settings, or wait for "
-"your cloud client to deliver it."
+"There is no portable file at {}. Check the path in Settings, or wait for your"
+" cloud client to deliver it."
 msgstr ""
 "Unter {} gibt es keine portable Datei. Prüfen Sie den Pfad in den "
 "Einstellungen oder warten Sie, bis Ihr Cloud-Client sie bereitstellt."
@@ -4654,8 +4655,8 @@ msgid ""
 "That passphrase does not open the portable file. Enter the passphrase the "
 "file was created with."
 msgstr ""
-"Diese Passphrase öffnet die portable Datei nicht. Gib die Passphrase ein, "
-"mit der die Datei erstellt wurde."
+"Diese Passphrase öffnet die portable Datei nicht. Gib die Passphrase ein, mit"
+" der die Datei erstellt wurde."
 
 #: rustconn/src/dialogs/credential_transfer.rs:607
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2161
@@ -4688,7 +4689,7 @@ msgstr "Kopieren angehalten"
 #: rustconn/src/dialogs/credential_transfer.rs:719
 #: rustconn/src/dialogs/export.rs:1180 rustconn/src/dialogs/history.rs:340
 #: rustconn/src/dialogs/import/sources.rs:708
-#: rustconn/src/dialogs/key_setup.rs:695
+#: rustconn/src/dialogs/key_setup.rs:709
 #: rustconn/src/dialogs/portable_passphrase_change.rs:376
 #: rustconn/src/dialogs/recording.rs:831 rustconn/src/dialogs/recording.rs:843
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
@@ -4820,12 +4821,10 @@ msgstr "Ausgabeort"
 
 #: rustconn/src/dialogs/export.rs:305
 msgid ""
-"Remmina, SecureCRT and RDP Files export to a directory (one file per "
-"connection).\n"
+"Remmina, SecureCRT and RDP Files export to a directory (one file per connection).\n"
 "Other formats export to a single file."
 msgstr ""
-"Remmina, SecureCRT und RDP-Dateien werden in ein Verzeichnis exportiert "
-"(eine Datei pro Verbindung).\n"
+"Remmina, SecureCRT und RDP-Dateien werden in ein Verzeichnis exportiert (eine Datei pro Verbindung).\n"
 "Andere Formate werden in eine einzelne Datei exportiert."
 
 #: rustconn/src/dialogs/export.rs:311
@@ -5267,8 +5266,8 @@ msgstr ""
 
 #: rustconn/src/dialogs/import/mod.rs:393
 msgid ""
-"Passwords were not imported: {} keeps them encrypted inside the document. "
-"The affected connections ask for a password on connect."
+"Passwords were not imported: {} keeps them encrypted inside the document. The"
+" affected connections ask for a password on connect."
 msgstr ""
 "Passwörter wurden nicht importiert: {} hält sie im Dokument verschlüsselt. "
 "Die betroffenen Verbindungen fragen beim Verbinden nach einem Passwort."
@@ -5802,11 +5801,13 @@ msgstr "Anmeldung mit dem Schlüssel wird geprüft …"
 #: rustconn/src/dialogs/key_setup.rs:146
 msgid ""
 "RustConn has not seen this server's host key yet, so nothing was sent. "
-"Connect once, check and accept the key in the terminal, then try again."
+"Connect once so the key is recorded, then try again. If the terminal asks "
+"about the key, check it before you accept."
 msgstr ""
 "RustConn kennt den Host-Schlüssel dieses Servers noch nicht, daher wurde "
-"nichts gesendet. Verbinden Sie sich einmal, prüfen und akzeptieren Sie den "
-"Schlüssel im Terminal und versuchen Sie es dann erneut."
+"nichts gesendet. Verbinden Sie sich einmal, damit der Schlüssel erfasst wird,"
+" und versuchen Sie es dann erneut. Fragt das Terminal nach dem Schlüssel, "
+"prüfen Sie ihn, bevor Sie ihn akzeptieren."
 
 #: rustconn/src/dialogs/key_setup.rs:148
 msgid "Unknown Host Key"
@@ -5980,8 +5981,8 @@ msgstr "Der Server hat den Schlüssel nicht erhalten."
 
 #: rustconn/src/dialogs/key_setup.rs:277
 msgid ""
-"Could not add the key to ~/.ssh/authorized_keys on the server. Check the "
-"disk space and file permissions."
+"Could not add the key to ~/.ssh/authorized_keys on the server. Check the disk"
+" space and file permissions."
 msgstr ""
 "Der Schlüssel konnte auf dem Server nicht zu ~/.ssh/authorized_keys "
 "hinzugefügt werden. Prüfen Sie den Speicherplatz und die Dateiberechtigungen."
@@ -5996,17 +5997,21 @@ msgstr ""
 
 #: rustconn/src/dialogs/key_setup.rs:304
 msgid ""
-"The server does not allow password sign-in (it offers: {}), so the key "
-"cannot be installed this way."
+"The server does not allow password sign-in (it offers: {}), so the key cannot"
+" be installed this way."
 msgstr ""
 "Der Server erlaubt keine Anmeldung per Passwort (angeboten: {}), daher kann "
 "der Schlüssel so nicht installiert werden."
 
-#: rustconn/src/dialogs/key_setup.rs:309
-msgid "The server did not accept the password."
-msgstr "Der Server hat das Passwort nicht akzeptiert."
+#: rustconn/src/dialogs/key_setup.rs:312
+msgid ""
+"The server did not accept the password. Enter the account password and try "
+"again."
+msgstr ""
+"Der Server hat das Passwort nicht akzeptiert. Geben Sie das Kontopasswort ein"
+" und versuchen Sie es erneut."
 
-#: rustconn/src/dialogs/key_setup.rs:313
+#: rustconn/src/dialogs/key_setup.rs:319
 msgid ""
 "The server asks for a password, but this connection's options or proxy "
 "prevent RustConn from passing the stored one safely."
@@ -6015,14 +6020,14 @@ msgstr ""
 "Verbindung verhindern, dass RustConn das gespeicherte Passwort sicher "
 "weitergibt."
 
-#: rustconn/src/dialogs/key_setup.rs:317
+#: rustconn/src/dialogs/key_setup.rs:323
 msgid ""
 "The server asks for a password. Enter the account password and try again."
 msgstr ""
 "Der Server verlangt ein Passwort. Geben Sie das Kontopasswort ein und "
 "versuchen Sie es erneut."
 
-#: rustconn/src/dialogs/key_setup.rs:361
+#: rustconn/src/dialogs/key_setup.rs:367
 msgid ""
 "RustConn creates a key, installs it on {} and checks that it signs in. The "
 "stored password is kept."
@@ -6030,73 +6035,73 @@ msgstr ""
 "RustConn erstellt einen Schlüssel, installiert ihn auf {} und prüft, ob die "
 "Anmeldung damit funktioniert. Das gespeicherte Passwort bleibt erhalten."
 
-#: rustconn/src/dialogs/key_setup.rs:366
+#: rustconn/src/dialogs/key_setup.rs:372
 msgid "Key Type"
 msgstr "Schlüsseltyp"
 
-#: rustconn/src/dialogs/key_setup.rs:368
+#: rustconn/src/dialogs/key_setup.rs:374
 msgid "Ed25519 (Recommended)"
 msgstr "Ed25519 (empfohlen)"
 
-#: rustconn/src/dialogs/key_setup.rs:369
+#: rustconn/src/dialogs/key_setup.rs:375
 msgid "RSA 4096"
 msgstr "RSA 4096"
 
-#: rustconn/src/dialogs/key_setup.rs:382
+#: rustconn/src/dialogs/key_setup.rs:388
 msgid ""
-"In the snap, the key is kept in the snap's own folder and is deleted when "
-"the snap is removed. Without an SSH agent, a key passphrase is asked on "
-"every connect."
+"In the snap, the key is kept in the snap's own folder and is deleted when the"
+" snap is removed. Without an SSH agent, a key passphrase is asked on every "
+"connect."
 msgstr ""
 "Im Snap wird der Schlüssel im eigenen Ordner des Snaps gespeichert und beim "
 "Entfernen des Snaps gelöscht. Ohne SSH-Agent wird die Passphrase des "
 "Schlüssels bei jeder Verbindung abgefragt."
 
-#: rustconn/src/dialogs/key_setup.rs:388 rustconn/src/toast.rs:72
+#: rustconn/src/dialogs/key_setup.rs:394 rustconn/src/toast.rs:72
 msgid "Warning"
 msgstr "Warnung"
 
-#: rustconn/src/dialogs/key_setup.rs:397
+#: rustconn/src/dialogs/key_setup.rs:403
 msgid "Passphrase (Optional)"
 msgstr "Passphrase (optional)"
 
-#: rustconn/src/dialogs/key_setup.rs:402
+#: rustconn/src/dialogs/key_setup.rs:408
 msgid "Used once to install the key. Not saved."
 msgstr ""
 "Wird einmalig zum Installieren des Schlüssels verwendet. Wird nicht "
 "gespeichert."
 
-#: rustconn/src/dialogs/key_setup.rs:406
+#: rustconn/src/dialogs/key_setup.rs:412
 msgid "Account Password"
 msgstr "Kontopasswort"
 
-#: rustconn/src/dialogs/key_setup.rs:433
+#: rustconn/src/dialogs/key_setup.rs:439
 msgid "Delete Generated Key"
 msgstr "Erzeugten Schlüssel löschen"
 
-#: rustconn/src/dialogs/key_setup.rs:435
+#: rustconn/src/dialogs/key_setup.rs:441
 msgid "Use Key"
 msgstr "Schlüssel verwenden"
 
-#: rustconn/src/dialogs/key_setup.rs:436
+#: rustconn/src/dialogs/key_setup.rs:442
 msgid "Keep Current Settings"
 msgstr "Aktuelle Einstellungen beibehalten"
 
-#: rustconn/src/dialogs/key_setup.rs:449
+#: rustconn/src/dialogs/key_setup.rs:455
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1003
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:45
 msgid "Status"
 msgstr "Status"
 
-#: rustconn/src/dialogs/key_setup.rs:463 rustconn/src/dialogs/key_setup.rs:740
+#: rustconn/src/dialogs/key_setup.rs:469 rustconn/src/dialogs/key_setup.rs:754
 msgid "Set Up"
 msgstr "Einrichten"
 
-#: rustconn/src/dialogs/key_setup.rs:473
+#: rustconn/src/dialogs/key_setup.rs:479
 msgid "Set Up Key Authentication"
 msgstr "Schlüsselauthentifizierung einrichten"
 
-#: rustconn/src/dialogs/key_setup.rs:524
+#: rustconn/src/dialogs/key_setup.rs:530
 msgid ""
 "A key from an earlier attempt is ready and will be used again. Enter its "
 "passphrase if it has one."
@@ -6104,7 +6109,7 @@ msgstr ""
 "Ein Schlüssel aus einem früheren Versuch liegt bereit und wird erneut "
 "verwendet. Geben Sie seine Passphrase ein, falls er eine hat."
 
-#: rustconn/src/dialogs/key_setup.rs:528
+#: rustconn/src/dialogs/key_setup.rs:534
 msgid ""
 "A passphrase protects the key if someone copies it. Without an SSH agent it "
 "is asked on every connect."
@@ -6112,16 +6117,16 @@ msgstr ""
 "Eine Passphrase schützt den Schlüssel, falls ihn jemand kopiert. Ohne SSH-"
 "Agent wird sie bei jeder Verbindung abgefragt."
 
-#: rustconn/src/dialogs/key_setup.rs:704
+#: rustconn/src/dialogs/key_setup.rs:718
 #: rustconn/src/embedded_rdp/file_dnd.rs:229
 msgid "Try Again"
 msgstr "Erneut versuchen"
 
-#: rustconn/src/dialogs/key_setup.rs:719
+#: rustconn/src/dialogs/key_setup.rs:733
 msgid "Key Accepted, More Required"
 msgstr "Schlüssel akzeptiert, weiterer Faktor erforderlich"
 
-#: rustconn/src/dialogs/key_setup.rs:721
+#: rustconn/src/dialogs/key_setup.rs:735
 msgid ""
 "The server accepted the key but also asks for another factor, such as a one-"
 "time code. Use the key for this connection anyway?"
@@ -6130,7 +6135,7 @@ msgstr ""
 "weiteren Faktor, etwa einen Einmalcode. Den Schlüssel trotzdem für diese "
 "Verbindung verwenden?"
 
-#: rustconn/src/dialogs/key_setup.rs:737
+#: rustconn/src/dialogs/key_setup.rs:751
 msgid "The generated key was deleted."
 msgstr "Der erzeugte Schlüssel wurde gelöscht."
 
@@ -6383,19 +6388,13 @@ msgstr "Anmeldedaten in die portable Datei kopieren?"
 
 #: rustconn/src/dialogs/portable_migration.rs:52
 msgid ""
-"{} stored passwords are currently protected by a key that only works on this "
-"computer. Copying them into the portable file re-encrypts them with your "
-"passphrase, so they can be opened on your other devices.\n"
+"{} stored passwords are currently protected by a key that only works on this computer. Copying them into the portable file re-encrypts them with your passphrase, so they can be opened on your other devices.\n"
 "\n"
 "The originals are kept, so nothing is lost if you change your mind."
 msgstr ""
-"{} gespeicherte Passwörter sind derzeit mit einem Schlüssel geschützt, der "
-"nur auf diesem Computer funktioniert. Beim Kopieren in die portable Datei "
-"werden sie mit Ihrer Passphrase neu verschlüsselt, sodass sie auf Ihren "
-"anderen Geräten geöffnet werden können.\n"
+"{} gespeicherte Passwörter sind derzeit mit einem Schlüssel geschützt, der nur auf diesem Computer funktioniert. Beim Kopieren in die portable Datei werden sie mit Ihrer Passphrase neu verschlüsselt, sodass sie auf Ihren anderen Geräten geöffnet werden können.\n"
 "\n"
-"Die Originale bleiben erhalten, es geht also nichts verloren, wenn Sie es "
-"sich anders überlegen."
+"Die Originale bleiben erhalten, es geht also nichts verloren, wenn Sie es sich anders überlegen."
 
 #: rustconn/src/dialogs/portable_migration.rs:59
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2065
@@ -6434,12 +6433,12 @@ msgstr ""
 
 #: rustconn/src/dialogs/portable_migration.rs:201
 msgid ""
-"These connections still work on this computer. To use them on another "
-"device, open each one and save its password again."
+"These connections still work on this computer. To use them on another device,"
+" open each one and save its password again."
 msgstr ""
 "Diese Verbindungen funktionieren auf diesem Computer weiterhin. Um sie auf "
-"einem anderen Gerät zu nutzen, öffnen Sie jede einzelne und speichern Sie "
-"ihr Passwort erneut."
+"einem anderen Gerät zu nutzen, öffnen Sie jede einzelne und speichern Sie ihr"
+" Passwort erneut."
 
 #: rustconn/src/dialogs/portable_migration.rs:214
 msgid "Some Credentials Were Not Copied"
@@ -6452,8 +6451,8 @@ msgstr "Passphrase ändern"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:56
 msgid ""
-"Every password in the file is encrypted again under the new passphrase. "
-"There is still no way to recover it, so it is asked for twice."
+"Every password in the file is encrypted again under the new passphrase. There"
+" is still no way to recover it, so it is asked for twice."
 msgstr ""
 "Jedes Passwort in der Datei wird unter der neuen Passphrase erneut "
 "verschlüsselt. Sie lässt sich weiterhin nicht wiederherstellen, deshalb wird "
@@ -6846,8 +6845,8 @@ msgid ""
 "“{}” will be removed from the script library, and every connection and group "
 "that runs it will stop running it."
 msgstr ""
-"„{}“ wird aus der Skriptbibliothek entfernt, und keine Verbindung oder "
-"Gruppe führt es danach noch aus."
+"„{}“ wird aus der Skriptbibliothek entfernt, und keine Verbindung oder Gruppe"
+" führt es danach noch aus."
 
 #: rustconn/src/dialogs/script.rs:697
 msgid "Deleted script “{}”"
@@ -6887,11 +6886,11 @@ msgstr "Medien-Codecs"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:111
 msgid ""
-"OpenH264 Video Codec provided by Cisco Systems, Inc. — optional H.264 "
-"decoder for RDP graphics (GFX) sessions."
+"OpenH264 Video Codec provided by Cisco Systems, Inc. — optional H.264 decoder"
+" for RDP graphics (GFX) sessions."
 msgstr ""
-"OpenH264 Video Codec provided by Cisco Systems, Inc. — optionaler H.264-"
-"Decoder für RDP-Grafiksitzungen (GFX)."
+"OpenH264 Video Codec provided by Cisco Systems, Inc. — optionaler "
+"H.264-Decoder für RDP-Grafiksitzungen (GFX)."
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:125
 msgid "Use OpenH264"
@@ -6948,29 +6947,24 @@ msgstr "Entfernen fehlgeschlagen"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:343
 msgid ""
-"This downloads the OpenH264 Video Codec provided by Cisco Systems, Inc. "
-"from:\n"
+"This downloads the OpenH264 Video Codec provided by Cisco Systems, Inc. from:\n"
 "{}\n"
 "\n"
 "and installs it to:\n"
 "{}\n"
 "\n"
-"Cisco — not RustConn — provides this binary and holds the MPEG-LA patent "
-"licence for it. By downloading you accept Cisco's binary licence:\n"
+"Cisco — not RustConn — provides this binary and holds the MPEG-LA patent licence for it. By downloading you accept Cisco's binary licence:\n"
 "{}\n"
 "\n"
 "Download it?"
 msgstr ""
-"Dies lädt den OpenH264 Video Codec provided by Cisco Systems, Inc. herunter "
-"von:\n"
+"Dies lädt den OpenH264 Video Codec provided by Cisco Systems, Inc. herunter von:\n"
 "{}\n"
 "\n"
 "und installiert ihn nach:\n"
 "{}\n"
 "\n"
-"Dieses Binärprogramm wird von Cisco — nicht von RustConn — bereitgestellt, "
-"und Cisco hält die MPEG-LA-Patentlizenz dafür. Mit dem Herunterladen "
-"akzeptieren Sie Ciscos Binärlizenz:\n"
+"Dieses Binärprogramm wird von Cisco — nicht von RustConn — bereitgestellt, und Cisco hält die MPEG-LA-Patentlizenz dafür. Mit dem Herunterladen akzeptieren Sie Ciscos Binärlizenz:\n"
 "{}\n"
 "\n"
 "Herunterladen?"
@@ -7084,26 +7078,21 @@ msgstr "Synchronisierungsdatei importieren"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:230
 msgid ""
-"The Flatpak sandbox cannot directly access this directory. File monitoring "
-"will not work through the document portal.\n"
+"The Flatpak sandbox cannot directly access this directory. File monitoring will not work through the document portal.\n"
 "\n"
 "To grant access, run in a terminal:\n"
 "\n"
 "flatpak override --user --filesystem={} {}\n"
 "\n"
-"Adjust the path if needed to match the actual location on your filesystem. "
-"Then restart RustConn and set the sync directory again."
+"Adjust the path if needed to match the actual location on your filesystem. Then restart RustConn and set the sync directory again."
 msgstr ""
-"Die Flatpak-Sandbox kann nicht direkt auf dieses Verzeichnis zugreifen. Die "
-"Dateiüberwachung funktioniert nicht über das Dokumentenportal.\n"
+"Die Flatpak-Sandbox kann nicht direkt auf dieses Verzeichnis zugreifen. Die Dateiüberwachung funktioniert nicht über das Dokumentenportal.\n"
 "\n"
 "Um Zugriff zu gewähren, führen Sie im Terminal aus:\n"
 "\n"
 "flatpak override --user --filesystem={} {}\n"
 "\n"
-"Passen Sie den Pfad bei Bedarf an den tatsächlichen Speicherort auf Ihrem "
-"Dateisystem an. Starten Sie dann RustConn neu und legen Sie das "
-"Synchronisierungsverzeichnis erneut fest."
+"Passen Sie den Pfad bei Bedarf an den tatsächlichen Speicherort auf Ihrem Dateisystem an. Starten Sie dann RustConn neu und legen Sie das Synchronisierungsverzeichnis erneut fest."
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:235
 msgid "Flatpak: filesystem access required"
@@ -7435,8 +7424,8 @@ msgstr "Überwachung aktivieren"
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:65
 msgid ""
-"Global switch for all connections (per-connection: Advanced tab in "
-"connection settings)"
+"Global switch for all connections (per-connection: Advanced tab in connection"
+" settings)"
 msgstr ""
 "Globaler Schalter für alle Verbindungen (pro Verbindung: Reiter «Erweitert» "
 "in den Verbindungseinstellungen)"
@@ -7533,8 +7522,8 @@ msgstr "Gilt für Verbindungen, die ihren Sprunghost erben"
 msgid ""
 "A saved connection also carries its port, identity file and its own jump host"
 msgstr ""
-"Eine gespeicherte Verbindung bringt auch ihren Port, ihre Identitätsdatei "
-"und ihren eigenen Sprunghost mit"
+"Eine gespeicherte Verbindung bringt auch ihren Port, ihre Identitätsdatei und"
+" ihren eigenen Sprunghost mit"
 
 #: rustconn/src/dialogs/settings/network_tab.rs:78
 msgid "Global Jump Host"
@@ -7944,8 +7933,8 @@ msgid ""
 "Look up secrets anywhere in the vault, not just the RustConn folder. The "
 "first entry with a matching name is used"
 msgstr ""
-"Geheimnisse überall im Tresor suchen, nicht nur im RustConn-Ordner. Der "
-"erste Eintrag mit passendem Namen wird verwendet"
+"Geheimnisse überall im Tresor suchen, nicht nur im RustConn-Ordner. Der erste"
+" Eintrag mit passendem Namen wird verwendet"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1327
 msgid "1Password"
@@ -8099,13 +8088,13 @@ msgstr "Verschlüsselte Datei"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1656
 msgid ""
-"Credentials in a file on this computer. The key is derived from this "
-"machine, so the file cannot be opened anywhere else — and cannot be "
-"recovered if the machine is lost."
+"Credentials in a file on this computer. The key is derived from this machine,"
+" so the file cannot be opened anywhere else — and cannot be recovered if the "
+"machine is lost."
 msgstr ""
-"Anmeldedaten in einer Datei auf diesem Rechner. Der Schlüssel wird aus "
-"dieser Maschine abgeleitet, die Datei lässt sich also nirgends sonst öffnen "
-"— und nicht wiederherstellen, wenn die Maschine verloren geht."
+"Anmeldedaten in einer Datei auf diesem Rechner. Der Schlüssel wird aus dieser"
+" Maschine abgeleitet, die Datei lässt sich also nirgends sonst öffnen — und "
+"nicht wiederherstellen, wenn die Maschine verloren geht."
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1662
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1714
@@ -8303,11 +8292,11 @@ msgstr "YubiKey-Slot (Challenge-Response)"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2345
 msgid ""
-"YubiKey Challenge-Response slot for unlocking, as slot or slot:serial (e.g. "
-"2 or 2:12345678). Touch the key when it blinks."
+"YubiKey Challenge-Response slot for unlocking, as slot or slot:serial (e.g. 2"
+" or 2:12345678). Touch the key when it blinks."
 msgstr ""
-"YubiKey-Challenge-Response-Slot zum Entsperren, als slot oder slot:serial "
-"(z. B. 2 oder 2:12345678). Berühren Sie den Schlüssel, wenn er blinkt."
+"YubiKey-Challenge-Response-Slot zum Entsperren, als slot oder slot:serial (z."
+" B. 2 oder 2:12345678). Berühren Sie den Schlüssel, wenn er blinkt."
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2353
 msgid "KDBX Status"
@@ -8520,8 +8509,8 @@ msgstr "Diese Datei kann nicht verwendet werden"
 msgid ""
 "That location has no local file path. Copy the key to a local folder first."
 msgstr ""
-"Dieser Ort hat keinen lokalen Dateipfad. Kopieren Sie den Schlüssel zuerst "
-"in einen lokalen Ordner."
+"Dieser Ort hat keinen lokalen Dateipfad. Kopieren Sie den Schlüssel zuerst in"
+" einen lokalen Ordner."
 
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:716
 msgid "Could Not Open the File Chooser"
@@ -8531,13 +8520,11 @@ msgstr "Dateiauswahl konnte nicht geöffnet werden"
 msgid ""
 "{}\n"
 "\n"
-"Keys already in ~/.ssh are listed under Available Key Files, and can be "
-"added from there without the file chooser."
+"Keys already in ~/.ssh are listed under Available Key Files, and can be added from there without the file chooser."
 msgstr ""
 "{}\n"
 "\n"
-"Schlüssel, die bereits in ~/.ssh liegen, stehen unter Verfügbare "
-"Schlüsseldateien und können von dort ohne Dateiauswahl hinzugefügt werden."
+"Schlüssel, die bereits in ~/.ssh liegen, stehen unter Verfügbare Schlüsseldateien und können von dort ohne Dateiauswahl hinzugefügt werden."
 
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:749
 msgid "Remove from agent"
@@ -8943,14 +8930,14 @@ msgstr "Sitzungsleiste beim Überfahren öffnen"
 #: rustconn/src/dialogs/settings/ui_tab.rs:290
 msgid ""
 "Reveal the floating viewer toolbar (RDP, VNC and the embedded browser) from "
-"its handle on the top edge of the pane when the pointer touches it. When "
-"off, the handle must be clicked. Does not affect terminal sessions, which "
-"have no floating toolbar"
+"its handle on the top edge of the pane when the pointer touches it. When off,"
+" the handle must be clicked. Does not affect terminal sessions, which have no"
+" floating toolbar"
 msgstr ""
-"Die schwebende Betrachter-Werkzeugleiste (RDP, VNC und eingebetteter "
-"Browser) über ihren Griff an der Oberkante des Bereichs einblenden, wenn der "
-"Zeiger ihn berührt. Ist dies deaktiviert, muss der Griff angeklickt werden. "
-"Betrifft keine Terminalsitzungen, die keine schwebende Werkzeugleiste haben"
+"Die schwebende Betrachter-Werkzeugleiste (RDP, VNC und eingebetteter Browser)"
+" über ihren Griff an der Oberkante des Bereichs einblenden, wenn der Zeiger "
+"ihn berührt. Ist dies deaktiviert, muss der Griff angeklickt werden. Betrifft"
+" keine Terminalsitzungen, die keine schwebende Werkzeugleiste haben"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:310
 msgid "Always on while Compact interface is enabled above"
@@ -9017,8 +9004,8 @@ msgstr "Verbindung im Fenstertitel anzeigen"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:437
 msgid ""
-"Append the active connection name to the window title, so time-tracking "
-"tools can identify it"
+"Append the active connection name to the window title, so time-tracking tools"
+" can identify it"
 msgstr ""
 "Zeige den Namen der aktiven Verbindung im Fenstertitel, damit Zeiterfassungs "
 "Programme ihn auslesen können."
@@ -9043,8 +9030,8 @@ msgid ""
 "Display a compact header with the connection name at the top of each split-"
 "view pane"
 msgstr ""
-"Zeigt oben in jedem Bereich der geteilten Ansicht eine kompakte Kopfzeile "
-"mit dem Verbindungsnamen an"
+"Zeigt oben in jedem Bereich der geteilten Ansicht eine kompakte Kopfzeile mit"
+" dem Verbindungsnamen an"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:468
 msgid "Hide hover controls in split panes"
@@ -9058,8 +9045,8 @@ msgid ""
 msgstr ""
 "Den Einblendpfeil mit den Schaltflächen zum Schließen/Abtrennen/Neuverbinden "
 "in der Mitte der rechten Kante jedes Bereichs der geteilten Ansicht (alle "
-"Protokolle) ausblenden. Schließen und Abtrennen bleiben über das "
-"Bereichsmenü (Umschalt+F10) und die Seitenleiste erreichbar"
+"Protokolle) ausblenden. Schließen und Abtrennen bleiben über das Bereichsmenü"
+" (Umschalt+F10) und die Seitenleiste erreichbar"
 
 #: rustconn/src/dialogs/settings/ui_tab.rs:480
 msgid "Show directional tab-close items"
@@ -10456,11 +10443,11 @@ msgstr "Globale Variablen"
 
 #: rustconn/src/dialogs/variables.rs:171
 msgid ""
-"Define variables that can be used in connections                  with $"
-"{variable_name} syntax"
+"Define variables that can be used in connections                  with "
+"${variable_name} syntax"
 msgstr ""
-"Variablen definieren, die in Verbindungen                  mit der Syntax $"
-"{variable_name} verwendet werden können"
+"Variablen definieren, die in Verbindungen                  mit der Syntax "
+"${variable_name} verwendet werden können"
 
 #: rustconn/src/dialogs/variables.rs:233
 msgid "variable_name"
@@ -10489,13 +10476,13 @@ msgstr "z. B. Internet/MyRouter (optional)"
 
 #: rustconn/src/dialogs/variables.rs:305
 msgid ""
-"Custom KeePass entry path. If set, the password is read from "
-"this                  existing entry instead of the default RustConn/"
-"rustconn/var/ path."
+"Custom KeePass entry path. If set, the password is read from this"
+"                  existing entry instead of the default "
+"RustConn/rustconn/var/ path."
 msgstr ""
 "Benutzerdefinierter KeePass-Eintragspfad. Falls gesetzt, wird das Passwort "
-"aus diesem vorhandenen Eintrag gelesen statt aus dem Standard-Pfad RustConn/"
-"rustconn/var/."
+"aus diesem vorhandenen Eintrag gelesen statt aus dem Standard-Pfad "
+"RustConn/rustconn/var/."
 
 #: rustconn/src/dialogs/variables.rs:317
 msgid "Vault entry:"
@@ -10507,8 +10494,8 @@ msgstr "z.B. AD Credentials (optional)"
 
 #: rustconn/src/dialogs/variables.rs:324
 msgid ""
-"Existing vault entry name. If set, the password is fetched from "
-"this                  entry at connection time — no need to enter a password "
+"Existing vault entry name. If set, the password is fetched from this"
+"                  entry at connection time — no need to enter a password "
 "above.                  Nothing is written back to the vault."
 msgstr ""
 "Name eines vorhandenen Tresoreintrags. Wenn gesetzt, wird das Passwort beim "
@@ -10737,8 +10724,8 @@ msgstr ""
 #: rustconn/src/embedded.rs:641
 msgid ""
 "The installed FreeRDP client rejected one of the connection options. Your "
-"FreeRDP version may be too old; update FreeRDP or report this at the "
-"RustConn issue tracker."
+"FreeRDP version may be too old; update FreeRDP or report this at the RustConn"
+" issue tracker."
 msgstr ""
 "Der installierte FreeRDP-Client hat eine der Verbindungsoptionen abgelehnt. "
 "Ihre FreeRDP-Version ist möglicherweise zu alt; aktualisieren Sie FreeRDP "
@@ -10749,8 +10736,8 @@ msgid ""
 "RDP certificate has changed. Enable 'Accept Certificate' or accept the new "
 "certificate."
 msgstr ""
-"Das RDP-Zertifikat hat sich geändert. Aktivieren Sie „Zertifikat "
-"akzeptieren“ oder akzeptieren Sie das neue Zertifikat."
+"Das RDP-Zertifikat hat sich geändert. Aktivieren Sie „Zertifikat akzeptieren“"
+" oder akzeptieren Sie das neue Zertifikat."
 
 #: rustconn/src/embedded.rs:660
 msgid ""
@@ -10758,8 +10745,8 @@ msgid ""
 "security layer to RDP in connection settings."
 msgstr ""
 "TLS-Handshake fehlgeschlagen. Stellen Sie für einen älteren Server (z. B. "
-"Windows 2008 R2) in den Verbindungseinstellungen die Sicherheitsebene auf "
-"RDP ein."
+"Windows 2008 R2) in den Verbindungseinstellungen die Sicherheitsebene auf RDP"
+" ein."
 
 #: rustconn/src/embedded.rs:664
 msgid ""
@@ -10960,9 +10947,8 @@ msgstr ""
 
 #: rustconn/src/embedded_rdp/connection.rs:922
 msgid ""
-"Custom FreeRDP arguments are ignored by the embedded "
-"client.                          Set the RDP client mode to External to "
-"apply them."
+"Custom FreeRDP arguments are ignored by the embedded client."
+"                          Set the RDP client mode to External to apply them."
 msgstr ""
 "Der eingebettete Client ignoriert eigene FreeRDP-Argumente. Setzen Sie den "
 "RDP-Client-Modus auf Extern, um sie anzuwenden."
@@ -11035,9 +11021,9 @@ msgstr ""
 #: rustconn/src/embedded_rdp/connection.rs:2875
 msgid ""
 "Authentication failed: invalid username or password. If the credentials are "
-"correct and the server is a Linux RDP host (KDE KRdp, xrdp), this can "
-"instead be the server's NLA regression with FreeRDP 3.32 — update KRdp to "
-"6.7.90 or newer, or set ExtSecurity=0 on the server (FreeRDP issue #13567)."
+"correct and the server is a Linux RDP host (KDE KRdp, xrdp), this can instead"
+" be the server's NLA regression with FreeRDP 3.32 — update KRdp to 6.7.90 or "
+"newer, or set ExtSecurity=0 on the server (FreeRDP issue #13567)."
 msgstr ""
 "Authentifizierung fehlgeschlagen: ungültiger Benutzername oder ungültiges "
 "Passwort. Wenn die Anmeldedaten korrekt sind und der Server ein Linux-RDP-"
@@ -11047,8 +11033,8 @@ msgstr ""
 
 #: rustconn/src/embedded_rdp/connection.rs:2880
 msgid ""
-"Account restrictions refused this sign-in. Protected Users members cannot "
-"use NTLM: turn on Kerberos Authentication in the connection's RDP settings."
+"Account restrictions refused this sign-in. Protected Users members cannot use"
+" NTLM: turn on Kerberos Authentication in the connection's RDP settings."
 msgstr ""
 "Kontoeinschränkungen haben diese Anmeldung abgelehnt. Mitglieder von "
 "Protected Users können NTLM nicht verwenden: Aktivieren Sie die Kerberos-"
@@ -11091,8 +11077,8 @@ msgstr ""
 #: rustconn/src/embedded_rdp/connection.rs:2896
 msgid "Authentication failed: user is not allowed to log on to this computer."
 msgstr ""
-"Authentifizierung fehlgeschlagen: Benutzer darf sich an diesem Computer "
-"nicht anmelden."
+"Authentifizierung fehlgeschlagen: Benutzer darf sich an diesem Computer nicht"
+" anmelden."
 
 #: rustconn/src/embedded_rdp/connection.rs:2900
 msgid ""
@@ -11100,8 +11086,8 @@ msgid ""
 "connection's RDP settings or add the realm to /etc/krb5.conf."
 msgstr ""
 "Für den Realm {} wurde kein Kerberos-KDC gefunden. Geben Sie in den RDP-"
-"Einstellungen der Verbindung eine KDC-Adresse ein oder fügen Sie den Realm "
-"zu /etc/krb5.conf hinzu."
+"Einstellungen der Verbindung eine KDC-Adresse ein oder fügen Sie den Realm zu"
+" /etc/krb5.conf hinzu."
 
 #: rustconn/src/embedded_rdp/connection.rs:2904
 #: rustconn/src/embedded_rdp/connection.rs:2944
@@ -11297,8 +11283,8 @@ msgid ""
 "{} file(s) copied to the remote clipboard — press Ctrl+V in the session to "
 "paste"
 msgstr ""
-"{} Datei(en) in die Remote-Zwischenablage kopiert — mit Strg+V in der "
-"Sitzung einfügen"
+"{} Datei(en) in die Remote-Zwischenablage kopiert — mit Strg+V in der Sitzung"
+" einfügen"
 
 #: rustconn/src/embedded_rdp/mod.rs:1094
 msgid "PowerShell"
@@ -12546,7 +12532,7 @@ msgid "Info"
 msgstr "Info"
 
 #: rustconn/src/toast.rs:295 rustconn/src/window/batch_edit.rs:239
-#: rustconn/src/window/key_setup.rs:574
+#: rustconn/src/window/key_setup.rs:583
 msgid "Undo"
 msgstr "Rückgängig"
 
@@ -12602,10 +12588,10 @@ msgid ""
 "portable credential file. Open Settings, then Secrets, and enter the "
 "passphrase the file was created with."
 msgstr ""
-"Das Passwort wurde nicht gespeichert. Die verwendete Passphrase "
-"entschlüsselt die portable Anmeldedatendatei nicht. Öffnen Sie "
-"Einstellungen, dann Geheimnisse, und geben Sie die Passphrase ein, mit der "
-"die Datei erstellt wurde."
+"Das Passwort wurde nicht gespeichert. Die verwendete Passphrase entschlüsselt"
+" die portable Anmeldedatendatei nicht. Öffnen Sie Einstellungen, dann "
+"Geheimnisse, und geben Sie die Passphrase ein, mit der die Datei erstellt "
+"wurde."
 
 #: rustconn/src/vault_ops.rs:57
 msgid "Portable File Is Locked"
@@ -12645,16 +12631,16 @@ msgid ""
 "another backend such as Encrypted file or KeePassXC."
 msgstr ""
 "Kein Systemschlüsselbund antwortet. Öffnen Sie Einstellungen und dann "
-"Geheimnisse, und wählen Sie ein anderes Backend wie Verschlüsselte Datei "
-"oder KeePassXC."
+"Geheimnisse, und wählen Sie ein anderes Backend wie Verschlüsselte Datei oder"
+" KeePassXC."
 
 #: rustconn/src/vault_ops.rs:294
 msgid ""
 "Fix {} and save again, or choose a different backend in Settings, then "
 "Secrets."
 msgstr ""
-"Beheben Sie {} und speichern Sie erneut, oder wählen Sie in den "
-"Einstellungen unter Geheimnisse ein anderes Backend."
+"Beheben Sie {} und speichern Sie erneut, oder wählen Sie in den Einstellungen"
+" unter Geheimnisse ein anderes Backend."
 
 #: rustconn/src/vault_ops.rs:301
 msgid ""
@@ -12765,8 +12751,8 @@ msgid ""
 "you expected, cancel and narrow the pattern."
 msgstr ""
 "Die meisten davon können aus seinem Muster für automatische Mitgliedschaft "
-"stammen. Wenn das mehr ist als erwartet, brechen Sie ab und schränken Sie "
-"das Muster ein."
+"stammen. Wenn das mehr ist als erwartet, brechen Sie ab und schränken Sie das"
+" Muster ein."
 
 #: rustconn/src/window/clusters.rs:400
 msgid "Open All Connections?"
@@ -12838,9 +12824,9 @@ msgid ""
 "flatpak override --user --filesystem=/path/to/sync "
 "io.github.totoshko88.RustConn"
 msgstr ""
-"Sync-Verzeichnis ist nicht konfiguriert. In Flatpak zuerst "
-"Dateisystemzugriff gewähren: flatpak override --user --filesystem=/pfad/zum/"
-"sync io.github.totoshko88.RustConn"
+"Sync-Verzeichnis ist nicht konfiguriert. In Flatpak zuerst Dateisystemzugriff"
+" gewähren: flatpak override --user --filesystem=/pfad/zum/sync "
+"io.github.totoshko88.RustConn"
 
 #: rustconn/src/window/connection_actions.rs:200
 msgid ""
@@ -12964,8 +12950,8 @@ msgstr "Duplikate importieren?"
 
 #: rustconn/src/window/connection_dialogs.rs:935
 msgid ""
-"{} of {} connections have the same name as existing ones. Imported copies "
-"are kept alongside the existing connections under a numbered name."
+"{} of {} connections have the same name as existing ones. Imported copies are"
+" kept alongside the existing connections under a numbered name."
 msgstr ""
 "{} von {} Verbindungen haben denselben Namen wie vorhandene. Importierte "
 "Kopien werden zusammen mit den vorhandenen Verbindungen unter einem "
@@ -13042,8 +13028,8 @@ msgstr "Diese Sitzung hat bereits ein eigenes Fenster."
 
 #: rustconn/src/window/detach_actions.rs:79
 msgid ""
-"This session is displayed by a separate viewer, which already runs in its "
-"own window."
+"This session is displayed by a separate viewer, which already runs in its own"
+" window."
 msgstr ""
 "Diese Sitzung wird von einem externen Viewer angezeigt, der bereits in einem "
 "eigenen Fenster läuft."
@@ -13099,8 +13085,8 @@ msgstr "{} ist nach WoL nicht online gegangen"
 msgid "Failed to send Wake On LAN packet. Check network permissions."
 msgstr ""
 "Wake On LAN-Paket konnte nicht gesendet werden. Überprüfen Sie die "
-"Netzwerkberechtigungen.Wake On LAN-Paket konnte nicht gesendet werden. "
-"Prüfen Sie die Netzwerkberechtigungen."
+"Netzwerkberechtigungen.Wake On LAN-Paket konnte nicht gesendet werden. Prüfen"
+" Sie die Netzwerkberechtigungen."
 
 #: rustconn/src/window/edit_actions.rs:606
 msgid "Checking if {} is online…"
@@ -13151,9 +13137,9 @@ msgstr "mc SFTP wird geöffnet…"
 #: rustconn/src/window/edit_actions.rs:866
 #: rustconn/src/window/edit_actions.rs:2459
 msgid ""
-"External file managers cannot access SSH agent in "
-"Flatpak.                          Enable \"SFTP via mc\" in Settings for "
-"reliable access."
+"External file managers cannot access SSH agent in Flatpak."
+"                          Enable \"SFTP via mc\" in Settings for reliable "
+"access."
 msgstr ""
 "Externe Dateimanager können im Flatpak nicht auf den SSH-Agenten zugreifen. "
 "Aktivieren Sie \"SFTP via mc\" in den Einstellungen für zuverlässigen "
@@ -13208,24 +13194,25 @@ msgstr "Tunnel wird gestartet…"
 #: rustconn/src/window/edit_actions.rs:1583
 msgid ""
 "The tunnelled browser command ‘{}’ is not Chromium-based and can't be "
-"tunnelled; opening the embedded browser instead. Set a chromium/chrome/brave/"
-"vivaldi/edge command in Settings to use an external browser."
+"tunnelled; opening the embedded browser instead. Set a "
+"chromium/chrome/brave/vivaldi/edge command in Settings to use an external "
+"browser."
 msgstr ""
 "Der Befehl für den getunnelten Browser ‘{}’ ist nicht Chromium-basiert und "
-"lässt sich nicht tunneln; stattdessen wird der eingebettete Browser "
-"geöffnet. Legen Sie in den Einstellungen einen chromium/chrome/brave/vivaldi/"
-"edge-Befehl fest, um einen externen Browser zu nutzen."
+"lässt sich nicht tunneln; stattdessen wird der eingebettete Browser geöffnet."
+" Legen Sie in den Einstellungen einen chromium/chrome/brave/vivaldi/edge-"
+"Befehl fest, um einen externen Browser zu nutzen."
 
 #: rustconn/src/window/edit_actions.rs:1587
 msgid ""
 "The tunnelled browser command ‘{}’ is not a Chromium-based browser. Only "
-"Chromium-family browsers can be proxied through the tunnel; set a chromium/"
-"chrome/brave/vivaldi/edge command in Settings."
+"Chromium-family browsers can be proxied through the tunnel; set a "
+"chromium/chrome/brave/vivaldi/edge command in Settings."
 msgstr ""
 "Der Befehl für den getunnelten Browser ‘{}’ ist kein Chromium-basierter "
 "Browser. Nur Browser der Chromium-Familie können durch den Tunnel geleitet "
-"werden; legen Sie in den Einstellungen einen chromium/chrome/brave/vivaldi/"
-"edge-Befehl fest."
+"werden; legen Sie in den Einstellungen einen "
+"chromium/chrome/brave/vivaldi/edge-Befehl fest."
 
 #: rustconn/src/window/edit_actions.rs:1593
 msgid ""
@@ -13252,16 +13239,16 @@ msgid ""
 "Install a Chromium-based browser to tunnel an external one."
 msgstr ""
 "Kein Chromium-basierter Browser gefunden; stattdessen wird der eingebettete "
-"Browser geöffnet. Installieren Sie einen Chromium-basierten Browser, um "
-"einen externen zu tunneln."
+"Browser geöffnet. Installieren Sie einen Chromium-basierten Browser, um einen"
+" externen zu tunneln."
 
 #: rustconn/src/window/edit_actions.rs:1608
 msgid ""
-"No Chromium-based browser found, and the embedded browser is off in the "
-"snap. Turn it on in Settings to open a tunnelled browser."
+"No Chromium-based browser found, and the embedded browser is off in the snap."
+" Turn it on in Settings to open a tunnelled browser."
 msgstr ""
-"Kein Chromium-basierter Browser gefunden, und der eingebettete Browser ist "
-"im Snap deaktiviert. Aktivieren Sie ihn in den Einstellungen, um einen "
+"Kein Chromium-basierter Browser gefunden, und der eingebettete Browser ist im"
+" Snap deaktiviert. Aktivieren Sie ihn in den Einstellungen, um einen "
 "getunnelten Browser zu öffnen."
 
 #: rustconn/src/window/edit_actions.rs:1612
@@ -13610,8 +13597,8 @@ msgstr "Gruppen-Broadcast aktiv — Tastenanschläge an {} Sitzungen gespiegelt"
 #: rustconn/src/window/group_broadcast.rs:437
 msgid "Group broadcast disabled — keystrokes go to the focused tab only"
 msgstr ""
-"Gruppen-Broadcast deaktiviert — Tastenanschläge gehen nur an den "
-"fokussierten Tab"
+"Gruppen-Broadcast deaktiviert — Tastenanschläge gehen nur an den fokussierten"
+" Tab"
 
 #: rustconn/src/window/groups.rs:56 rustconn/src/window/groups.rs:62
 #: rustconn/src/window/operations.rs:657 rustconn/src/window/operations.rs:672
@@ -13643,8 +13630,8 @@ msgid ""
 "The secret for variable “{}” could not be saved to the vault and was not "
 "stored. Re-enter it and check your secret backend in Settings."
 msgstr ""
-"Das Geheimnis für die Variable „{}“ konnte nicht im Tresor gespeichert "
-"werden und wurde nicht abgelegt. Geben Sie es erneut ein und prüfen Sie Ihr "
+"Das Geheimnis für die Variable „{}“ konnte nicht im Tresor gespeichert werden"
+" und wurde nicht abgelegt. Geben Sie es erneut ein und prüfen Sie Ihr "
 "Geheimnis-Backend in den Einstellungen."
 
 #: rustconn/src/window/history_actions.rs:107
@@ -13662,8 +13649,8 @@ msgid ""
 "Your changes could not be written to disk and will be lost when RustConn "
 "closes: {}"
 msgstr ""
-"Ihre Änderungen konnten nicht auf die Festplatte geschrieben werden und "
-"gehen beim Schließen von RustConn verloren: {}"
+"Ihre Änderungen konnten nicht auf die Festplatte geschrieben werden und gehen"
+" beim Schließen von RustConn verloren: {}"
 
 #: rustconn/src/window/history_actions.rs:175
 msgid "Global variables could not be saved to disk."
@@ -13673,38 +13660,50 @@ msgstr "Globale Variablen konnten nicht auf die Festplatte gespeichert werden."
 msgid "The connection could not be read. Try again."
 msgstr "Die Verbindung konnte nicht gelesen werden. Versuchen Sie es erneut."
 
-#: rustconn/src/window/key_setup.rs:561
+#: rustconn/src/window/key_setup.rs:570
 msgid "The key works, but the connection could not be switched to it: {}"
 msgstr ""
 "Der Schlüssel funktioniert, aber die Verbindung konnte nicht darauf "
 "umgestellt werden: {}"
 
-#: rustconn/src/window/key_setup.rs:573
+#: rustconn/src/window/key_setup.rs:582
 msgid "'{}' now signs in with a key"
 msgstr "„{}“ meldet sich jetzt mit einem Schlüssel an"
 
-#: rustconn/src/window/key_setup.rs:632
+#: rustconn/src/window/key_setup.rs:610
+msgid "the application is busy"
+msgstr "die Anwendung ist beschäftigt"
+
+#: rustconn/src/window/key_setup.rs:614
+msgid "the connection no longer exists"
+msgstr "die Verbindung existiert nicht mehr"
+
+#: rustconn/src/window/key_setup.rs:617
+msgid "the connection is not an SSH connection"
+msgstr "die Verbindung ist keine SSH-Verbindung"
+
+#: rustconn/src/window/key_setup.rs:641
 msgid "Restored the previous sign-in settings for '{}'"
 msgstr "Die vorherigen Anmeldeeinstellungen für „{}“ wurden wiederhergestellt"
 
-#: rustconn/src/window/key_setup.rs:639
+#: rustconn/src/window/key_setup.rs:648
 msgid "The previous sign-in settings could not be restored."
 msgstr ""
 "Die vorherigen Anmeldeeinstellungen konnten nicht wiederhergestellt werden."
 
-#: rustconn/src/window/key_setup.rs:678
+#: rustconn/src/window/key_setup.rs:692
 msgid ""
-"Accept the host key in the terminal, then choose Set Up Key Authentication "
-"again."
+"Once the session is open and the host key is recorded, choose Set Up Key "
+"Authentication again."
 msgstr ""
-"Akzeptieren Sie den Host-Schlüssel im Terminal und wählen Sie dann erneut "
-"„Schlüsselauthentifizierung einrichten“."
+"Sobald die Sitzung geöffnet und der Host-Schlüssel erfasst ist, wählen Sie "
+"erneut „Schlüsselauthentifizierung einrichten“."
 
-#: rustconn/src/window/key_setup.rs:700
+#: rustconn/src/window/key_setup.rs:714
 msgid "Delete Generated Key?"
 msgstr "Erzeugten Schlüssel löschen?"
 
-#: rustconn/src/window/key_setup.rs:702
+#: rustconn/src/window/key_setup.rs:716
 msgid ""
 "The key files are removed from this computer. If the public key was already "
 "installed, it stays in the server's authorized_keys."
@@ -13817,8 +13816,7 @@ msgid ""
 "Now points to:\n"
 "{}\n"
 "\n"
-"If you did not make this change, cancel — connecting could send saved "
-"credentials to a different machine."
+"If you did not make this change, cancel — connecting could send saved credentials to a different machine."
 msgstr ""
 "Diese Verbindung führt nicht mehr dorthin wie zuvor.\n"
 "\n"
@@ -13828,9 +13826,7 @@ msgstr ""
 "Zeigt jetzt auf:\n"
 "{}\n"
 "\n"
-"Wenn Sie diese Änderung nicht vorgenommen haben, brechen Sie ab — beim "
-"Verbinden könnten gespeicherte Zugangsdaten an einen anderen Rechner "
-"gesendet werden."
+"Wenn Sie diese Änderung nicht vorgenommen haben, brechen Sie ab — beim Verbinden könnten gespeicherte Zugangsdaten an einen anderen Rechner gesendet werden."
 
 #: rustconn/src/window/mod.rs:3384
 msgid "Routing changed for “{}”"
@@ -13946,9 +13942,9 @@ msgid ""
 "the passphrase the file was created with."
 msgstr ""
 "Die gespeicherte Passphrase entschlüsselt die portable Anmeldedatendatei "
-"nicht, daher lässt sich keines der darin enthaltenen Passwörter lesen. "
-"Öffnen Sie Einstellungen ▸ Geheimnisse und geben Sie die Passphrase ein, mit "
-"der die Datei erstellt wurde."
+"nicht, daher lässt sich keines der darin enthaltenen Passwörter lesen. Öffnen"
+" Sie Einstellungen ▸ Geheimnisse und geben Sie die Passphrase ein, mit der "
+"die Datei erstellt wurde."
 
 #: rustconn/src/window/navigation_actions.rs:230
 msgid "Keyboard passthrough enabled — shortcuts disabled"
@@ -14467,8 +14463,8 @@ msgid ""
 "Could not start recording for '{}' — the recordings folder is missing or not "
 "writable"
 msgstr ""
-"Aufzeichnung für „{}“ konnte nicht gestartet werden – der "
-"Aufzeichnungsordner fehlt oder ist nicht beschreibbar"
+"Aufzeichnung für „{}“ konnte nicht gestartet werden – der Aufzeichnungsordner"
+" fehlt oder ist nicht beschreibbar"
 
 #: rustconn/src/window/terminal_actions.rs:454
 msgid "This viewer runs independently and cannot be closed from RustConn"
@@ -14674,8 +14670,13 @@ msgid "RustConn"
 msgstr "RustConn"
 
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
-msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
-msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;verbindung;terminal;remote;kubernetes;k8s;seriell;sftp;"
+msgid ""
+"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+msgstr ""
+"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;verbindung;terminal;remote;kubernetes;k8s;seriell;sftp;"
+
+#~ msgid "The server did not accept the password."
+#~ msgstr "Der Server hat das Passwort nicht akzeptiert."
 
 #~ msgid "Downloaded {}/{} files"
 #~ msgstr "{}/{} Dateien heruntergeladen"
@@ -14687,15 +14688,14 @@ msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;verbindung;terminal;remote;kuber
 #~ msgstr "RustConn Team (Deutsch)"
 
 #~ msgid ""
-#~ "Reveal the floating RDP/VNC toolbar when the pointer touches its handle. "
-#~ "When off, the handle must be clicked"
+#~ "Reveal the floating RDP/VNC toolbar when the pointer touches its handle. When"
+#~ " off, the handle must be clicked"
 #~ msgstr ""
 #~ "Die schwebende RDP/VNC-Symbolleiste anzeigen, wenn der Zeiger ihren Griff "
 #~ "berührt. Wenn deaktiviert, ist ein Klick erforderlich"
 
 #~ msgid ""
-#~ "Hide the top-right reveal arrow with close/detach buttons on split-view "
-#~ "panes"
+#~ "Hide the top-right reveal arrow with close/detach buttons on split-view panes"
 #~ msgstr ""
 #~ "Den Aufklapp-Pfeil oben rechts mit Schließen-/Ablösen-Schaltflächen auf "
 #~ "Panels der geteilten Ansicht ausblenden"
@@ -14713,8 +14713,8 @@ msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;verbindung;terminal;remote;kuber
 #~ msgstr "Cluster aus ausgewählten Verbindungen erstellen"
 
 #~ msgid ""
-#~ "Reduce header bar, tab bar, and toolbar height. Applied instantly; useful "
-#~ "on small screens, macOS and KDE"
+#~ "Reduce header bar, tab bar, and toolbar height. Applied instantly; useful on "
+#~ "small screens, macOS and KDE"
 #~ msgstr ""
 #~ "Kopfleiste, Tab-Leiste und Werkzeugleiste verkleinern. Wird sofort "
 #~ "angewendet; nützlich auf kleinen Bildschirmen, macOS und KDE"
@@ -14733,17 +14733,16 @@ msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;verbindung;terminal;remote;kuber
 #~ "\"Protected Users\". Signs in with the saved password; Host must be the "
 #~ "server's DNS name"
 #~ msgstr ""
-#~ "Kerberos statt NTLM für NLA verwenden (eingebetteter Client). "
-#~ "Erforderlich für AD-\"Protected Users\". Meldet sich mit dem "
-#~ "gespeicherten Passwort an; Host muss der DNS-Name des Servers sein"
+#~ "Kerberos statt NTLM für NLA verwenden (eingebetteter Client). Erforderlich "
+#~ "für AD-\"Protected Users\". Meldet sich mit dem gespeicherten Passwort an; "
+#~ "Host muss der DNS-Name des Servers sein"
 
 #~ msgid ""
-#~ "Optional. A domain controller name or IP address, a tcp:// or udp:// "
-#~ "address, or an https:// KDC proxy URL. Leave empty to find it "
-#~ "automatically."
+#~ "Optional. A domain controller name or IP address, a tcp:// or udp:// address,"
+#~ " or an https:// KDC proxy URL. Leave empty to find it automatically."
 #~ msgstr ""
-#~ "Optional. Ein Domänencontrollername oder eine IP-Adresse, eine tcp://- "
-#~ "oder udp://-Adresse oder eine https://-KDC-Proxy-URL. Leer lassen, um sie "
+#~ "Optional. Ein Domänencontrollername oder eine IP-Adresse, eine tcp://- oder "
+#~ "udp://-Adresse oder eine https://-KDC-Proxy-URL. Leer lassen, um sie "
 #~ "automatisch zu ermitteln."
 
 #~ msgid "Color tabs by protocol"

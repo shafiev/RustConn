@@ -516,15 +516,24 @@ fn fail(c: &Rc<Controller>, error: &KeySetupError, key_on_disk: bool) {
     tracing::warn!(error = %error, key_on_disk, "key setup failed");
     let view = failure_view(error, &c.failure_context.get());
     finish_run(c);
+    let key_kept = key_on_disk && c.key_path.borrow().is_some();
+    if key_kept {
+        // The key stays on disk, so the next attempt reuses it: say so.
+        refresh_slot_hint(c);
+    }
     if let Some(dialog) = c.dialog() {
-        dialog.show_failure(&view, key_on_disk && c.key_path.borrow().is_some());
+        dialog.show_failure(&view, key_kept);
     }
 }
 
 fn fail_with(c: &Rc<Controller>, view: &FailureView) {
     finish_run(c);
+    let key_kept = c.key_path.borrow().is_some();
+    if key_kept {
+        refresh_slot_hint(c);
+    }
     if let Some(dialog) = c.dialog() {
-        dialog.show_failure(view, c.key_path.borrow().is_some());
+        dialog.show_failure(view, key_kept);
     }
 }
 
@@ -598,14 +607,14 @@ fn switch_to_key(
 ) -> Result<rustconn_core::Connection, String> {
     let mut state = state
         .try_borrow_mut()
-        .map_err(|_| "the application is busy".to_string())?;
+        .map_err(|_| i18n("the application is busy"))?;
     let original = state
         .get_connection(connection_id)
         .cloned()
-        .ok_or_else(|| "the connection no longer exists".to_string())?;
+        .ok_or_else(|| i18n("the connection no longer exists"))?;
     let mut modified = original.clone();
     if !apply_key_auth(&mut modified, key_path) {
-        return Err("the connection is not an SSH connection".to_string());
+        return Err(i18n("the connection is not an SSH connection"));
     }
     state.update_connection(connection_id, modified)?;
     Ok(original)
@@ -666,7 +675,12 @@ fn apply_key_auth(connection: &mut rustconn_core::Connection, key_path: &Path) -
 }
 
 /// Connect, offered when the host key is not known yet: opens an ordinary
-/// session so the key can be checked and accepted in the terminal.
+/// session so the key gets recorded.
+///
+/// An ordinary connect decides whether the terminal asks about the key: when
+/// the stored password goes through askpass it adds
+/// `StrictHostKeyChecking=accept-new`, so a first-seen key is recorded without
+/// a question. The wording does not promise a prompt for that reason.
 ///
 /// The dialog closes first. It is modal, and the host key question is answered
 /// in the terminal behind it.
@@ -675,7 +689,7 @@ fn connect_session(c: &Rc<Controller>) {
         dialog.close();
     }
     c.ctx.toast_overlay.show_toast(&i18n(
-        "Accept the host key in the terminal, then choose Set Up Key Authentication again.",
+        "Once the session is open and the host key is recorded, choose Set Up Key Authentication again.",
     ));
     MainWindow::start_connection_with_credential_resolution(
         c.ctx.state.clone(),

@@ -1097,19 +1097,55 @@ pub(super) fn build_key_setup_launch(
             declares_proxy,
         );
 
+    assemble_key_setup_launch(
+        KeySetupParts {
+            host,
+            port: conn.port,
+            username,
+            identity,
+            extra_args,
+            jump_host_passwords,
+        },
+        password,
+        allowed,
+    )
+}
+
+/// What [`build_ssh_command_args`] and the variable substitution produced.
+struct KeySetupParts {
+    host: String,
+    port: u16,
+    username: Option<String>,
+    identity: Option<String>,
+    extra_args: Vec<String>,
+    jump_host_passwords: Vec<(AskpassSlot, SecretString)>,
+}
+
+/// Applies the askpass gate to the account password and builds the launch.
+///
+/// `allowed` is the connect path's verdict (`target_password_askpass_allowed`
+/// and no `ssh_config_declares_proxy`). A closed gate drops the password, so
+/// it never reaches `DeployCredentials`, and records why. Split from
+/// [`build_key_setup_launch`] so this decision is testable without an
+/// application state.
+fn assemble_key_setup_launch(
+    parts: KeySetupParts,
+    password: Option<SecretString>,
+    allowed: bool,
+) -> KeySetupLaunch {
     let password_gated_off = password.is_some() && !allowed;
     let password = if allowed { password } else { None };
     let password_sent = password.is_some();
     KeySetupLaunch {
         target: rustconn_core::ssh_key_setup::SshTarget::new(
-            host,
-            conn.port,
-            username,
-            key_setup_session_args(identity.as_deref(), extra_args),
+            parts.host,
+            parts.port,
+            parts.username,
+            key_setup_session_args(parts.identity.as_deref(), parts.extra_args),
         ),
         credentials: rustconn_core::ssh_key_setup::DeployCredentials {
             password,
-            jump_host_passwords,
+            jump_host_passwords: parts.jump_host_passwords,
         },
         password_sent,
         password_gated_off,
@@ -2161,6 +2197,73 @@ mod tests {
         let extra = vec!["-J".to_string(), "bastion".to_string()];
         assert_eq!(key_setup_session_args(None, extra.clone()), extra);
         assert!(key_setup_session_args(None, Vec::new()).is_empty());
+    }
+
+    fn key_setup_parts() -> KeySetupParts {
+        KeySetupParts {
+            host: "web.example".to_string(),
+            port: 2222,
+            username: Some("anton".to_string()),
+            identity: None,
+            extra_args: vec!["-o".to_string(), "IdentitiesOnly=yes".to_string()],
+            jump_host_passwords: vec![(
+                AskpassSlot::JumpHost(0),
+                SecretString::from("bastion-secret".to_string()),
+            )],
+        }
+    }
+
+    #[test]
+    fn key_setup_launch_passes_the_password_when_the_gate_is_open() {
+        let launch = assemble_key_setup_launch(
+            key_setup_parts(),
+            Some(SecretString::from("account-secret".to_string())),
+            true,
+        );
+        assert!(launch.password_sent);
+        assert!(!launch.password_gated_off);
+        assert!(launch.credentials.password.is_some());
+        assert_eq!(launch.target.host, "web.example");
+        assert_eq!(launch.target.port, 2222);
+        assert_eq!(launch.target.username.as_deref(), Some("anton"));
+        assert_eq!(launch.target.session_args, ["-o", "IdentitiesOnly=yes"]);
+    }
+
+    #[test]
+    fn key_setup_launch_drops_the_password_when_the_gate_is_closed() {
+        let launch = assemble_key_setup_launch(
+            key_setup_parts(),
+            Some(SecretString::from("account-secret".to_string())),
+            false,
+        );
+        // The password never reaches the credentials, and the dialog is told why.
+        assert!(launch.credentials.password.is_none());
+        assert!(!launch.password_sent);
+        assert!(launch.password_gated_off);
+        // Bastion passwords are not the account password; the connect path
+        // decides them and they are carried through.
+        assert_eq!(launch.credentials.jump_host_passwords.len(), 1);
+    }
+
+    #[test]
+    fn key_setup_launch_without_a_password_is_neither_sent_nor_gated_off() {
+        for allowed in [true, false] {
+            let launch = assemble_key_setup_launch(key_setup_parts(), None, allowed);
+            assert!(launch.credentials.password.is_none());
+            assert!(!launch.password_sent);
+            assert!(!launch.password_gated_off);
+        }
+    }
+
+    #[test]
+    fn key_setup_launch_puts_the_identity_before_the_session_arguments() {
+        let mut parts = key_setup_parts();
+        parts.identity = Some("/k/id".to_string());
+        let launch = assemble_key_setup_launch(parts, None, true);
+        assert_eq!(
+            launch.target.session_args,
+            ["-i", "/k/id", "-o", "IdentitiesOnly=yes"]
+        );
     }
 
     fn jump_shape(hop_count: usize) -> JumpAuthShape {

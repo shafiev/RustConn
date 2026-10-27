@@ -143,7 +143,7 @@ impl FailureView {
 pub fn failure_view(err: &KeySetupError, ctx: &FailureContext) -> FailureView {
     match err {
         KeySetupError::HostKeyUnknown => FailureView::message(i18n(
-            "RustConn has not seen this server's host key yet, so nothing was sent. Connect once, check and accept the key in the terminal, then try again.",
+            "RustConn has not seen this server's host key yet, so nothing was sent. Connect once so the key is recorded, then try again. If the terminal asks about the key, check it before you accept.",
         ))
         .titled(i18n("Unknown Host Key"))
         .with_action(FailureAction::Connect)
@@ -306,7 +306,13 @@ fn auth_failed_view(methods: &[String], ctx: FailureContext) -> FailureView {
         ));
     }
     if ctx.password_sent {
-        return FailureView::message(i18n("The server did not accept the password.")).retry();
+        // The password row opens so a typed password can replace a stale
+        // stored one; without it every retry would send the same wrong password.
+        return FailureView::message(i18n(
+            "The server did not accept the password. Enter the account password and try again.",
+        ))
+        .with_action(FailureAction::AskPassword)
+        .retry();
     }
     if ctx.password_gated_off {
         return FailureView::message(i18n(
@@ -569,7 +575,8 @@ impl KeySetupDialog {
         }
     }
 
-    /// Empties both secret rows. Called when a run ends and when the dialog closes.
+    /// Empties both secret rows. Called only when the dialog closes: between
+    /// attempts the rows keep their text so Try Again can reuse it.
     pub fn clear_secrets(&self) {
         self.passphrase_row.set_text("");
         self.password_row.set_text("");
@@ -865,7 +872,8 @@ mod tests {
                 assert_ne!(a, b);
             }
         }
-        assert!(rejected.retry && !rejected.asks_password());
+        // A rejected stored password must be replaceable from the dialog.
+        assert!(rejected.retry && rejected.asks_password());
         assert!(!blocked.retry && !blocked.asks_password());
         assert!(missing.retry && missing.asks_password());
         assert!(!no_password.retry);
