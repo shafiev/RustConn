@@ -298,6 +298,18 @@ impl ContextMenuItem {
     }
 }
 
+/// Whether the connection menu offers "Set Up Key Authentication…" for a row
+/// with this protocol string.
+///
+/// SSH only. `is_ssh` in the caller also covers SFTP, but key setup builds on the
+/// arguments of a live SSH session, and an SFTP connection has none.
+// ponytail: the snap shows the item and the dialog warns. If a manual smoke test
+// in the snap fails, hide it with `&& !rustconn_core::snap::is_snap()` here.
+#[must_use]
+pub fn offers_key_setup(protocol: &str) -> bool {
+    protocol == "ssh"
+}
+
 /// Shows the context menu for a connection item with group awareness
 #[expect(
     clippy::fn_params_excessive_bools,
@@ -311,6 +323,7 @@ pub fn show_context_menu_for_item(
     conn_id: &str,
     is_group: bool,
     is_ssh: bool,
+    offers_key_setup: bool,
     can_tunnel_browser: bool,
     is_connected: bool,
     is_recording: bool,
@@ -486,6 +499,12 @@ pub fn show_context_menu_for_item(
         ));
         if is_ssh {
             items.push(ContextMenuItem::action(&i18n("Open SFTP"), "open-sftp"));
+        }
+        if offers_key_setup {
+            items.push(ContextMenuItem::action(
+                &i18n("Set Up Key Authentication…"),
+                "set-up-key-auth",
+            ));
         }
         if can_tunnel_browser {
             items.push(ContextMenuItem::action(
@@ -1301,4 +1320,27 @@ pub fn create_sidebar_header() -> (adw::HeaderBar, gtk4::ToggleButton) {
     header.pack_end(&menu_button);
 
     (header, search_toggle)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::offers_key_setup;
+
+    #[test]
+    fn key_setup_is_offered_for_ssh_only() {
+        assert!(offers_key_setup("ssh"));
+        for protocol in [
+            "sftp",
+            "rdp",
+            "vnc",
+            "spice",
+            "telnet",
+            "serial",
+            "zerotrust",
+            "web",
+            "",
+        ] {
+            assert!(!offers_key_setup(protocol), "{protocol}");
+        }
+    }
 }

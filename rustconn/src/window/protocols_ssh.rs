@@ -1024,6 +1024,98 @@ fn build_ssh_command_args(
     )
 }
 
+/// What "Set Up Key Authentication" needs to reach a server the way a live
+/// session does: the target with the session's `ssh` arguments, and the
+/// credentials the same gates would let a session hand to OpenSSH.
+pub(super) struct KeySetupLaunch {
+    /// Host, port, user and the arguments of a live session.
+    pub(super) target: rustconn_core::ssh_key_setup::SshTarget,
+    /// The account password and bastion passwords the gates allow. `Debug`
+    /// redacts both.
+    pub(super) credentials: rustconn_core::ssh_key_setup::DeployCredentials,
+    /// An account password goes to OpenSSH through askpass.
+    pub(super) password_sent: bool,
+    /// A password was available but the connection's options or proxy route
+    /// stopped it from being passed (`target_password_askpass_allowed`,
+    /// `ssh_config_declares_proxy`), exactly as for a normal connect.
+    pub(super) password_gated_off: bool,
+}
+
+/// The session arguments for key setup: the identity file first, then the
+/// arguments [`build_ssh_command_args`] produced.
+///
+/// A live session passes the identity to `spawn_ssh` separately from the extra
+/// arguments, so rebuilding the same command line means putting `-i` back. The
+/// verify step drops any identity option it is given and uses the new key.
+fn key_setup_session_args(identity: Option<&str>, extra_args: Vec<String>) -> Vec<String> {
+    match identity {
+        Some(path) => {
+            let mut args = Vec::with_capacity(extra_args.len() + 2);
+            args.push("-i".to_string());
+            args.push(path.to_string());
+            args.extend(extra_args);
+            args
+        }
+        None => extra_args,
+    }
+}
+
+/// Builds the key setup target and credentials from a connection, through the
+/// same [`build_ssh_command_args`] a live session uses, so the jump hosts, the
+/// bastion passwords, the Flatpak `known_hosts` and the askpass gate are not
+/// re-derived here.
+///
+/// `password` is the account password from the vault or typed in the dialog. It
+/// reaches the result only if the connect gate lets it; otherwise
+/// `password_gated_off` says why a stored password was left out.
+/// `declares_proxy` is `ssh -G`'s answer, run off the main thread by the caller.
+///
+// ponytail: the bastion vault fallback inside `build_ssh_command_args` is
+// synchronous, as it is for a connect; and the `ssh.connect.args` perf span
+// fires here too. Both are the connect path's behaviour, unchanged.
+pub(super) fn build_key_setup_launch(
+    conn: &rustconn_core::Connection,
+    state: &SharedAppState,
+    groups: &[rustconn_core::ConnectionGroup],
+    password: Option<SecretString>,
+    declares_proxy: Option<bool>,
+) -> KeySetupLaunch {
+    let global_variables = super::protocols::resolve_globals_with_ask(state, conn.id);
+    let host = substitute_variables(&conn.host, &global_variables);
+    let username = conn
+        .username
+        .as_ref()
+        .map(|u| substitute_variables(u, &global_variables));
+
+    let (identity, extra_args, _use_waypipe, _jump_host_chain, jump_host_passwords, allowed) =
+        build_ssh_command_args(
+            conn,
+            conn.id,
+            state,
+            groups,
+            password.is_some(),
+            declares_proxy,
+        );
+
+    let password_gated_off = password.is_some() && !allowed;
+    let password = if allowed { password } else { None };
+    let password_sent = password.is_some();
+    KeySetupLaunch {
+        target: rustconn_core::ssh_key_setup::SshTarget::new(
+            host,
+            conn.port,
+            username,
+            key_setup_session_args(identity.as_deref(), extra_args),
+        ),
+        credentials: rustconn_core::ssh_key_setup::DeployCredentials {
+            password,
+            jump_host_passwords,
+        },
+        password_sent,
+        password_gated_off,
+    }
+}
+
 /// Returns `true` if the first reference jump hop may show an interactive
 /// password prompt in the VTE (any [`PasswordSource`] other than `None`).
 ///
@@ -2051,6 +2143,25 @@ pub fn reconnect_ssh_in_place(
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn key_setup_session_args_puts_the_identity_first() {
+        let args = key_setup_session_args(
+            Some("/home/u/.ssh/id_work"),
+            vec!["-o".to_string(), "IdentitiesOnly=yes".to_string()],
+        );
+        assert_eq!(
+            args,
+            ["-i", "/home/u/.ssh/id_work", "-o", "IdentitiesOnly=yes"]
+        );
+    }
+
+    #[test]
+    fn key_setup_session_args_without_identity_is_unchanged() {
+        let extra = vec!["-J".to_string(), "bastion".to_string()];
+        assert_eq!(key_setup_session_args(None, extra.clone()), extra);
+        assert!(key_setup_session_args(None, Vec::new()).is_empty());
+    }
 
     fn jump_shape(hop_count: usize) -> JumpAuthShape {
         // A neutral baseline: identity-only, no password/Flatpak/PKCS#11.

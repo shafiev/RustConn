@@ -671,6 +671,22 @@ impl MainWindow {
             check_connection_online,
         );
 
+        // Set Up Key Authentication — generate, install and verify an SSH key,
+        // then switch the connection to it. The window is held weakly: it owns
+        // this action, which owns the context.
+        let key_setup_context = Rc::new(super::key_setup::KeySetupContext {
+            window: window.downgrade(),
+            state: state.clone(),
+            sidebar: sidebar.clone(),
+            notebook: self.terminal_notebook.clone(),
+            split_view: self.split_view.clone(),
+            monitoring: self.monitoring.clone(),
+            toast_overlay: self.toast_overlay.clone(),
+        });
+        register_selected_and_by_id(window, sidebar, "set-up-key-auth", move |id| {
+            super::key_setup::open_key_setup_dialog(Rc::clone(&key_setup_context), id);
+        });
+
         // Open SFTP action — opens file manager or mc in local shell
         let sftp_action = gio::SimpleAction::new("open-sftp", None);
         let state_clone = state.clone();

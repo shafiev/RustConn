@@ -18,6 +18,7 @@ mod fullscreen_header;
 mod group_broadcast;
 mod groups;
 mod history_actions;
+mod key_setup;
 mod macro_dispatch;
 mod navigation_actions;
 mod network_monitor;

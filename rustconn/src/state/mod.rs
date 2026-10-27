@@ -2279,7 +2279,7 @@ impl AppState {
 /// never read the vault, so a reconnect on such a connection must not pay the
 /// blocking backend call. Every other source — `Vault`, `Variable`, `Inherit`,
 /// `Script` — resolves through the backend and so is worth the lookup.
-fn password_source_needs_resolution(source: &PasswordSource) -> bool {
+pub(crate) fn password_source_needs_resolution(source: &PasswordSource) -> bool {
     !matches!(source, PasswordSource::None | PasswordSource::Prompt)
 }
 
