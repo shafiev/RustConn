@@ -46,6 +46,7 @@
 //!
 //! All runners block; call them from a worker thread.
 
+use std::collections::VecDeque;
 use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io::{self, Write};
@@ -353,6 +354,7 @@ pub enum KeySetupError {
     #[error("authentication failed")]
     AuthFailed {
         /// Methods from `Permission denied (…)`, e.g. `publickey`, `password`.
+        /// Empty when the server gave none (`Too many authentication failures`).
         server_methods: Vec<String>,
     },
     /// The account password has expired and must be changed first.
@@ -1063,45 +1065,70 @@ fn channel_args(session_args: &[String], strip_identity: bool) -> Vec<String> {
 /// Removes everything from `args` that must not reach a control-channel `ssh`.
 fn strip_session_args(args: &[String], strip_identity: bool) -> Vec<String> {
     let mut kept = Vec::with_capacity(args.len());
-    let mut i = 0;
-    while i < args.len() {
-        let token = args[i].as_str();
-        let Some(flag) = short_flag(token) else {
-            kept.push(token.to_owned());
-            i += 1;
+    let mut pending: VecDeque<String> = args.iter().cloned().collect();
+    while let Some(token) = pending.pop_front() {
+        let Some(flag) = short_flag(&token) else {
+            kept.push(token);
             continue;
         };
+        // `-vA` is `-v -A` to OpenSSH, and `-A` would beat the `-o` prefix, so
+        // a cluster is judged flag by flag, never by its first letter.
+        if let Some(split) = split_cluster(&token) {
+            for part in split.into_iter().rev() {
+                pending.push_front(part);
+            }
+            continue;
+        }
         if VALUE_FLAGS.contains(flag) {
             let attached = &token[2..];
             let (value, used) = if attached.is_empty() {
-                (args.get(i + 1).map(String::as_str), 2)
+                (pending.pop_front(), 2)
             } else {
-                (Some(attached), 1)
+                (Some(attached.to_owned()), 1)
             };
             let Some(value) = value else {
                 // A value flag with nothing after it would swallow whatever
                 // follows it in the final argv; drop it.
-                i += 1;
                 continue;
             };
             let dropped = match flag {
-                'o' => is_stripped_option(value, strip_identity),
+                'o' => is_stripped_option(&value, strip_identity),
                 'i' => strip_identity,
                 'p' | 'l' => true,
                 other => STRIPPED_VALUE_FLAGS.contains(other),
             };
             if !dropped {
-                kept.extend(args[i..i + used].iter().cloned());
+                kept.push(token);
+                if used == 2 {
+                    kept.push(value);
+                }
             }
-            i += used;
-        } else {
-            if !token[1..].chars().all(|c| STRIPPED_FLAGS.contains(c)) {
-                kept.push(token.to_owned());
-            }
-            i += 1;
+        } else if !token[1..].chars().all(|c| STRIPPED_FLAGS.contains(c)) {
+            kept.push(token);
         }
     }
     kept
+}
+
+/// Splits a cluster of short flags (`-vA`, `-vo`) into one token per flag:
+/// `["-v", "-A"]`, `["-v", "-o"]`. A value flag ends the cluster and keeps the
+/// rest of the token as its attached value (`-vL80:h:1` → `["-v", "-L80:h:1"]`).
+/// `None` for a token that is not a cluster (a single flag, with or without an
+/// attached value).
+fn split_cluster(token: &str) -> Option<Vec<String>> {
+    let flag = short_flag(token)?;
+    if VALUE_FLAGS.contains(flag) || token.len() <= 2 {
+        return None;
+    }
+    let mut parts = Vec::new();
+    for (index, c) in token.char_indices().skip(1) {
+        if VALUE_FLAGS.contains(c) {
+            parts.push(format!("-{}", &token[index..]));
+            return Some(parts);
+        }
+        parts.push(format!("-{c}"));
+    }
+    Some(parts)
 }
 
 /// The flag letter of a short option token (`-o`, `-L8080:h:80`), if it is one.
@@ -1149,7 +1176,10 @@ fn validate_target(target: &SshTarget) -> Result<(), KeySetupError> {
             || s.contains('@')
             || s.chars().any(|c| c.is_whitespace() || c.is_control())
     };
-    if bad_word(&target.host) || target.port == 0 {
+    // A host can reach a `ProxyCommand` through `%h`, where older OpenSSH
+    // hands it to a shell unquoted, so shell metacharacters never belong in it.
+    let shell_meta = |c: char| "\"'`$\\;&|<>(){}*?!#".contains(c);
+    if bad_word(&target.host) || target.host.chars().any(shell_meta) || target.port == 0 {
         return Err(KeySetupError::InvalidTarget);
     }
     if target.username.as_deref().is_some_and(bad_word) {
@@ -1193,8 +1223,9 @@ fn push_tail(args: &mut Vec<String>, target: &SshTarget) -> Result<(), KeySetupE
 /// # Errors
 ///
 /// Returns [`KeySetupError::InvalidTarget`] for an empty host, a host or user
-/// that starts with `-` or contains whitespace, control characters or `@`, or
-/// port 0.
+/// that starts with `-` or contains whitespace, control characters or `@`, a
+/// host with a shell metacharacter (`` ` `` `$` `;` `&` `|` quotes, brackets
+/// and the like), or port 0.
 pub fn deploy_args(target: &SshTarget, has_password: bool) -> Result<Vec<String>, KeySetupError> {
     validate_target(target)?;
     let mut args = control_channel_args(&target.session_args);
@@ -1349,7 +1380,7 @@ pub fn classify_verify(
     // fingerprint, so verification reports KeyNotAccepted there. A false
     // negative, hence safe; upgrade by matching the `-i` path on the same line.
     let accepted = stderr.lines().any(|line| {
-        line.contains("Server accepts key:")
+        line.starts_with("debug1: Server accepts key:")
             && line
                 .split_whitespace()
                 .any(|word| word == expected_fingerprint)
@@ -1365,8 +1396,12 @@ pub fn classify_verify(
         // (one prompt allowed) but never got to sign: the answer was wrong.
         // OpenSSH 10 prints no "incorrect passphrase" line at `-v` for this,
         // only the askpass request, which a live test against a real server
-        // showed; older releases do print it and are caught further down.
-        if exit_code == Some(255) && stderr.contains("read_passphrase: requested to askpass") {
+        // showed; older releases do print it and are caught further down. A
+        // login that completed (`Authenticated to`) and died later is not this.
+        if exit_code == Some(255)
+            && stderr.contains("read_passphrase: requested to askpass")
+            && !stderr.contains("Authenticated to")
+        {
             return Err(KeySetupError::WrongPassphrase);
         }
     }
@@ -1442,7 +1477,18 @@ fn classify_ssh_failure(stderr: &str) -> Option<KeySetupError> {
     let denied = stderr.lines().find_map(|l| {
         let (_, rest) = l.split_once("Permission denied (")?;
         rest.split_once(')').map(|(methods, _)| methods.to_owned())
-    })?;
+    });
+    let Some(denied) = denied else {
+        // The server cut the login off after too many offered keys (agent and
+        // default identities come before the one password prompt): no
+        // `Permission denied` line, no method list, but an auth failure all the
+        // same.
+        return stderr
+            .contains("Too many authentication failures")
+            .then(|| KeySetupError::AuthFailed {
+                server_methods: Vec::new(),
+            });
+    };
     Some(KeySetupError::AuthFailed {
         server_methods: denied
             .split(',')
@@ -1541,7 +1587,9 @@ fn run_deploy_with(
 ///
 /// Spawns `ssh` with [`verify_args`] and classifies the output with
 /// [`classify_verify`] against `key`'s fingerprint. A passphrase is answered by a
-/// one-shot helper (a wrong one is not retried in a loop) and is never stored.
+/// one-shot helper that releases it only for the passphrase prompt of
+/// `private_key_path` (a bastion's password prompt gets nothing; a wrong
+/// passphrase is not retried in a loop) and is never stored.
 /// Bastion passwords travel as in [`run_deploy`].
 ///
 /// # Errors
@@ -1583,13 +1631,17 @@ fn run_verify_with(
     let mut files = SecretFiles::default();
     let mut env = stage_password_env(jump_host_passwords, None, &mut files)?;
     if let Some(passphrase) = passphrase {
-        let script =
-            ssh_tunnel::create_one_shot_askpass_script().map_err(|e| askpass_failed(&e))?;
+        let script = create_key_passphrase_askpass_script().map_err(|e| askpass_failed(&e))?;
         files.track(script.clone());
         let secret =
             ssh_tunnel::create_tunnel_secret_file(passphrase).map_err(|e| askpass_failed(&e))?;
         files.track(secret.clone());
         push_passphrase_env(&mut env, &script, &secret);
+        // `verify_args` already refused a path that is not UTF-8.
+        env.push((
+            KEY_PATH_ENV_VAR.to_owned(),
+            private_key_path.to_string_lossy().into_owned(),
+        ));
     }
     ensure_askpass_display(&mut env);
     let done = run_child(program, "ssh", &args, None, &env, control)?;
@@ -1722,6 +1774,42 @@ fn stage_password_env(
         .filter_map(|entry| entry.split_once('='))
         .map(|(name, value)| (name.to_owned(), value.to_owned()))
         .collect())
+}
+
+/// Environment variable naming the key whose passphrase prompt the verify
+/// helper may answer. A path, not a secret.
+const KEY_PATH_ENV_VAR: &str = "_RC_KEY_PASSPHRASE_FOR";
+
+/// A one-shot `SSH_ASKPASS` helper that answers **only** the passphrase prompt
+/// for the key named by [`KEY_PATH_ENV_VAR`], and exits 1 for anything else.
+///
+/// `SSH_ASKPASS` is inherited by every child of the verification `ssh`, a
+/// `ProxyJump` or `ProxyCommand` hop included. An always-answering helper would
+/// hand the key passphrase to a bastion's `user@bastion's password:` prompt, over
+/// the network. OpenSSH prompts `Enter passphrase for key '<path>': ` (the path
+/// cut at 100 bytes) or, in older releases, `Enter passphrase for <path>: `; the
+/// comparison is a quoted, hence literal, `case` pattern. Like the one-shot
+/// tunnel helper it empties the secret file after the first answer, so a wrong
+/// passphrase is not retried.
+fn create_key_passphrase_askpass_script() -> Result<PathBuf, String> {
+    ssh_tunnel::write_askpass_script(&format!(
+        "#!/bin/sh\n\
+         key=\"${{{KEY_PATH_ENV_VAR}-}}\"\n\
+         [ -n \"$key\" ] || exit 1\n\
+         short=$(printf '%.100s' \"$key\")\n\
+         case \"${{1-}}\" in\n\
+         \x20\x20\"Enter passphrase for key '$key':\"*|\"Enter passphrase for key '$short':\"*|\\\n\
+         \x20\x20\"Enter passphrase for $key:\"*) ;;\n\
+         \x20\x20*) exit 1 ;;\n\
+         esac\n\
+         secret_file=\"${{{TUN_SECRET_ENV_VAR}-}}\"\n\
+         [ -n \"$secret_file\" ] || exit 1\n\
+         [ -s \"$secret_file\" ] || exit 1\n\
+         exec 3<\"$secret_file\" || exit 1\n\
+         cat <&3\n\
+         : > \"$secret_file\"\n",
+        TUN_SECRET_ENV_VAR = ssh_tunnel::TUNNEL_ASKPASS_ENV_VAR
+    ))
 }
 
 fn push_passphrase_env(env: &mut Vec<(String, String)>, script: &Path, secret: &Path) {

@@ -293,7 +293,7 @@ pub(crate) fn create_one_shot_askpass_script() -> Result<std::path::PathBuf, Str
 /// The file is created with `create_new` (O_EXCL) and, on Unix, mode 0700 set
 /// at open time, so it never exists world-readable for a window and a symlink
 /// at the random path cannot redirect the write (SEC-4 hardening).
-fn write_askpass_script(script: &str) -> Result<std::path::PathBuf, String> {
+pub(crate) fn write_askpass_script(script: &str) -> Result<std::path::PathBuf, String> {
     use std::io::Write;
 
     let dir = std::env::temp_dir();

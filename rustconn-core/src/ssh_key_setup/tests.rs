@@ -852,7 +852,22 @@ fn verify_args_are_publickey_only_with_new_identity() {
 
 #[test]
 fn invalid_target_rejected() {
-    let bad_hosts = ["-oProxyCommand=x", "", "a b", "a\nb", "u@h"];
+    let bad_hosts = [
+        "-oProxyCommand=x",
+        "",
+        "a b",
+        "a\nb",
+        "u@h",
+        "h;reboot",
+        "h$(id)",
+        "h`id`",
+        "h|x",
+        "h&x",
+        "h'x",
+        "h\"x",
+        "h\\x",
+        "h>x",
+    ];
     for host in bad_hosts {
         let t = SshTarget {
             host: host.to_owned(),
@@ -950,11 +965,13 @@ fn chunk() -> impl Strategy<Value = Vec<String>> {
     prop_oneof![
         (keys.clone(), "[a-z]{0,6}").prop_map(|(k, v)| vec!["-o".to_owned(), format!("{k}={v}")]),
         (keys.clone(), "[a-z]{0,6}").prop_map(|(k, v)| vec![format!("-o{k}={v}")]),
+        (keys.clone(), "[a-z]{0,6}").prop_map(|(k, v)| vec!["-vo".to_owned(), format!("{k}={v}")]),
         (keys, "[a-z]{0,6}").prop_map(|(k, v)| vec!["-o".to_owned(), format!("{k} {v}")]),
         Just(vec!["-A".to_owned()]),
         Just(vec!["-L".to_owned(), "x".to_owned()]),
         Just(vec!["-J".to_owned(), "y".to_owned()]),
         Just(vec!["-v".to_owned()]),
+        Just(vec!["-vA".to_owned()]),
     ]
 }
 
@@ -1546,4 +1563,223 @@ fn debug_does_not_leak() {
     for error in errors {
         assert!(!format!("{error:?}{error}").contains(PROBE));
     }
+}
+
+// ---- review fixes: passphrase helper, clusters, classification ---------------
+
+/// Runs the verify passphrase helper with `prompt`; returns (stdout, success).
+fn run_passphrase_helper(
+    dir: &Path,
+    key_path: &str,
+    prompt: &str,
+    secret_file: &Path,
+) -> (String, bool) {
+    let script = create_key_passphrase_askpass_script().unwrap();
+    let output = Command::new("sh")
+        .arg(&script)
+        .arg(prompt)
+        .env(KEY_PATH_ENV_VAR, key_path)
+        .env(ssh_tunnel::TUNNEL_ASKPASS_ENV_VAR, secret_file)
+        .current_dir(dir)
+        .output()
+        .unwrap();
+    ssh_tunnel::cleanup_askpass_script(&script);
+    (
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        output.status.success(),
+    )
+}
+
+#[test]
+fn passphrase_helper_answers_only_the_new_keys_passphrase_prompt() {
+    let tmp = tempfile::tempdir().unwrap();
+    let key = "/home/u/.ssh/rustconn/web-1234abcd_ed25519";
+    let fresh_secret = || {
+        let path = tmp.path().join("secret");
+        fs::write(&path, PROBE).unwrap();
+        path
+    };
+
+    // Answered: the OpenSSH 9/10 and the older prompt forms.
+    for prompt in [
+        format!("Enter passphrase for key '{key}': "),
+        format!("Enter passphrase for {key}: "),
+    ] {
+        let secret = fresh_secret();
+        assert_eq!(
+            run_passphrase_helper(tmp.path(), key, &prompt, &secret),
+            (PROBE.to_owned(), true),
+            "{prompt}"
+        );
+        // One shot: the file is emptied, a second ask gets nothing.
+        assert_eq!(
+            run_passphrase_helper(tmp.path(), key, &prompt, &secret),
+            (String::new(), false)
+        );
+    }
+
+    // Refused: a bastion's password prompt (the leak the review found), another
+    // key's passphrase, OTP, host-key confirmation, an empty prompt.
+    for prompt in [
+        "admin@bastion's password: ",
+        "Password: ",
+        "(root@bastion) Password: ",
+        "Enter passphrase for key '/home/u/.ssh/id_ed25519': ",
+        "Enter passphrase for key '/home/u/.ssh/rustconn/other-1234abcd_ed25519': ",
+        "Verification code: ",
+        "Are you sure you want to continue connecting (yes/no/[fingerprint])? ",
+        "",
+    ] {
+        let secret = fresh_secret();
+        assert_eq!(
+            run_passphrase_helper(tmp.path(), key, prompt, &secret),
+            (String::new(), false),
+            "{prompt:?}"
+        );
+        assert_eq!(fs::read_to_string(&secret).unwrap(), PROBE, "{prompt:?}");
+    }
+
+    // Glob characters in the key path stay literal.
+    let secret = fresh_secret();
+    assert_eq!(
+        run_passphrase_helper(
+            tmp.path(),
+            "/k/*",
+            "Enter passphrase for key '/k/other': ",
+            &secret
+        ),
+        (String::new(), false)
+    );
+    // No key path in the environment: nothing is released.
+    assert_eq!(
+        run_passphrase_helper(tmp.path(), "", "Enter passphrase for key '': ", &secret),
+        (String::new(), false)
+    );
+}
+
+#[test]
+fn verify_hands_the_helper_the_key_path_and_not_the_passphrase() {
+    let tmp = tempfile::tempdir().unwrap();
+    let key = parsed_key("c");
+    let tail = format!(
+        "echo 'debug1: Server accepts key: /k ED25519 {} explicit' >&2\n\
+         \"$SSH_ASKPASS\" \"admin@bastion's password: \" > \"{d}/bastion.answer\"\n\
+         \"$SSH_ASKPASS\" \"Enter passphrase for key '/k/new': \" > \"{d}/key.answer\"\n",
+        key.fingerprint(),
+        d = tmp.path().display()
+    );
+    let stub = recording_stub(tmp.path(), &tail);
+    let passphrase = SecretString::from(PROBE);
+    let outcome = run_verify_with(
+        &stub,
+        &target(),
+        Path::new("/k/new"),
+        &key,
+        Some(&passphrase),
+        &[],
+        &RunControl::default(),
+    );
+    assert!(
+        matches!(outcome, Ok(VerifyOutcome::Accepted)),
+        "{outcome:?}"
+    );
+    let read = |name: &str| fs::read_to_string(tmp.path().join(name)).unwrap();
+    assert!(read("env").contains("_RC_KEY_PASSPHRASE_FOR=/k/new"));
+    assert!(!read("env").contains(PROBE));
+    assert_eq!(read("bastion.answer"), "");
+    assert_eq!(read("key.answer"), PROBE);
+}
+
+#[test]
+fn generate_key_keeps_the_passphrase_out_of_argv_and_env() {
+    let tmp = tempfile::tempdir().unwrap();
+    let body = format!(
+        "D='{d}'\n\
+         for a in \"$@\"; do printf '%s\\n' \"$a\"; done > \"$D/argv\"\n\
+         env > \"$D/env\"\n\
+         cat \"$_RC_TUN_PW_FILE\" > \"$D/secret.content\"\n\
+         printf '%s' \"$_RC_TUN_PW_FILE\" > \"$D/secret.path\"\n\
+         exit 3\n",
+        d = tmp.path().display()
+    );
+    let stub = write_stub(tmp.path(), "fake-keygen", &body);
+    let request = keygen_request(tmp.path(), KeyAlgorithm::Ed25519, Some(PROBE));
+    assert!(matches!(
+        generate_key_with(&stub, &request, &RunControl::default()),
+        Err(KeySetupError::KeygenFailed { code: Some(3) })
+    ));
+    let read = |name: &str| fs::read_to_string(tmp.path().join(name)).unwrap();
+    assert!(!read("argv").contains(PROBE));
+    assert!(!read("argv").lines().any(|l| l == "-N"));
+    assert!(!read("env").contains(PROBE));
+    assert!(read("env").contains("SSH_ASKPASS_REQUIRE=force"));
+    assert_eq!(read("secret.content"), PROBE);
+    assert!(!Path::new(&read("secret.path")).exists());
+}
+
+#[test]
+fn clustered_short_flags_cannot_bypass_the_prefix() {
+    for (session, expect) in [
+        (&["-vA"][..], &["-v"][..]),
+        (&["-vX"], &["-v"]),
+        (&["-vt"], &["-v"]),
+        (&["-vAX"], &["-v"]),
+        (&["-Av"], &["-v"]),
+        (&["-AX"], &[]),
+        (&["-vq"], &["-v", "-q"]),
+        (&["-vS", "/sock"], &["-v"]),
+        (&["-vM"], &["-v"]),
+        (&["-vp22"], &["-v"]),
+        (&["-vi", "/id", "-q"], &["-v", "-i", "/id", "-q"]),
+        (&["-vL80:h:1", "-q"], &["-v", "-q"]),
+        (&["-vJ", "bastion"], &["-v", "-J", "bastion"]),
+        (&["-vo", "StrictHostKeyChecking=no", "-q"], &["-v", "-q"]),
+        (&["-voForwardAgent=yes"], &["-v"]),
+        (
+            &["-vo", "ServerAliveInterval=15"],
+            &["-v", "-o", "ServerAliveInterval=15"],
+        ),
+    ] {
+        let args = control_channel_args(&strs(session));
+        assert_eq!(args[20..], strs(expect)[..], "session {session:?}");
+    }
+    // A flag-looking value of a value flag is a value, not a cluster.
+    let args = control_channel_args(&strs(&["-F", "-vA"]));
+    assert_eq!(args[20..], strs(&["-F", "-vA"])[..]);
+}
+
+#[test]
+fn a_post_auth_255_is_not_a_wrong_passphrase() {
+    let stderr = format!(
+        "{ACCEPTS}debug1: read_passphrase: requested to askpass\nAuthenticated to h ([1.2.3.4]:22) using \"publickey\".\nConnection to h closed by remote host.\n"
+    );
+    assert!(!matches!(
+        classify_verify(Some(255), &stderr, "SHA256:abc"),
+        Err(KeySetupError::WrongPassphrase)
+    ));
+}
+
+#[test]
+fn acceptance_must_be_a_debug_line() {
+    let fake = "Server accepts key: /k ED25519 SHA256:abc explicit\n";
+    assert!(matches!(
+        classify_verify(Some(0), fake, "SHA256:abc"),
+        Err(KeySetupError::KeyNotAccepted)
+    ));
+    let indented = " debug1: Server accepts key: /k ED25519 SHA256:abc explicit\n";
+    assert!(matches!(
+        classify_verify(Some(0), indented, "SHA256:abc"),
+        Err(KeySetupError::KeyNotAccepted)
+    ));
+}
+
+#[test]
+fn too_many_authentication_failures_is_an_auth_failure() {
+    let stderr = "Received disconnect from 10.0.0.5 port 22:2: Too many authentication failures\r\nDisconnected from 10.0.0.5 port 22\r\n";
+    let error = classify_deploy(Some(255), "", stderr).unwrap_err();
+    assert!(methods_of(error).is_empty());
+    // A `Permission denied` line still wins and carries its methods.
+    let both = format!("{stderr}u@h: Permission denied (publickey,password).\n");
+    let error = classify_deploy(Some(255), "", &both).unwrap_err();
+    assert_eq!(methods_of(error), ["publickey", "password"]);
 }
