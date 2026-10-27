@@ -5814,7 +5814,10 @@ msgid ""
 "The key was installed, but the server does not accept it. Common causes are "
 "wrong permissions on the home folder or ~/.ssh (StrictModes), a custom "
 "AuthorizedKeysFile, SELinux, or key sign-in being disabled."
-msgstr "Ключ встановлено, але сервер його не приймає. Поширені причини: неправильні права на домашню папку або ~/.ssh (StrictModes), власний AuthorizedKeysFile, SELinux або вимкнений вхід за ключем."
+msgstr ""
+"Ключ установлено, але сервер його не приймає. Поширені причини: хибні права "
+"на домашню теку чи ~/.ssh (StrictModes), власний AuthorizedKeysFile, SELinux "
+"або вимкнений вхід за ключем."
 
 #: rustconn/src/dialogs/key_setup.rs:267
 msgid ""
@@ -5909,7 +5912,9 @@ msgstr "{} — не закритий ключ. Обери файл закрит�
 msgid ""
 "The public key for {} was not found. Put its .pub file next to it, or choose "
 "a key in the OpenSSH format."
-msgstr "Відкритий ключ для {} не знайдено. Розмісти поряд його файл .pub або обери ключ у форматі OpenSSH."
+msgstr ""
+"Відкритий ключ для {} не знайдено. Розмісти поряд його файл .pub або обери "
+"ключ у форматі OpenSSH."
 
 #: rustconn/src/dialogs/key_setup.rs:351
 msgid "This host name or user name cannot be used for key setup."
@@ -6105,7 +6110,9 @@ msgstr ""
 msgid ""
 "RustConn installs the key on {} and checks that it signs in. The stored "
 "password is kept."
-msgstr "RustConn встановить ключ на {} і перевірить, що він дозволяє увійти. Збережений пароль залишається."
+msgstr ""
+"RustConn установлює ключ на {} і перевіряє, що вхід із ним працює. "
+"Збережений пароль лишається."
 
 #: rustconn/src/dialogs/key_setup.rs:702
 msgid ""
@@ -6133,7 +6140,8 @@ msgstr "Парольна фраза ключа (необов'язково)"
 
 #: rustconn/src/dialogs/key_setup.rs:887
 msgid "Used once to check that the key signs in. Not saved."
-msgstr "Використовується один раз, щоб перевірити вхід за ключем. Не зберігається."
+msgstr ""
+"Використовується один раз, щоб перевірити вхід за ключем. Не зберігається."
 
 #: rustconn/src/dialogs/key_setup.rs:1040
 #: rustconn/src/embedded_rdp/file_dnd.rs:229
