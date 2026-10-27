@@ -4100,6 +4100,70 @@ impl WebBrowserMode {
     }
 }
 
+/// What a Web launch must do about the embedded-browser gate.
+///
+/// The decision behind [`WebBrowserMode::effective`], kept pure so the
+/// snap × mode × tunnel matrix is testable without a display.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EmbeddedGate {
+    /// Nothing is gated: open the connection as its mode says.
+    Open,
+    /// The stored mode is `Embedded` but it is not allowed here: open the system
+    /// browser and explain why once.
+    NoticeThenSystem,
+    /// As above, but the connection tunnels through SSH and the system browser
+    /// cannot take a proxy. Refuse, never browse un-tunnelled.
+    RefuseTunnelled,
+}
+
+/// What "Open Browser via Tunnel" must do about the embedded-browser gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TunnelledBrowserGate {
+    /// The embedded browser may be used for this launch.
+    pub embedded_available: bool,
+    /// The setting asked for the embedded browser but the gate refuses it, so an
+    /// external one is used and the one-time notice applies.
+    pub notice: bool,
+}
+
+impl TunnelledBrowserGate {
+    /// Decides the gate from the setting, the build and the per-device opt-in.
+    #[must_use]
+    pub const fn decide(
+        prefer_embedded: bool,
+        embedded_built: bool,
+        embedded_allowed: bool,
+    ) -> Self {
+        Self {
+            embedded_available: embedded_built && embedded_allowed,
+            notice: prefer_embedded && embedded_built && !embedded_allowed,
+        }
+    }
+}
+
+impl EmbeddedGate {
+    /// Decides the gate for a launch of a connection stored with `mode`.
+    ///
+    /// `embedded_built` is whether this build can open the embedded browser at
+    /// all (a build without it has nothing to explain), `embedded_allowed` the
+    /// per-device opt-in, `tunnelled` whether the connection sets `tunnel_via`.
+    #[must_use]
+    pub const fn decide(
+        mode: WebBrowserMode,
+        embedded_built: bool,
+        embedded_allowed: bool,
+        tunnelled: bool,
+    ) -> Self {
+        if !embedded_built || embedded_allowed || !matches!(mode, WebBrowserMode::Embedded) {
+            Self::Open
+        } else if tunnelled {
+            Self::RefuseTunnelled
+        } else {
+            Self::NoticeThenSystem
+        }
+    }
+}
+
 /// Unlike the enum itself, the *default* is conditional: a brand-new Web
 /// connection created on a build that cannot open a WebView, or inside a snap
 /// (where the embedded browser is unsandboxed), should not start out asking for
@@ -4114,6 +4178,18 @@ impl Default for WebBrowserMode {
     fn default() -> Self {
         Self::default_for(crate::snap::is_snap())
     }
+}
+
+/// The mode a stored Web record without a `browser_mode` key reads as.
+///
+/// Deliberately independent of the environment (`default_for(false)`, never
+/// `is_snap()`): connection data is shared across devices, so loading a keyless
+/// record in the snap as `System` would be written back on the next save and
+/// synced to every other device. The snap's launch-time gate
+/// ([`WebBrowserMode::effective`]) already keeps such a record out of the
+/// embedded browser there.
+fn stored_browser_mode_default() -> WebBrowserMode {
+    WebBrowserMode::default_for(false)
 }
 
 /// Web connection configuration.
@@ -4208,7 +4284,7 @@ impl<'de> Deserialize<'de> for WebConfig {
             browser: Option<String>,
             #[serde(default)]
             private_mode: bool,
-            #[serde(default)]
+            #[serde(default = "stored_browser_mode_default")]
             browser_mode: WebBrowserMode,
             #[serde(default = "default_true")]
             javascript_enabled: bool,
@@ -4335,6 +4411,83 @@ mod web_browser_mode_tests {
             WebBrowserMode::System
         };
         assert_eq!(WebBrowserMode::default_for(false), expected);
+    }
+
+    #[test]
+    fn embedded_gate_matrix() {
+        use EmbeddedGate::{NoticeThenSystem, Open, RefuseTunnelled};
+        let modes = [
+            WebBrowserMode::Embedded,
+            WebBrowserMode::System,
+            WebBrowserMode::Custom,
+        ];
+        for mode in modes {
+            for built in [true, false] {
+                for allowed in [true, false] {
+                    for tunnelled in [true, false] {
+                        let expected = if mode == WebBrowserMode::Embedded && built && !allowed {
+                            if tunnelled {
+                                RefuseTunnelled
+                            } else {
+                                NoticeThenSystem
+                            }
+                        } else {
+                            Open
+                        };
+                        assert_eq!(
+                            EmbeddedGate::decide(mode, built, allowed, tunnelled),
+                            expected,
+                            "mode={mode:?} built={built} allowed={allowed} tunnelled={tunnelled}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn embedded_gate_agrees_with_effective() {
+        for allowed in [true, false] {
+            for mode in [
+                WebBrowserMode::Embedded,
+                WebBrowserMode::System,
+                WebBrowserMode::Custom,
+            ] {
+                let gated = EmbeddedGate::decide(mode, true, allowed, false) != EmbeddedGate::Open;
+                assert_eq!(gated, mode.effective(allowed) != mode);
+            }
+        }
+    }
+
+    #[test]
+    fn tunnelled_browser_gate_matrix() {
+        for prefer in [true, false] {
+            for built in [true, false] {
+                for allowed in [true, false] {
+                    let gate = TunnelledBrowserGate::decide(prefer, built, allowed);
+                    assert_eq!(gate.embedded_available, built && allowed);
+                    assert_eq!(gate.notice, prefer && built && !allowed);
+                }
+            }
+        }
+        // The snap with the opt-in off: external browser, one notice.
+        let snap = TunnelledBrowserGate::decide(true, true, false);
+        assert!(!snap.embedded_available && snap.notice);
+        // Not asking for the embedded browser: nothing to explain.
+        assert!(!TunnelledBrowserGate::decide(false, true, false).notice);
+    }
+
+    /// A keyless stored record must not pick up the snap default, or the next
+    /// save would write `system` back and sync it to other devices.
+    #[test]
+    fn keyless_stored_browser_mode_ignores_the_environment() {
+        let config: WebConfig = toml::from_str("javascript_enabled = true\n")
+            .expect("a record without browser_mode must parse");
+        assert_eq!(config.browser_mode, WebBrowserMode::default_for(false));
+        assert_eq!(
+            stored_browser_mode_default(),
+            WebBrowserMode::default_for(false)
+        );
     }
 
     #[test]
