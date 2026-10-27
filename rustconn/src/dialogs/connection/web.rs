@@ -190,9 +190,20 @@ fn build_browser_mode_combo() -> adw::ComboRow {
     let item_strs: Vec<&str> = translated_items.iter().map(String::as_str).collect();
     let string_list = StringList::new(&item_strs);
 
+    // In the snap, "Embedded" only takes effect once the embedded browser is
+    // allowed in Settings (a per-device opt-in), so the row says what the choice
+    // does there instead of leaving it to open the system browser unexplained.
+    let subtitle = if cfg!(feature = "web-embedded") && rustconn_core::snap::is_snap() {
+        i18n(
+            "In the snap, Embedded opens in the system browser unless the embedded browser is allowed in Settings",
+        )
+    } else {
+        i18n("How the URL is opened")
+    };
+
     adw::ComboRow::builder()
         .title(i18n("Mode"))
-        .subtitle(i18n("How the URL is opened"))
+        .subtitle(subtitle)
         .model(&string_list)
         // Follows the default mode, which is System in the snap.
         .selected(combo_index_from_browser_mode(WebBrowserMode::default()))

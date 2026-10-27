@@ -523,8 +523,12 @@ pub fn create_ui_page() -> (
         .build();
     connections_group.add(&open_tunnelled_browser_in_embedded);
     // The tunnelled-browser toggle has no effect in the snap until the embedded
-    // browser is allowed, so do not offer it as if it did.
+    // browser is allowed, so do not offer it as if it did, and say why it is
+    // unavailable.
     if snap_embedded_browser_allowed.is_visible() {
+        open_tunnelled_browser_in_embedded.set_subtitle(&i18n(
+            "‘Open Browser via Tunnel’ uses the in-app browser when ‘Allow the embedded browser’ is on; otherwise it launches an external Chromium browser in incognito mode",
+        ));
         snap_embedded_browser_allowed
             .bind_property("active", &open_tunnelled_browser_in_embedded, "sensitive")
             .sync_create()

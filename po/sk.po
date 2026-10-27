@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-26 22:59+0200\n"
+"POT-Creation-Date: 2026-10-27 11:34+0200\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Slovak\n"
@@ -261,8 +261,9 @@ msgstr "Zadať heslo ručne"
 
 #: rustconn/src/dialogs/backend_missing.rs:56
 #: rustconn/src/embedded_rdp/connection.rs:2333 rustconn/src/vault_ops.rs:66
-#: rustconn/src/vault_ops.rs:316 rustconn/src/window/edit_actions.rs:1415
-#: rustconn/src/window/edit_actions.rs:2066 rustconn/src/window/mod.rs:1074
+#: rustconn/src/vault_ops.rs:316 rustconn/src/window/edit_actions.rs:1419
+#: rustconn/src/window/edit_actions.rs:1548
+#: rustconn/src/window/edit_actions.rs:2097 rustconn/src/window/mod.rs:1074
 msgid "Open Settings"
 msgstr "Otvoriť nastavenia"
 
@@ -461,7 +462,7 @@ msgid "Override terminal colors for this connection"
 msgstr "Prepísať farby terminálu pre toto pripojenie"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:91
-#: rustconn/src/dialogs/settings/ui_tab.rs:548
+#: rustconn/src/dialogs/settings/ui_tab.rs:552
 msgid "Custom"
 msgstr "Vlastný"
 
@@ -564,7 +565,7 @@ msgid "Detect terminal output activity or silence"
 msgstr "Detekovať aktivitu alebo ticho výstupu terminálu"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:347
-#: rustconn/src/dialogs/connection/web.rs:194
+#: rustconn/src/dialogs/connection/web.rs:205
 msgid "Mode"
 msgstr "Režim"
 
@@ -798,7 +799,7 @@ msgstr "Použiť globálne nastavenie"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:822
 #: rustconn/src/dialogs/connection/dialog/rows.rs:450
-#: rustconn/src/dialogs/settings/ui_tab.rs:662
+#: rustconn/src/dialogs/settings/ui_tab.rs:666
 #: rustconn/src/window/edit_group.rs:2288
 msgid "Enabled"
 msgstr "Povolené"
@@ -4037,7 +4038,15 @@ msgstr ""
 msgid "General"
 msgstr "Všeobecné"
 
-#: rustconn/src/dialogs/connection/web.rs:195
+#: rustconn/src/dialogs/connection/web.rs:198
+msgid ""
+"In the snap, Embedded opens in the system browser unless the embedded "
+"browser is allowed in Settings"
+msgstr ""
+"V snape sa režim Vstavaný otvorí v systémovom prehliadači, pokiaľ nie je "
+"vstavaný prehliadač povolený v Nastaveniach"
+
+#: rustconn/src/dialogs/connection/web.rs:201
 msgid "How the URL is opened"
 msgstr "Ako sa URL otvorí"
 
@@ -8340,8 +8349,8 @@ msgid "Send Escape prefix instead of composed characters (for vim/emacs)"
 msgstr "Odosielať prefix Escape namiesto zložených znakov (pre vim/emacs)"
 
 #: rustconn/src/dialogs/settings/terminal_tab.rs:480
-#: rustconn/src/dialogs/settings/ui_tab.rs:598
-#: rustconn/src/dialogs/settings/ui_tab.rs:921
+#: rustconn/src/dialogs/settings/ui_tab.rs:602
+#: rustconn/src/dialogs/settings/ui_tab.rs:925
 #: rustconn/src/dialogs/shortcuts.rs:170
 #: rustconn/src/split_view/adapter.rs:1838 rustconn/src/tray.rs:259
 #: rustconn/src/tray.rs:649 rustconn/src/window/ui.rs:266
@@ -8688,31 +8697,41 @@ msgstr ""
 "„Otvoriť prehliadač cez tunel“ používa vstavaný prehliadač; vypnutím "
 "spustíte externý prehliadač Chromium v anonymnom režime"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:538
+#: rustconn/src/dialogs/settings/ui_tab.rs:530
+msgid ""
+"‘Open Browser via Tunnel’ uses the in-app browser when ‘Allow the embedded "
+"browser’ is on; otherwise it launches an external Chromium browser in "
+"incognito mode"
+msgstr ""
+"„Otvoriť prehliadač cez tunel“ používa vstavaný prehliadač, keď je zapnuté "
+"„Povoliť vstavaný prehliadač“; inak spustí externý prehliadač Chromium v "
+"režime inkognito"
+
+#: rustconn/src/dialogs/settings/ui_tab.rs:542
 msgid "Tunnelled browser start page"
 msgstr "Úvodná stránka tunelovaného prehliadača"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:545
+#: rustconn/src/dialogs/settings/ui_tab.rs:549
 msgid "Google"
 msgstr "Google"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:546
+#: rustconn/src/dialogs/settings/ui_tab.rs:550
 msgid "DuckDuckGo"
 msgstr "DuckDuckGo"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:547
+#: rustconn/src/dialogs/settings/ui_tab.rs:551
 msgid "ifconfig.me (show exit IP)"
 msgstr "ifconfig.me (zobraziť výstupnú IP)"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:555
+#: rustconn/src/dialogs/settings/ui_tab.rs:559
 msgid "Fill in a common start page, or Custom to type your own"
 msgstr "Vyplniť bežnú úvodnú stránku alebo Custom pre vlastnú"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:576
+#: rustconn/src/dialogs/settings/ui_tab.rs:580
 msgid "External browser command (tunnelled)"
 msgstr "Externý prehliadač pre tunel (príkaz)"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:580
+#: rustconn/src/dialogs/settings/ui_tab.rs:584
 msgid ""
 "Command or path to a Chromium-based browser for the external tunnelled "
 "browser (e.g. chromium, brave-browser). Leave empty to auto-detect."
@@ -8721,84 +8740,84 @@ msgstr ""
 "tunelovaný prehliadač (napr. chromium, brave-browser). Nechajte prázdne pre "
 "automatické zistenie."
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:588
+#: rustconn/src/dialogs/settings/ui_tab.rs:592
 msgid "Startup"
 msgstr "Spustenie"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:589
+#: rustconn/src/dialogs/settings/ui_tab.rs:593
 msgid "Action to perform when the application starts"
 msgstr "Akcia pri spustení aplikácie"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:594
+#: rustconn/src/dialogs/settings/ui_tab.rs:598
 msgid "On startup"
 msgstr "Pri spustení"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:595
+#: rustconn/src/dialogs/settings/ui_tab.rs:599
 msgid "Open session automatically"
 msgstr "Otvoriť reláciu automaticky"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:597
-#: rustconn/src/dialogs/settings/ui_tab.rs:921
+#: rustconn/src/dialogs/settings/ui_tab.rs:601
+#: rustconn/src/dialogs/settings/ui_tab.rs:925
 msgid "Do Nothing"
 msgstr "Nerobiť nič"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:615
+#: rustconn/src/dialogs/settings/ui_tab.rs:619
 msgid "Show Welcome tab"
 msgstr "Zobraziť kartu Vitajte"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:616
+#: rustconn/src/dialogs/settings/ui_tab.rs:620
 msgid "Display Welcome tab when no session opens at startup"
 msgstr "Zobraziť kartu Vitajte, keď sa pri spustení neotvorí žiadna relácia"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:626
+#: rustconn/src/dialogs/settings/ui_tab.rs:630
 msgid "System Tray"
 msgstr "Systémová lišta"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:627
+#: rustconn/src/dialogs/settings/ui_tab.rs:631
 msgid "Requires desktop environment with tray support"
 msgstr "Vyžaduje desktopové prostredie s podporou systémovej lišty"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:632
+#: rustconn/src/dialogs/settings/ui_tab.rs:636
 msgid "Show icon"
 msgstr "Zobraziť ikonu"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:633
+#: rustconn/src/dialogs/settings/ui_tab.rs:637
 msgid "Display icon in system tray"
 msgstr "Zobraziť ikonu v systémovej lište"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:638
+#: rustconn/src/dialogs/settings/ui_tab.rs:642
 msgid "Minimize to tray"
 msgstr "Minimalizovať do systémovej lišty"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:639
+#: rustconn/src/dialogs/settings/ui_tab.rs:643
 msgid "Hide window instead of closing"
 msgstr "Skryť okno namiesto zatvorenia"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:656
+#: rustconn/src/dialogs/settings/ui_tab.rs:660
 msgid "Session Restore"
 msgstr "Obnovenie relácií"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:657
+#: rustconn/src/dialogs/settings/ui_tab.rs:661
 msgid "Restore previous connections on startup"
 msgstr "Obnoviť predchádzajúce pripojenia pri spustení"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:663
+#: rustconn/src/dialogs/settings/ui_tab.rs:667
 msgid "Reconnect to previous sessions on startup"
 msgstr "Pri spustení sa znovu pripojiť k predchádzajúcim reláciám"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:668
+#: rustconn/src/dialogs/settings/ui_tab.rs:672
 msgid "Ask first"
 msgstr "Najprv sa opýtať"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:669
+#: rustconn/src/dialogs/settings/ui_tab.rs:673
 msgid "Prompt before restoring sessions"
 msgstr "Opýtať sa pred obnovením relácií"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:674
+#: rustconn/src/dialogs/settings/ui_tab.rs:678
 msgid "Max age"
 msgstr "Max. vek"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:675
+#: rustconn/src/dialogs/settings/ui_tab.rs:679
 msgid "Hours before sessions expire"
 msgstr "Hodiny do vypršania relácií"
 
@@ -12563,7 +12582,7 @@ msgstr ""
 
 #: rustconn/src/window/credentials.rs:1021
 #: rustconn/src/window/credentials.rs:1257
-#: rustconn/src/window/edit_actions.rs:2258
+#: rustconn/src/window/edit_actions.rs:2295
 msgid "Connection failed. Host unreachable."
 msgstr "Pripojenie zlyhalo. Hostiteľ nedostupný."
 
@@ -12674,7 +12693,7 @@ msgid "Opening mc SFTP…"
 msgstr "Otváranie mc SFTP…"
 
 #: rustconn/src/window/edit_actions.rs:850
-#: rustconn/src/window/edit_actions.rs:2406
+#: rustconn/src/window/edit_actions.rs:2443
 msgid ""
 "External file managers cannot access SSH agent in "
 "Flatpak.                          Enable \"SFTP via mc\" in Settings for "
@@ -12684,7 +12703,7 @@ msgstr ""
 "spoľahlivý prístup povoľte \"SFTP cez mc\" v Nastaveniach."
 
 #: rustconn/src/window/edit_actions.rs:866
-#: rustconn/src/window/edit_actions.rs:2424
+#: rustconn/src/window/edit_actions.rs:2461
 msgid "Jump host detected. Opening SFTP via mc instead of the file manager."
 msgstr ""
 "Zistený prestupný hostiteľ. SFTP sa otvára cez mc namiesto správcu súborov."
@@ -12709,18 +12728,23 @@ msgstr "aplikácia je zaneprázdnená"
 msgid "the SSH connection it tunnels through is gone"
 msgstr "SSH pripojenie, cez ktoré tuneluje, už neexistuje"
 
-#: rustconn/src/window/edit_actions.rs:1413
+#: rustconn/src/window/edit_actions.rs:1417
 msgid "Opened outside RustConn: the embedded browser is off in the snap"
 msgstr "Otvorené mimo RustConn: vstavaný prehliadač je v snape vypnutý"
 
-#: rustconn/src/window/edit_actions.rs:1473
-#: rustconn/src/window/edit_actions.rs:1616
-#: rustconn/src/window/edit_actions.rs:1861
-#: rustconn/src/window/edit_actions.rs:1959
+#: rustconn/src/window/edit_actions.rs:1478
+#: rustconn/src/window/edit_actions.rs:1642
+#: rustconn/src/window/edit_actions.rs:1893
+#: rustconn/src/window/edit_actions.rs:1991
 msgid "Could not open the SSH tunnel: {}"
 msgstr "Nepodarilo sa otvoriť SSH tunel: {}"
 
-#: rustconn/src/window/edit_actions.rs:1535
+#: rustconn/src/window/edit_actions.rs:1491
+#: rustconn/src/window/edit_actions.rs:1614
+msgid "Starting the tunnel…"
+msgstr "Spúšťa sa tunel…"
+
+#: rustconn/src/window/edit_actions.rs:1567
 msgid ""
 "The tunnelled browser command ‘{}’ is not Chromium-based and can't be "
 "tunnelled; opening the embedded browser instead. Set a chromium/chrome/brave/"
@@ -12730,7 +12754,7 @@ msgstr ""
 "tunelovať; otvára sa vstavaný prehliadač. Nastavte v Nastaveniach príkaz "
 "chromium/chrome/brave/vivaldi/edge na použitie externého prehliadača."
 
-#: rustconn/src/window/edit_actions.rs:1539
+#: rustconn/src/window/edit_actions.rs:1571
 msgid ""
 "The tunnelled browser command ‘{}’ is not a Chromium-based browser. Only "
 "Chromium-family browsers can be proxied through the tunnel; set a chromium/"
@@ -12740,7 +12764,7 @@ msgstr ""
 "Cez tunel možno smerovať iba prehliadače z rodiny Chromium; nastavte v "
 "Nastaveniach príkaz chromium/chrome/brave/vivaldi/edge."
 
-#: rustconn/src/window/edit_actions.rs:1545
+#: rustconn/src/window/edit_actions.rs:1577
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH; opening the "
 "embedded browser instead. Check the command in Settings, or clear it to auto-"
@@ -12750,7 +12774,7 @@ msgstr ""
 "prehliadač. Skontrolujte príkaz v Nastaveniach alebo ho vymažte na "
 "automatické zistenie prehliadača."
 
-#: rustconn/src/window/edit_actions.rs:1549
+#: rustconn/src/window/edit_actions.rs:1581
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH. Check the command "
 "in Settings, or clear it to auto-detect a browser."
@@ -12758,7 +12782,7 @@ msgstr ""
 "Príkaz tunelovaného prehliadača ‘{}’ sa nenašiel v PATH. Skontrolujte príkaz "
 "v Nastaveniach alebo ho vymažte na automatické zistenie prehliadača."
 
-#: rustconn/src/window/edit_actions.rs:1555
+#: rustconn/src/window/edit_actions.rs:1587
 msgid ""
 "No Chromium-based browser found; opening the embedded browser instead. "
 "Install a Chromium-based browser to tunnel an external one."
@@ -12767,7 +12791,7 @@ msgstr ""
 "prehliadač. Nainštalujte prehliadač založený na Chromium na tunelovanie "
 "externého."
 
-#: rustconn/src/window/edit_actions.rs:1560
+#: rustconn/src/window/edit_actions.rs:1592
 msgid ""
 "No Chromium-based browser found, and the embedded browser is off in the "
 "snap. Turn it on in Settings to open a tunnelled browser."
@@ -12775,7 +12799,7 @@ msgstr ""
 "Nenašiel sa prehliadač založený na Chromiu a vstavaný prehliadač je v snape "
 "vypnutý. Zapnite ho v nastaveniach a otvorte tunelovaný prehliadač."
 
-#: rustconn/src/window/edit_actions.rs:1564
+#: rustconn/src/window/edit_actions.rs:1596
 msgid ""
 "No Chromium-based browser found. Install a Chromium-based browser, or use a "
 "build with the embedded browser, to open a tunnelled browser."
@@ -12784,35 +12808,31 @@ msgstr ""
 "tunelovaného prehliadača nainštalujte prehliadač založený na Chromium alebo "
 "použite zostavenie so vstavaným prehliadačom."
 
-#: rustconn/src/window/edit_actions.rs:1594
-msgid "Starting the tunnel…"
-msgstr "Spúšťa sa tunel…"
-
-#: rustconn/src/window/edit_actions.rs:1692
+#: rustconn/src/window/edit_actions.rs:1718
 msgid "Opened a tunnelled browser"
 msgstr "Tunelovaný prehliadač otvorený"
 
-#: rustconn/src/window/edit_actions.rs:1697
-#: rustconn/src/window/edit_actions.rs:1750
+#: rustconn/src/window/edit_actions.rs:1723
+#: rustconn/src/window/edit_actions.rs:1776
 msgid "Failed to open browser: {}"
 msgstr "Nepodarilo sa otvoriť prehliadač: {}"
 
-#: rustconn/src/window/edit_actions.rs:1727
+#: rustconn/src/window/edit_actions.rs:1753
 msgid "{} (tunnel)"
 msgstr "{} (tunel)"
 
-#: rustconn/src/window/edit_actions.rs:1741
-#: rustconn/src/window/edit_actions.rs:1900
+#: rustconn/src/window/edit_actions.rs:1767
+#: rustconn/src/window/edit_actions.rs:1932
 msgid "Could not open the page: {}"
 msgstr "Stránku sa nepodarilo otvoriť: {}"
 
-#: rustconn/src/window/edit_actions.rs:1932
-#: rustconn/src/window/edit_actions.rs:2046
-#: rustconn/src/window/edit_actions.rs:2093
+#: rustconn/src/window/edit_actions.rs:1964
+#: rustconn/src/window/edit_actions.rs:2078
+#: rustconn/src/window/edit_actions.rs:2124
 msgid "Failed to open URL: {}"
 msgstr "Nepodarilo sa otvoriť URL: {}"
 
-#: rustconn/src/window/edit_actions.rs:1992
+#: rustconn/src/window/edit_actions.rs:2024
 msgid ""
 "This browser can't be tunnelled from the command line. Use a Chromium-based "
 "browser or the embedded browser for SSH tunnelling."
@@ -12820,12 +12840,12 @@ msgstr ""
 "Tento prehliadač nemožno tunelovať z príkazového riadka. Na tunelovanie cez "
 "SSH použite prehliadač založený na Chromiu alebo vstavaný prehliadač."
 
-#: rustconn/src/window/edit_actions.rs:2035
-#: rustconn/src/window/edit_actions.rs:2107
+#: rustconn/src/window/edit_actions.rs:2067
+#: rustconn/src/window/edit_actions.rs:2144
 msgid "Opened in browser"
 msgstr "Otvorené v prehliadači"
 
-#: rustconn/src/window/edit_actions.rs:2064
+#: rustconn/src/window/edit_actions.rs:2095
 msgid ""
 "This tunnelled connection needs the embedded browser, which is off in the "
 "snap"
@@ -12833,7 +12853,7 @@ msgstr ""
 "Toto tunelované pripojenie vyžaduje vstavaný prehliadač, ktorý je v snape "
 "vypnutý"
 
-#: rustconn/src/window/edit_actions.rs:2080
+#: rustconn/src/window/edit_actions.rs:2111
 msgid ""
 "SSH tunnelling needs the embedded or a Custom (Chromium) browser; the system "
 "browser opens without the tunnel."

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-26 22:59+0200\n"
+"POT-Creation-Date: 2026-10-27 11:34+0200\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Kazakh\n"
@@ -261,8 +261,9 @@ msgstr "Құпия сөзді қолмен енгізу"
 
 #: rustconn/src/dialogs/backend_missing.rs:56
 #: rustconn/src/embedded_rdp/connection.rs:2333 rustconn/src/vault_ops.rs:66
-#: rustconn/src/vault_ops.rs:316 rustconn/src/window/edit_actions.rs:1415
-#: rustconn/src/window/edit_actions.rs:2066 rustconn/src/window/mod.rs:1074
+#: rustconn/src/vault_ops.rs:316 rustconn/src/window/edit_actions.rs:1419
+#: rustconn/src/window/edit_actions.rs:1548
+#: rustconn/src/window/edit_actions.rs:2097 rustconn/src/window/mod.rs:1074
 msgid "Open Settings"
 msgstr "Параметрлерді ашу"
 
@@ -454,7 +455,7 @@ msgid "Override terminal colors for this connection"
 msgstr "Осы қосылым үшін терминал түстерін қайта анықтау"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:91
-#: rustconn/src/dialogs/settings/ui_tab.rs:548
+#: rustconn/src/dialogs/settings/ui_tab.rs:552
 msgid "Custom"
 msgstr "Реттелетін"
 
@@ -557,7 +558,7 @@ msgid "Detect terminal output activity or silence"
 msgstr "Терминал шығысының белсенділігін немесе тыныштығын анықтау"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:347
-#: rustconn/src/dialogs/connection/web.rs:194
+#: rustconn/src/dialogs/connection/web.rs:205
 msgid "Mode"
 msgstr "Режим"
 
@@ -791,7 +792,7 @@ msgstr "Жаһандық параметрді пайдалану"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:822
 #: rustconn/src/dialogs/connection/dialog/rows.rs:450
-#: rustconn/src/dialogs/settings/ui_tab.rs:662
+#: rustconn/src/dialogs/settings/ui_tab.rs:666
 #: rustconn/src/window/edit_group.rs:2288
 msgid "Enabled"
 msgstr "Қосылған"
@@ -4030,7 +4031,15 @@ msgstr ""
 msgid "General"
 msgstr "Жалпы"
 
-#: rustconn/src/dialogs/connection/web.rs:195
+#: rustconn/src/dialogs/connection/web.rs:198
+msgid ""
+"In the snap, Embedded opens in the system browser unless the embedded "
+"browser is allowed in Settings"
+msgstr ""
+"Snap ішінде «Ендірілген» режимі жүйелік браузерде ашылады, егер "
+"кіріктірілген браузерге Баптауларда рұқсат берілмесе"
+
+#: rustconn/src/dialogs/connection/web.rs:201
 msgid "How the URL is opened"
 msgstr "URL қалай ашылады"
 
@@ -8336,8 +8345,8 @@ msgid "Send Escape prefix instead of composed characters (for vim/emacs)"
 msgstr "Құрама таңбалардың орнына Escape префиксін жіберу (vim/emacs үшін)"
 
 #: rustconn/src/dialogs/settings/terminal_tab.rs:480
-#: rustconn/src/dialogs/settings/ui_tab.rs:598
-#: rustconn/src/dialogs/settings/ui_tab.rs:921
+#: rustconn/src/dialogs/settings/ui_tab.rs:602
+#: rustconn/src/dialogs/settings/ui_tab.rs:925
 #: rustconn/src/dialogs/shortcuts.rs:170
 #: rustconn/src/split_view/adapter.rs:1838 rustconn/src/tray.rs:259
 #: rustconn/src/tray.rs:649 rustconn/src/window/ui.rs:266
@@ -8683,31 +8692,41 @@ msgstr ""
 "«Браузерді тунель арқылы ашу» кіріктірілген браузерді пайдаланады; сыртқы "
 "Chromium браузерін инкогнито режимінде ашу үшін өшіріңіз"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:538
+#: rustconn/src/dialogs/settings/ui_tab.rs:530
+msgid ""
+"‘Open Browser via Tunnel’ uses the in-app browser when ‘Allow the embedded "
+"browser’ is on; otherwise it launches an external Chromium browser in "
+"incognito mode"
+msgstr ""
+"«Браузерді тунель арқылы ашу» «Кіріктірілген браузерге рұқсат ету» қосулы "
+"болғанда кіріктірілген браузерді пайдаланады; әйтпесе сыртқы Chromium "
+"браузерін инкогнито режимінде іске қосады"
+
+#: rustconn/src/dialogs/settings/ui_tab.rs:542
 msgid "Tunnelled browser start page"
 msgstr "Туннельдік браузердің бастапқы беті"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:545
+#: rustconn/src/dialogs/settings/ui_tab.rs:549
 msgid "Google"
 msgstr "Google"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:546
+#: rustconn/src/dialogs/settings/ui_tab.rs:550
 msgid "DuckDuckGo"
 msgstr "DuckDuckGo"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:547
+#: rustconn/src/dialogs/settings/ui_tab.rs:551
 msgid "ifconfig.me (show exit IP)"
 msgstr "ifconfig.me (шығыс IP көрсету)"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:555
+#: rustconn/src/dialogs/settings/ui_tab.rs:559
 msgid "Fill in a common start page, or Custom to type your own"
 msgstr "Жиі қолданылатын бастапқы бетті толтыру немесе Custom (өзіңдікі)"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:576
+#: rustconn/src/dialogs/settings/ui_tab.rs:580
 msgid "External browser command (tunnelled)"
 msgstr "Туннельдік сыртқы браузер (пәрмен)"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:580
+#: rustconn/src/dialogs/settings/ui_tab.rs:584
 msgid ""
 "Command or path to a Chromium-based browser for the external tunnelled "
 "browser (e.g. chromium, brave-browser). Leave empty to auto-detect."
@@ -8715,84 +8734,84 @@ msgstr ""
 "Туннельдік сыртқы браузерге арналған Chromium негізіндегі браузердің пәрмені "
 "немесе жолы (мыс. chromium, brave-browser). Автоанықтау үшін бос қалдырыңыз."
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:588
+#: rustconn/src/dialogs/settings/ui_tab.rs:592
 msgid "Startup"
 msgstr "Іске қосу"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:589
+#: rustconn/src/dialogs/settings/ui_tab.rs:593
 msgid "Action to perform when the application starts"
 msgstr "Қолданба іске қосылғанда орындалатын әрекет"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:594
+#: rustconn/src/dialogs/settings/ui_tab.rs:598
 msgid "On startup"
 msgstr "Іске қосылғанда"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:595
+#: rustconn/src/dialogs/settings/ui_tab.rs:599
 msgid "Open session automatically"
 msgstr "Сеансты автоматты түрде ашу"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:597
-#: rustconn/src/dialogs/settings/ui_tab.rs:921
+#: rustconn/src/dialogs/settings/ui_tab.rs:601
+#: rustconn/src/dialogs/settings/ui_tab.rs:925
 msgid "Do Nothing"
 msgstr "Ештеңе істемеу"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:615
+#: rustconn/src/dialogs/settings/ui_tab.rs:619
 msgid "Show Welcome tab"
 msgstr "«Қош келдіңіз» қойындысын көрсету"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:616
+#: rustconn/src/dialogs/settings/ui_tab.rs:620
 msgid "Display Welcome tab when no session opens at startup"
 msgstr "Іске қосылғанда сеанс ашылмаса «Қош келдіңіз» қойындысын көрсету"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:626
+#: rustconn/src/dialogs/settings/ui_tab.rs:630
 msgid "System Tray"
 msgstr "Жүйелік науа"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:627
+#: rustconn/src/dialogs/settings/ui_tab.rs:631
 msgid "Requires desktop environment with tray support"
 msgstr "Науа қолдауы бар жұмыс үстелі ортасы қажет"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:632
+#: rustconn/src/dialogs/settings/ui_tab.rs:636
 msgid "Show icon"
 msgstr "Белгішені көрсету"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:633
+#: rustconn/src/dialogs/settings/ui_tab.rs:637
 msgid "Display icon in system tray"
 msgstr "Жүйелік науада белгішені көрсету"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:638
+#: rustconn/src/dialogs/settings/ui_tab.rs:642
 msgid "Minimize to tray"
 msgstr "Науаға жіберу"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:639
+#: rustconn/src/dialogs/settings/ui_tab.rs:643
 msgid "Hide window instead of closing"
 msgstr "Жабудың орнына терезені жасыру"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:656
+#: rustconn/src/dialogs/settings/ui_tab.rs:660
 msgid "Session Restore"
 msgstr "Сеансты қалпына келтіру"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:657
+#: rustconn/src/dialogs/settings/ui_tab.rs:661
 msgid "Restore previous connections on startup"
 msgstr "Іске қосылғанда алдыңғы қосылымдарды қалпына келтіру"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:663
+#: rustconn/src/dialogs/settings/ui_tab.rs:667
 msgid "Reconnect to previous sessions on startup"
 msgstr "Іске қосылғанда алдыңғы сеанстарға қайта қосылу"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:668
+#: rustconn/src/dialogs/settings/ui_tab.rs:672
 msgid "Ask first"
 msgstr "Алдымен сұрау"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:669
+#: rustconn/src/dialogs/settings/ui_tab.rs:673
 msgid "Prompt before restoring sessions"
 msgstr "Сеанстарды қалпына келтіру алдында сұрау"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:674
+#: rustconn/src/dialogs/settings/ui_tab.rs:678
 msgid "Max age"
 msgstr "Ең көп жас"
 
-#: rustconn/src/dialogs/settings/ui_tab.rs:675
+#: rustconn/src/dialogs/settings/ui_tab.rs:679
 msgid "Hours before sessions expire"
 msgstr "Сеанстардың мерзімі аяқталғанға дейінгі сағаттар"
 
@@ -12547,7 +12566,7 @@ msgstr "'{}' үшін қойма жазбасы табылмады. Сізден
 
 #: rustconn/src/window/credentials.rs:1021
 #: rustconn/src/window/credentials.rs:1257
-#: rustconn/src/window/edit_actions.rs:2258
+#: rustconn/src/window/edit_actions.rs:2295
 msgid "Connection failed. Host unreachable."
 msgstr "Қосылу сәтсіз. Хост қолжетімсіз."
 
@@ -12655,7 +12674,7 @@ msgid "Opening mc SFTP…"
 msgstr "mc SFTP ашылуда…"
 
 #: rustconn/src/window/edit_actions.rs:850
-#: rustconn/src/window/edit_actions.rs:2406
+#: rustconn/src/window/edit_actions.rs:2443
 msgid ""
 "External file managers cannot access SSH agent in "
 "Flatpak.                          Enable \"SFTP via mc\" in Settings for "
@@ -12666,7 +12685,7 @@ msgstr ""
 "\"SFTP via mc\" қосыңыз."
 
 #: rustconn/src/window/edit_actions.rs:866
-#: rustconn/src/window/edit_actions.rs:2424
+#: rustconn/src/window/edit_actions.rs:2461
 msgid "Jump host detected. Opening SFTP via mc instead of the file manager."
 msgstr ""
 "Аралық хост анықталды. SFTP файл басқарушысының орнына mc арқылы ашылады."
@@ -12692,18 +12711,23 @@ msgstr "қолданба бос емес"
 msgid "the SSH connection it tunnels through is gone"
 msgstr "тунель өтетін SSH қосылымы жоқ"
 
-#: rustconn/src/window/edit_actions.rs:1413
+#: rustconn/src/window/edit_actions.rs:1417
 msgid "Opened outside RustConn: the embedded browser is off in the snap"
 msgstr "RustConn сыртында ашылды: кіріктірілген браузер snap ішінде өшірулі"
 
-#: rustconn/src/window/edit_actions.rs:1473
-#: rustconn/src/window/edit_actions.rs:1616
-#: rustconn/src/window/edit_actions.rs:1861
-#: rustconn/src/window/edit_actions.rs:1959
+#: rustconn/src/window/edit_actions.rs:1478
+#: rustconn/src/window/edit_actions.rs:1642
+#: rustconn/src/window/edit_actions.rs:1893
+#: rustconn/src/window/edit_actions.rs:1991
 msgid "Could not open the SSH tunnel: {}"
 msgstr "SSH тунелін ашу мүмкін болмады: {}"
 
-#: rustconn/src/window/edit_actions.rs:1535
+#: rustconn/src/window/edit_actions.rs:1491
+#: rustconn/src/window/edit_actions.rs:1614
+msgid "Starting the tunnel…"
+msgstr "Тунель іске қосылуда…"
+
+#: rustconn/src/window/edit_actions.rs:1567
 msgid ""
 "The tunnelled browser command ‘{}’ is not Chromium-based and can't be "
 "tunnelled; opening the embedded browser instead. Set a chromium/chrome/brave/"
@@ -12713,7 +12737,7 @@ msgstr ""
 "келмейді; орнына кірістірілген браузер ашылуда. Сыртқы браузерді қолдану "
 "үшін Баптауларда chromium/chrome/brave/vivaldi/edge пәрменін көрсетіңіз."
 
-#: rustconn/src/window/edit_actions.rs:1539
+#: rustconn/src/window/edit_actions.rs:1571
 msgid ""
 "The tunnelled browser command ‘{}’ is not a Chromium-based browser. Only "
 "Chromium-family browsers can be proxied through the tunnel; set a chromium/"
@@ -12723,7 +12747,7 @@ msgstr ""
 "арқылы тек Chromium тобының браузерлерін проксилеуге болады; Баптауларда "
 "chromium/chrome/brave/vivaldi/edge пәрменін көрсетіңіз."
 
-#: rustconn/src/window/edit_actions.rs:1545
+#: rustconn/src/window/edit_actions.rs:1577
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH; opening the "
 "embedded browser instead. Check the command in Settings, or clear it to auto-"
@@ -12733,7 +12757,7 @@ msgstr ""
 "браузер ашылуда. Баптаулардағы пәрменді тексеріңіз немесе браузерді "
 "автоанықтау үшін оны тазалаңыз."
 
-#: rustconn/src/window/edit_actions.rs:1549
+#: rustconn/src/window/edit_actions.rs:1581
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH. Check the command "
 "in Settings, or clear it to auto-detect a browser."
@@ -12741,7 +12765,7 @@ msgstr ""
 "Туннельдік браузер пәрмені ‘{}’ PATH ішінен табылмады. Баптаулардағы "
 "пәрменді тексеріңіз немесе браузерді автоанықтау үшін оны тазалаңыз."
 
-#: rustconn/src/window/edit_actions.rs:1555
+#: rustconn/src/window/edit_actions.rs:1587
 msgid ""
 "No Chromium-based browser found; opening the embedded browser instead. "
 "Install a Chromium-based browser to tunnel an external one."
@@ -12750,7 +12774,7 @@ msgstr ""
 "ашылуда. Сыртқы браузерді туннельдеу үшін Chromium негізіндегі браузерді "
 "орнатыңыз."
 
-#: rustconn/src/window/edit_actions.rs:1560
+#: rustconn/src/window/edit_actions.rs:1592
 msgid ""
 "No Chromium-based browser found, and the embedded browser is off in the "
 "snap. Turn it on in Settings to open a tunnelled browser."
@@ -12758,7 +12782,7 @@ msgstr ""
 "Chromium негізіндегі браузер табылмады, ал кіріктірілген браузер snap ішінде "
 "өшірулі. Тунельделген браузерді ашу үшін оны параметрлерде қосыңыз."
 
-#: rustconn/src/window/edit_actions.rs:1564
+#: rustconn/src/window/edit_actions.rs:1596
 msgid ""
 "No Chromium-based browser found. Install a Chromium-based browser, or use a "
 "build with the embedded browser, to open a tunnelled browser."
@@ -12767,35 +12791,31 @@ msgstr ""
 "Chromium негізіндегі браузерді орнатыңыз немесе кірістірілген браузері бар "
 "құрастырманы пайдаланыңыз."
 
-#: rustconn/src/window/edit_actions.rs:1594
-msgid "Starting the tunnel…"
-msgstr "Тунель іске қосылуда…"
-
-#: rustconn/src/window/edit_actions.rs:1692
+#: rustconn/src/window/edit_actions.rs:1718
 msgid "Opened a tunnelled browser"
 msgstr "Тунельделген браузер ашылды"
 
-#: rustconn/src/window/edit_actions.rs:1697
-#: rustconn/src/window/edit_actions.rs:1750
+#: rustconn/src/window/edit_actions.rs:1723
+#: rustconn/src/window/edit_actions.rs:1776
 msgid "Failed to open browser: {}"
 msgstr "Браузерді ашу мүмкін болмады: {}"
 
-#: rustconn/src/window/edit_actions.rs:1727
+#: rustconn/src/window/edit_actions.rs:1753
 msgid "{} (tunnel)"
 msgstr "{} (тунель)"
 
-#: rustconn/src/window/edit_actions.rs:1741
-#: rustconn/src/window/edit_actions.rs:1900
+#: rustconn/src/window/edit_actions.rs:1767
+#: rustconn/src/window/edit_actions.rs:1932
 msgid "Could not open the page: {}"
 msgstr "Бетті ашу мүмкін болмады: {}"
 
-#: rustconn/src/window/edit_actions.rs:1932
-#: rustconn/src/window/edit_actions.rs:2046
-#: rustconn/src/window/edit_actions.rs:2093
+#: rustconn/src/window/edit_actions.rs:1964
+#: rustconn/src/window/edit_actions.rs:2078
+#: rustconn/src/window/edit_actions.rs:2124
 msgid "Failed to open URL: {}"
 msgstr "URL ашу сәтсіз: {}"
 
-#: rustconn/src/window/edit_actions.rs:1992
+#: rustconn/src/window/edit_actions.rs:2024
 msgid ""
 "This browser can't be tunnelled from the command line. Use a Chromium-based "
 "browser or the embedded browser for SSH tunnelling."
@@ -12803,12 +12823,12 @@ msgstr ""
 "Бұл браузерді пәрмен жолынан тунельдеу мүмкін емес. SSH тунелі үшін Chromium "
 "негізіндегі немесе кіріктірілген браузерді пайдаланыңыз."
 
-#: rustconn/src/window/edit_actions.rs:2035
-#: rustconn/src/window/edit_actions.rs:2107
+#: rustconn/src/window/edit_actions.rs:2067
+#: rustconn/src/window/edit_actions.rs:2144
 msgid "Opened in browser"
 msgstr "Браузерде ашылды"
 
-#: rustconn/src/window/edit_actions.rs:2064
+#: rustconn/src/window/edit_actions.rs:2095
 msgid ""
 "This tunnelled connection needs the embedded browser, which is off in the "
 "snap"
@@ -12816,7 +12836,7 @@ msgstr ""
 "Бұл тунельделген қосылым кіріктірілген браузерді қажет етеді, ол snap ішінде "
 "өшірулі"
 
-#: rustconn/src/window/edit_actions.rs:2080
+#: rustconn/src/window/edit_actions.rs:2111
 msgid ""
 "SSH tunnelling needs the embedded or a Custom (Chromium) browser; the system "
 "browser opens without the tunnel."
