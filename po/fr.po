@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-27 17:02+0200\n"
+"POT-Creation-Date: 2026-10-28 01:04+0200\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: French\n"
@@ -29,7 +29,7 @@ msgstr "OK"
 #: rustconn/src/dialogs/credential_transfer.rs:457
 #: rustconn/src/dialogs/flatpak_components.rs:299
 #: rustconn/src/dialogs/history.rs:199 rustconn/src/dialogs/kdbx_unlock.rs:112
-#: rustconn/src/dialogs/key_setup.rs:622
+#: rustconn/src/dialogs/key_setup.rs:625
 #: rustconn/src/dialogs/portable_migration.rs:58
 #: rustconn/src/dialogs/portable_passphrase_change.rs:93
 #: rustconn/src/dialogs/portable_unlock.rs:93
@@ -59,8 +59,8 @@ msgstr "OK"
 #: rustconn/src/window/edit_group.rs:1957
 #: rustconn/src/window/edit_group.rs:2006
 #: rustconn/src/window/group_broadcast.rs:379
-#: rustconn/src/window/key_setup.rs:938 rustconn/src/window/mod.rs:3387
-#: rustconn/src/window/mod.rs:3451 rustconn/src/window/mod.rs:4405
+#: rustconn/src/window/key_setup.rs:1013 rustconn/src/window/mod.rs:3387
+#: rustconn/src/window/mod.rs:3451 rustconn/src/window/mod.rs:4406
 #: rustconn/src/window/operations.rs:116 rustconn/src/window/operations.rs:487
 #: rustconn/src/window/operations.rs:670 rustconn/src/window/sessions.rs:339
 #: rustconn/src/window/workspaces.rs:554
@@ -203,7 +203,7 @@ msgstr "Macro de commande « {} » : {}"
 msgid "{} — RustConn"
 msgstr "{} — RustConn"
 
-#: rustconn/src/detached_window.rs:140 rustconn/src/embedded_rdp/mod.rs:761
+#: rustconn/src/detached_window.rs:151 rustconn/src/embedded_rdp/mod.rs:761
 #: rustconn/src/embedded_rdp/mod.rs:2112
 #: rustconn/src/embedded_rdp/polling_handlers.rs:75
 #: rustconn/src/embedded_vnc/ui.rs:146
@@ -211,7 +211,7 @@ msgstr "{} — RustConn"
 msgid "Session disconnected"
 msgstr "Session déconnectée"
 
-#: rustconn/src/detached_window.rs:411
+#: rustconn/src/detached_window.rs:446
 msgid "Move to Main Window"
 msgstr "Déplacer vers la fenêtre principale"
 
@@ -224,10 +224,10 @@ msgid "‘{}’ needs the following before it can connect."
 msgstr "« {} » a besoin des éléments suivants avant de se connecter."
 
 #: rustconn/src/dialogs/ask_prompt.rs:73 rustconn/src/dialogs/history.rs:105
-#: rustconn/src/dialogs/key_setup.rs:589 rustconn/src/dialogs/widgets.rs:614
+#: rustconn/src/dialogs/key_setup.rs:592 rustconn/src/dialogs/widgets.rs:614
 #: rustconn/src/sidebar_ui.rs:396 rustconn/src/smart_folder_ui.rs:438
-#: rustconn/src/window/edit_dialogs.rs:760
-#: rustconn/src/window/edit_dialogs.rs:761
+#: rustconn/src/window/edit_dialogs.rs:777
+#: rustconn/src/window/edit_dialogs.rs:778
 msgid "Connect"
 msgstr "Connexion"
 
@@ -267,9 +267,9 @@ msgstr "Saisir le mot de passe manuellement"
 
 #: rustconn/src/dialogs/backend_missing.rs:56
 #: rustconn/src/embedded_rdp/connection.rs:2333 rustconn/src/vault_ops.rs:66
-#: rustconn/src/vault_ops.rs:316 rustconn/src/window/edit_actions.rs:1435
-#: rustconn/src/window/edit_actions.rs:1564
-#: rustconn/src/window/edit_actions.rs:2113 rustconn/src/window/mod.rs:1075
+#: rustconn/src/vault_ops.rs:316 rustconn/src/window/edit_actions.rs:1454
+#: rustconn/src/window/edit_actions.rs:1583
+#: rustconn/src/window/edit_actions.rs:2132 rustconn/src/window/mod.rs:1075
 msgid "Open Settings"
 msgstr "Ouvrir les paramètres"
 
@@ -279,8 +279,8 @@ msgid "New Cluster"
 msgstr "Nouveau cluster"
 
 #: rustconn/src/dialogs/cluster.rs:70 rustconn/src/dialogs/cluster.rs:71
-#: rustconn/src/dialogs/connection/dialog/construction.rs:139
-#: rustconn/src/dialogs/connection/dialog/construction.rs:140
+#: rustconn/src/dialogs/connection/dialog/construction.rs:143
+#: rustconn/src/dialogs/connection/dialog/construction.rs:144
 #: rustconn/src/dialogs/settings/terminal_tab.rs:813
 #: rustconn/src/dialogs/smart_folder.rs:87
 #: rustconn/src/dialogs/smart_folder.rs:88 rustconn/src/dialogs/snippet.rs:87
@@ -306,7 +306,7 @@ msgstr "Détails du cluster"
 #: rustconn/src/dialogs/template.rs:512
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:78
 #: rustconn/src/window/connection_dialogs.rs:413
-#: rustconn/src/window/edit_dialogs.rs:331
+#: rustconn/src/window/edit_dialogs.rs:348
 #: rustconn/src/window/edit_group.rs:111
 msgid "Name"
 msgstr "Nom"
@@ -433,7 +433,7 @@ msgstr "Ce cluster sera définitivement supprimé."
 #: rustconn/src/dialogs/tunnel.rs:728 rustconn/src/dialogs/workspace.rs:119
 #: rustconn/src/dialogs/workspace.rs:292 rustconn/src/sidebar_ui.rs:559
 #: rustconn/src/smart_folder_ui.rs:406 rustconn/src/smart_folder_ui.rs:460
-#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:939
+#: rustconn/src/window/clusters.rs:633 rustconn/src/window/key_setup.rs:1014
 #: rustconn/src/window/operations.rs:171 rustconn/src/window/snippets.rs:413
 #: rustconn/src/window/snippets.rs:503 rustconn/src/window/templates.rs:151
 msgid "Delete"
@@ -1306,22 +1306,22 @@ msgstr "Modifier la connexion (synchronisée)"
 msgid "Basic"
 msgstr "Base"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:365
+#: rustconn/src/dialogs/connection/dialog/build.rs:368
 msgid "Data"
 msgstr "Données"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:375
+#: rustconn/src/dialogs/connection/dialog/build.rs:378
 #: rustconn/src/dialogs/settings/logging_tab.rs:27
 msgid "Logging"
 msgstr "Journalisation"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:385
+#: rustconn/src/dialogs/connection/dialog/build.rs:388
 #: rustconn/src/i18n_markers.rs:33 rustconn/src/window/edit_group.rs:1080
 #: rustconn/src/window/edit_group.rs:1571
 msgid "Automation"
 msgstr "Automatisation"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:429
+#: rustconn/src/dialogs/connection/dialog/build.rs:432
 #: rustconn/src/dialogs/connection/kubernetes.rs:132
 #: rustconn/src/dialogs/connection/rdp.rs:830
 #: rustconn/src/dialogs/connection/vnc.rs:318
@@ -1331,19 +1331,19 @@ msgstr "Automatisation"
 msgid "Advanced"
 msgstr "Avancé"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:445
+#: rustconn/src/dialogs/connection/dialog/build.rs:448
 msgid "No host set"
 msgstr "Aucun hôte défini"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:446
+#: rustconn/src/dialogs/connection/dialog/build.rs:449
 msgid "Enter the host address first, then detect its MAC."
 msgstr "Saisissez d’abord l’adresse de l’hôte, puis détectez sa MAC."
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:464
+#: rustconn/src/dialogs/connection/dialog/build.rs:467
 msgid "MAC address may be temporary"
 msgstr "L’adresse MAC peut être temporaire"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:466
+#: rustconn/src/dialogs/connection/dialog/build.rs:469
 msgid ""
 "This looks like a randomized (private) address, which changes periodically. "
 "Wake-on-LAN will stop working once it rotates — turn off the private address "
@@ -1354,11 +1354,11 @@ msgstr ""
 "l’adresse privée pour ce réseau sur l’appareil cible, ou relisez-la plus "
 "tard."
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:474
+#: rustconn/src/dialogs/connection/dialog/build.rs:477
 msgid "MAC address not found"
 msgstr "Adresse MAC introuvable"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:476
+#: rustconn/src/dialogs/connection/dialog/build.rs:479
 msgid ""
 "The host is not in this computer's ARP cache. It must be powered on and on "
 "the same local network. For a host beyond a router, read its MAC over an SSH "
@@ -1368,50 +1368,50 @@ msgstr ""
 "sur le même réseau local. Pour un hôte au-delà d’un routeur, lisez plutôt sa "
 "MAC via une session SSH."
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:831
+#: rustconn/src/dialogs/connection/dialog/build.rs:834
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1196
-#: rustconn/src/dialogs/connection/ssh.rs:588
+#: rustconn/src/dialogs/connection/ssh.rs:687
 #: rustconn/src/dialogs/template.rs:699
 msgid "Jump host for tunneling (-J)"
 msgstr "Hôte de saut pour le tunneling (-J)"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1155
+#: rustconn/src/dialogs/connection/dialog/build.rs:1160
 msgid "Username Loaded"
 msgstr "Nom d'utilisateur chargé"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1156
+#: rustconn/src/dialogs/connection/dialog/build.rs:1161
 msgid "Username loaded from group"
 msgstr "Nom d'utilisateur chargé depuis le groupe"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1162
+#: rustconn/src/dialogs/connection/dialog/build.rs:1167
 msgid "No Username"
 msgstr "Aucun nom d'utilisateur"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1163
+#: rustconn/src/dialogs/connection/dialog/build.rs:1168
 msgid "Group has no username defined"
 msgstr "Le groupe n'a pas de nom d'utilisateur défini"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1189
+#: rustconn/src/dialogs/connection/dialog/build.rs:1194
 msgid "Domain Loaded"
 msgstr "Domaine chargé"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1190
+#: rustconn/src/dialogs/connection/dialog/build.rs:1195
 msgid "Domain loaded from group"
 msgstr "Domaine chargé depuis le groupe"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1196
+#: rustconn/src/dialogs/connection/dialog/build.rs:1201
 msgid "No Domain"
 msgstr "Aucun domaine"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1197
+#: rustconn/src/dialogs/connection/dialog/build.rs:1202
 msgid "Group has no domain defined"
 msgstr "Le groupe n'a pas de domaine défini"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1225
+#: rustconn/src/dialogs/connection/dialog/build.rs:1230
 msgid "Zero Trust Connection Test"
 msgstr "Test de connexion Zero Trust"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1226
+#: rustconn/src/dialogs/connection/dialog/build.rs:1231
 msgid ""
 "Zero Trust connections require provider-specific authentication.\n"
 "\n"
@@ -1428,35 +1428,35 @@ msgstr ""
 "2. Utilisez le bouton Connecter\n"
 "3. Le CLI du fournisseur gère l'authentification"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1234
-#: rustconn/src/dialogs/connection/dialog/build.rs:1396
+#: rustconn/src/dialogs/connection/dialog/build.rs:1239
 #: rustconn/src/dialogs/connection/dialog/build.rs:1401
+#: rustconn/src/dialogs/connection/dialog/build.rs:1406
 msgid "Connection Test Failed"
 msgstr "Échec du test de connexion"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1235
+#: rustconn/src/dialogs/connection/dialog/build.rs:1240
 msgid "Fill in the required fields (name and host)"
 msgstr "Renseignez les champs obligatoires (nom et hôte)"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1277
-#: rustconn/src/dialogs/connection/dialog/build.rs:1447
+#: rustconn/src/dialogs/connection/dialog/build.rs:1282
+#: rustconn/src/dialogs/connection/dialog/build.rs:1452
 msgid "Testing…"
 msgstr "Test en cours…"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1376
+#: rustconn/src/dialogs/connection/dialog/build.rs:1381
 #: rustconn/src/dialogs/connection/general_tab.rs:366
 msgid "Test"
 msgstr "Test"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1383
+#: rustconn/src/dialogs/connection/dialog/build.rs:1388
 msgid "Connection Test Successful"
 msgstr "Test de connexion réussi"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1385
+#: rustconn/src/dialogs/connection/dialog/build.rs:1390
 msgid "Connection successful. Latency: {} ms"
 msgstr "Connexion réussie. Latence : {} ms"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1394
+#: rustconn/src/dialogs/connection/dialog/build.rs:1399
 msgid ""
 "The test failed without a specific error. Check the host address and port, "
 "then try again."
@@ -1464,89 +1464,89 @@ msgstr ""
 "Le test a échoué sans erreur précise. Vérifiez l'adresse de l'hôte et le "
 "port, puis réessayez."
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1402
+#: rustconn/src/dialogs/connection/dialog/build.rs:1407
 msgid "Test timed out"
 msgstr "Délai du test dépassé"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1420
-#: rustconn/src/dialogs/connection/dialog/build.rs:1430
-#: rustconn/src/dialogs/connection/dialog/build.rs:1439
-#: rustconn/src/dialogs/connection/dialog/build.rs:1500
+#: rustconn/src/dialogs/connection/dialog/build.rs:1425
+#: rustconn/src/dialogs/connection/dialog/build.rs:1435
+#: rustconn/src/dialogs/connection/dialog/build.rs:1444
 #: rustconn/src/dialogs/connection/dialog/build.rs:1505
+#: rustconn/src/dialogs/connection/dialog/build.rs:1510
 msgid "Script Test Failed"
 msgstr "Échec du test de script"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1421
+#: rustconn/src/dialogs/connection/dialog/build.rs:1426
 msgid "Script command is empty"
 msgstr "La commande du script est vide"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1431
+#: rustconn/src/dialogs/connection/dialog/build.rs:1436
 msgid "Script command is empty after parsing"
 msgstr "La commande du script est vide après l'analyse"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1440
+#: rustconn/src/dialogs/connection/dialog/build.rs:1445
 msgid "Failed to parse command"
 msgstr "Échec de l'analyse de la commande"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1470
+#: rustconn/src/dialogs/connection/dialog/build.rs:1475
 msgid "Test Script"
 msgstr "Tester le script"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1477
+#: rustconn/src/dialogs/connection/dialog/build.rs:1482
 msgid "(empty output)"
 msgstr "(sortie vide)"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1483
+#: rustconn/src/dialogs/connection/dialog/build.rs:1488
 msgid "Script Test Successful"
 msgstr "Test de script réussi"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1484
+#: rustconn/src/dialogs/connection/dialog/build.rs:1489
 #: rustconn/src/dialogs/export.rs:322
 msgid "Output"
 msgstr "Sortie"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1491
+#: rustconn/src/dialogs/connection/dialog/build.rs:1496
 msgid "Command failed"
 msgstr "Échec de la commande"
 
-#: rustconn/src/dialogs/connection/dialog/build.rs:1506
+#: rustconn/src/dialogs/connection/dialog/build.rs:1511
 msgid "Script timed out after 30 seconds"
 msgstr "Le script a expiré après 30 secondes"
 
-#: rustconn/src/dialogs/connection/dialog/construction.rs:125
+#: rustconn/src/dialogs/connection/dialog/construction.rs:129
 #: rustconn/src/dialogs/shortcuts.rs:165
 #: rustconn/src/window/connection_dialogs.rs:297
 msgid "New Connection (Advanced)"
 msgstr "Nouvelle connexion (avancé)"
 
-#: rustconn/src/dialogs/connection/dialog/construction.rs:136
+#: rustconn/src/dialogs/connection/dialog/construction.rs:140
 msgid "Test Connection"
 msgstr "Tester la connexion"
 
-#: rustconn/src/dialogs/connection/dialog/construction.rs:137
+#: rustconn/src/dialogs/connection/dialog/construction.rs:141
 msgid "Test connection"
 msgstr "Tester la connexion"
 
-#: rustconn/src/dialogs/connection/dialog/construction.rs:203
+#: rustconn/src/dialogs/connection/dialog/construction.rs:207
 #: rustconn/src/dialogs/connection/general_tab.rs:138
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:72
 #: rustconn/src/dialogs/export.rs:401 rustconn/src/dialogs/template.rs:194
 #: rustconn/src/dialogs/template.rs:532 rustconn/src/split_view/bridge.rs:1604
-#: rustconn/src/window/edit_dialogs.rs:809
+#: rustconn/src/window/edit_dialogs.rs:826
 msgid "Protocol"
 msgstr "Protocole"
 
-#: rustconn/src/dialogs/connection/dialog/construction.rs:311
+#: rustconn/src/dialogs/connection/dialog/construction.rs:315
 #: rustconn/src/dialogs/connection/dialog/rows.rs:74
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:261
 msgid "URL"
 msgstr "URL"
 
-#: rustconn/src/dialogs/connection/dialog/construction.rs:314
+#: rustconn/src/dialogs/connection/dialog/construction.rs:318
 msgid "https://example.com"
 msgstr "https://example.com"
 
-#: rustconn/src/dialogs/connection/dialog/construction.rs:316
+#: rustconn/src/dialogs/connection/dialog/construction.rs:320
 #: rustconn/src/dialogs/connection/general_tab.rs:156
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:75
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:108
@@ -1555,11 +1555,11 @@ msgstr "https://example.com"
 #: rustconn/src/dialogs/export.rs:389 rustconn/src/dialogs/template.rs:549
 #: rustconn/src/dialogs/template.rs:1785 rustconn/src/split_view/bridge.rs:1611
 #: rustconn/src/window/copy_field_actions.rs:79
-#: rustconn/src/window/edit_dialogs.rs:817
+#: rustconn/src/window/edit_dialogs.rs:834
 msgid "Host"
 msgstr "Hôte"
 
-#: rustconn/src/dialogs/connection/dialog/construction.rs:319
+#: rustconn/src/dialogs/connection/dialog/construction.rs:323
 #: rustconn/src/dialogs/connection/general_tab.rs:150
 #: rustconn/src/dialogs/template.rs:1817
 msgid "hostname or IP"
@@ -1692,7 +1692,7 @@ msgstr ""
 "Clé de recherche : {}"
 
 #: rustconn/src/dialogs/connection/dialog/populate.rs:45
-#: rustconn/src/window/edit_group.rs:734 rustconn/src/window/key_setup.rs:329
+#: rustconn/src/window/edit_group.rs:734 rustconn/src/window/key_setup.rs:381
 msgid "Select SSH Key"
 msgstr "Sélectionner la clé SSH"
 
@@ -1707,7 +1707,7 @@ msgid "(Root)"
 msgstr "(Racine)"
 
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1047
-#: rustconn/src/dialogs/connection/ssh.rs:581
+#: rustconn/src/dialogs/connection/ssh.rs:680
 #: rustconn/src/window/edit_group.rs:825
 msgid "Connect via another SSH connection"
 msgstr "Connexion via une autre connexion SSH"
@@ -1723,7 +1723,7 @@ msgid "Inherited from parent group"
 msgstr "Hérité du groupe parent"
 
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1170
-#: rustconn/src/dialogs/connection/ssh.rs:338
+#: rustconn/src/dialogs/connection/ssh.rs:418
 msgid "Default tries ~/.ssh/id_rsa, id_ed25519, id_ecdsa automatically"
 msgstr "Par défaut essaie ~/.ssh/id_rsa, id_ed25519, id_ecdsa automatiquement"
 
@@ -2099,7 +2099,7 @@ msgstr "Zero Trust"
 #: rustconn/src/dialogs/connection/general_tab.rs:146
 #: rustconn/src/dialogs/connection/rdp.rs:674
 #: rustconn/src/dialogs/connection/spice.rs:299
-#: rustconn/src/dialogs/connection/ssh.rs:560
+#: rustconn/src/dialogs/connection/ssh.rs:659
 #: rustconn/src/dialogs/connection/telnet.rs:36
 #: rustconn/src/dialogs/connection/vnc.rs:338
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:101
@@ -2118,7 +2118,7 @@ msgstr "SSH, ports connus"
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:78
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:113
 #: rustconn/src/dialogs/export.rs:395 rustconn/src/dialogs/template.rs:558
-#: rustconn/src/dialogs/wol.rs:93 rustconn/src/window/edit_dialogs.rs:828
+#: rustconn/src/dialogs/wol.rs:93 rustconn/src/window/edit_dialogs.rs:845
 msgid "Port"
 msgstr "Port"
 
@@ -2140,7 +2140,7 @@ msgstr ""
 "Direct ignore un hôte de rebond hérité d'un groupe ou du réglage global"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:213
-#: rustconn/src/dialogs/connection/ssh.rs:300
+#: rustconn/src/dialogs/connection/ssh.rs:380
 #: rustconn/src/dialogs/connection/vnc.rs:307
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:85
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:388
@@ -2156,7 +2156,7 @@ msgstr "Authentification"
 #: rustconn/src/split_view/bridge.rs:1619
 #: rustconn/src/window/connection_dialogs.rs:483
 #: rustconn/src/window/copy_field_actions.rs:82
-#: rustconn/src/window/edit_dialogs.rs:837
+#: rustconn/src/window/edit_dialogs.rs:854
 #: rustconn/src/window/edit_group.rs:241
 msgid "Username"
 msgstr "Nom d'utilisateur"
@@ -2787,7 +2787,7 @@ msgstr ""
 "du noyau est désactivé"
 
 #: rustconn/src/dialogs/connection/rdp.rs:466
-#: rustconn/src/dialogs/connection/ssh.rs:706
+#: rustconn/src/dialogs/connection/ssh.rs:805
 #: rustconn/src/dialogs/connection/vnc.rs:299
 msgid "Multipath TCP"
 msgstr "Multipath TCP"
@@ -2939,7 +2939,7 @@ msgstr "Si différent du nom d'utilisateur de connexion"
 
 #: rustconn/src/dialogs/connection/rdp.rs:677
 #: rustconn/src/dialogs/connection/spice.rs:336
-#: rustconn/src/dialogs/connection/ssh.rs:569
+#: rustconn/src/dialogs/connection/ssh.rs:668
 #: rustconn/src/dialogs/connection/vnc.rs:341
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:137
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:693
@@ -2948,14 +2948,14 @@ msgstr "Si différent du nom d'utilisateur de connexion"
 #: rustconn/src/dialogs/settings/network_tab.rs:122
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:111
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:439
-#: rustconn/src/dialogs/widgets.rs:66 rustconn/src/window/edit_dialogs.rs:784
+#: rustconn/src/dialogs/widgets.rs:66 rustconn/src/window/edit_dialogs.rs:801
 #: rustconn/src/window/edit_group.rs:774
 msgid "(None)"
 msgstr "(Aucun)"
 
 #: rustconn/src/dialogs/connection/rdp.rs:687
 #: rustconn/src/dialogs/connection/spice.rs:347
-#: rustconn/src/dialogs/connection/ssh.rs:580
+#: rustconn/src/dialogs/connection/ssh.rs:679
 #: rustconn/src/dialogs/connection/vnc.rs:351
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:147
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:102
@@ -3420,76 +3420,76 @@ msgstr "Chemin vers le fichier socket Unix SPICE"
 msgid "Select SPICE Unix Socket"
 msgstr "Sélectionner le socket Unix SPICE"
 
-#: rustconn/src/dialogs/connection/ssh.rs:149
+#: rustconn/src/dialogs/connection/ssh.rs:173
 msgid "MOSH Settings"
 msgstr "Paramètres MOSH"
 
-#: rustconn/src/dialogs/connection/ssh.rs:150
+#: rustconn/src/dialogs/connection/ssh.rs:174
 msgid "Configure UDP port range and prediction behavior."
 msgstr "Configurer la plage de ports UDP et le comportement de prédiction."
 
-#: rustconn/src/dialogs/connection/ssh.rs:154
+#: rustconn/src/dialogs/connection/ssh.rs:178
 msgid "Port Range"
 msgstr "Plage de ports"
 
-#: rustconn/src/dialogs/connection/ssh.rs:155
+#: rustconn/src/dialogs/connection/ssh.rs:179
 msgid "UDP port range for MOSH (start:end)"
 msgstr "Plage de ports UDP pour MOSH (début:fin)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:161
+#: rustconn/src/dialogs/connection/ssh.rs:185
 msgid "Adaptive"
 msgstr "Adaptatif"
 
-#: rustconn/src/dialogs/connection/ssh.rs:161
+#: rustconn/src/dialogs/connection/ssh.rs:185
 msgid "Always"
 msgstr "Toujours"
 
-#: rustconn/src/dialogs/connection/ssh.rs:161
+#: rustconn/src/dialogs/connection/ssh.rs:185
 msgid "Never"
 msgstr "Jamais"
 
-#: rustconn/src/dialogs/connection/ssh.rs:169
+#: rustconn/src/dialogs/connection/ssh.rs:193
 msgid "Predict Mode"
 msgstr "Mode de prédiction"
 
-#: rustconn/src/dialogs/connection/ssh.rs:170
+#: rustconn/src/dialogs/connection/ssh.rs:194
 msgid "Controls speculative local echo of keystrokes"
 msgstr "Contrôle l'écho local spéculatif des frappes"
 
-#: rustconn/src/dialogs/connection/ssh.rs:177
+#: rustconn/src/dialogs/connection/ssh.rs:201
 msgid "Server Binary"
 msgstr "Binaire du serveur"
 
-#: rustconn/src/dialogs/connection/ssh.rs:178
+#: rustconn/src/dialogs/connection/ssh.rs:202
 msgid "Path to mosh-server on the remote host (optional)"
 msgstr "Chemin vers mosh-server sur l'hôte distant (facultatif)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:187
+#: rustconn/src/dialogs/connection/ssh.rs:211
 msgid "Elevated Credentials"
 msgstr "Identifiants d'élévation de privilèges"
 
-#: rustconn/src/dialogs/connection/ssh.rs:189
+#: rustconn/src/dialogs/connection/ssh.rs:213
 msgid ""
 "Answer sudo, su and doas password prompts with this connection's password"
 msgstr ""
 "Répondre aux demandes de mot de passe de sudo, su et doas avec le mot de "
 "passe de cette connexion"
 
-#: rustconn/src/dialogs/connection/ssh.rs:194
+#: rustconn/src/dialogs/connection/ssh.rs:218
 msgid "Inject Password at Escalation Prompts"
 msgstr "Saisir le mot de passe aux demandes d'élévation"
 
-#: rustconn/src/dialogs/connection/ssh.rs:196
+#: rustconn/src/dialogs/connection/ssh.rs:220
 msgid "Only the active prompt line is answered, never a prompt left on screen"
 msgstr ""
 "Seule la ligne d'invite active reçoit une réponse, jamais une invite restée "
 "à l'écran"
 
-#: rustconn/src/dialogs/connection/ssh.rs:203
+#: rustconn/src/dialogs/connection/ssh.rs:227
 msgid "Delay Before Sending"
 msgstr "Délai avant envoi"
 
-#: rustconn/src/dialogs/connection/ssh.rs:205
+#: rustconn/src/dialogs/connection/ssh.rs:229
 msgid ""
 "Milliseconds to wait after the prompt appears — raise it for network "
 "equipment"
@@ -3497,7 +3497,7 @@ msgstr ""
 "Millisecondes d'attente après l'apparition de l'invite — à augmenter pour "
 "les équipements réseau"
 
-#: rustconn/src/dialogs/connection/ssh.rs:226
+#: rustconn/src/dialogs/connection/ssh.rs:250
 msgid ""
 "One anchored regex per line, for example ^Secret code:\\s*$. Leave empty to "
 "use the built-in sudo, su, doas and enable patterns."
@@ -3506,241 +3506,249 @@ msgstr ""
 "^Secret code:\\s*$. Laissez vide pour les motifs intégrés de sudo, su, doas "
 "et enable."
 
-#: rustconn/src/dialogs/connection/ssh.rs:236
+#: rustconn/src/dialogs/connection/ssh.rs:260
 msgid "Custom Prompt Patterns"
 msgstr "Motifs d'invite personnalisés"
 
-#: rustconn/src/dialogs/connection/ssh.rs:238
+#: rustconn/src/dialogs/connection/ssh.rs:262
 msgid "One regex per line; empty means the built-in patterns"
 msgstr "Une expression régulière par ligne ; vide signifie les motifs intégrés"
 
-#: rustconn/src/dialogs/connection/ssh.rs:305
+#: rustconn/src/dialogs/connection/ssh.rs:385
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:107
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:335
 #: rustconn/src/dialogs/template.rs:631
 #: rustconn/src/window/connection_dialogs.rs:502
 #: rustconn/src/window/copy_field_actions.rs:83
-#: rustconn/src/window/edit_dialogs.rs:844
+#: rustconn/src/window/edit_dialogs.rs:861
 #: rustconn/src/window/edit_group.rs:269 rustconn/src/window/edit_group.rs:669
 #: rustconn/src/window/edit_group.rs:692
 msgid "Password"
 msgstr "Mot de passe"
 
-#: rustconn/src/dialogs/connection/ssh.rs:306
+#: rustconn/src/dialogs/connection/ssh.rs:386
 #: rustconn/src/dialogs/template.rs:632 rustconn/src/window/edit_group.rs:670
 #: rustconn/src/window/edit_group.rs:693
 msgid "Public Key"
 msgstr "Clé publique"
 
-#: rustconn/src/dialogs/connection/ssh.rs:307
+#: rustconn/src/dialogs/connection/ssh.rs:387
 #: rustconn/src/dialogs/template.rs:633 rustconn/src/window/edit_group.rs:672
 #: rustconn/src/window/edit_group.rs:695
 msgid "Keyboard Interactive"
 msgstr "Clavier interactif"
 
-#: rustconn/src/dialogs/connection/ssh.rs:308
+#: rustconn/src/dialogs/connection/ssh.rs:388
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:337
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:31
 #: rustconn/src/dialogs/template.rs:634
 msgid "SSH Agent"
 msgstr "Agent SSH"
 
-#: rustconn/src/dialogs/connection/ssh.rs:309
+#: rustconn/src/dialogs/connection/ssh.rs:389
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:338
 #: rustconn/src/dialogs/template.rs:635
 msgid "Security Key (FIDO2)"
 msgstr "Clé de sécurité (FIDO2)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:317
+#: rustconn/src/dialogs/connection/ssh.rs:397
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:96
 #: rustconn/src/dialogs/template.rs:646
 msgid "Method"
 msgstr "Méthode"
 
-#: rustconn/src/dialogs/connection/ssh.rs:318
+#: rustconn/src/dialogs/connection/ssh.rs:398
 #: rustconn/src/dialogs/template.rs:647
 msgid "How to authenticate with the server"
 msgstr "Méthode d'authentification auprès du serveur"
 
-#: rustconn/src/dialogs/connection/ssh.rs:325
+#: rustconn/src/dialogs/connection/ssh.rs:405
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:139
 #: rustconn/src/dialogs/template.rs:653
 msgid "Default"
 msgstr "Par défaut"
 
-#: rustconn/src/dialogs/connection/ssh.rs:326
+#: rustconn/src/dialogs/connection/ssh.rs:406
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:757
 #: rustconn/src/dialogs/template.rs:653
 msgid "File"
 msgstr "Fichier"
 
-#: rustconn/src/dialogs/connection/ssh.rs:327
+#: rustconn/src/dialogs/connection/ssh.rs:407
 #: rustconn/src/dialogs/template.rs:653 rustconn/src/window/edit_group.rs:671
 #: rustconn/src/window/edit_group.rs:694
 msgid "Agent"
 msgstr "Agent"
 
-#: rustconn/src/dialogs/connection/ssh.rs:328
+#: rustconn/src/dialogs/connection/ssh.rs:408
 msgid "Inherit from group"
 msgstr "Hériter du groupe"
 
-#: rustconn/src/dialogs/connection/ssh.rs:336
+#: rustconn/src/dialogs/connection/ssh.rs:416
 #: rustconn/src/dialogs/template.rs:663
 msgid "Key Source"
 msgstr "Source de la clé"
 
-#: rustconn/src/dialogs/connection/ssh.rs:347
+#: rustconn/src/dialogs/connection/ssh.rs:427
 #: rustconn/src/dialogs/template.rs:672
 msgid "Path to SSH key"
 msgstr "Chemin vers la clé SSH"
 
-#: rustconn/src/dialogs/connection/ssh.rs:352
+#: rustconn/src/dialogs/connection/ssh.rs:432
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2320
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2323
 msgid "Browse for key file"
 msgstr "Parcourir pour le fichier de clé"
 
-#: rustconn/src/dialogs/connection/ssh.rs:356
+#: rustconn/src/dialogs/connection/ssh.rs:436
 msgid "Browse for SSH key file"
 msgstr "Parcourir pour le fichier de clé SSH"
 
-#: rustconn/src/dialogs/connection/ssh.rs:360
+#: rustconn/src/dialogs/connection/ssh.rs:440
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:124
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:336
-#: rustconn/src/dialogs/key_setup.rs:512 rustconn/src/dialogs/key_setup.rs:536
+#: rustconn/src/dialogs/key_setup.rs:515 rustconn/src/dialogs/key_setup.rs:539
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2333
 #: rustconn/src/dialogs/template.rs:677
 msgid "Key File"
 msgstr "Fichier de clé"
 
-#: rustconn/src/dialogs/connection/ssh.rs:361
+#: rustconn/src/dialogs/connection/ssh.rs:441
 #: rustconn/src/dialogs/template.rs:678
 msgid "Path to private key file"
 msgstr "Chemin vers le fichier de clé privée"
 
-#: rustconn/src/dialogs/connection/ssh.rs:368
+#: rustconn/src/dialogs/connection/ssh.rs:448
 #: rustconn/src/dialogs/widgets.rs:71
 msgid "(No keys loaded)"
 msgstr "(Aucune clé chargée)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:377
-#: rustconn/src/dialogs/key_setup.rs:496
+#: rustconn/src/dialogs/connection/ssh.rs:457
+#: rustconn/src/dialogs/key_setup.rs:499
 msgid "Key"
 msgstr "Clé"
 
-#: rustconn/src/dialogs/connection/ssh.rs:378
+#: rustconn/src/dialogs/connection/ssh.rs:458
 msgid "Select from SSH agent"
 msgstr "Sélectionner depuis l'agent SSH"
 
-#: rustconn/src/dialogs/connection/ssh.rs:419
+#: rustconn/src/dialogs/connection/ssh.rs:499
 msgid "Key file not found"
 msgstr "Fichier de clé introuvable"
 
-#: rustconn/src/dialogs/connection/ssh.rs:587
+#: rustconn/src/dialogs/connection/ssh.rs:527 rustconn/src/sidebar_ui.rs:505
+msgid "Set Up Key Authentication…"
+msgstr "Configurer l'authentification par clé…"
+
+#: rustconn/src/dialogs/connection/ssh.rs:528
+msgid "Available after the connection is saved"
+msgstr "Disponible une fois la connexion enregistrée"
+
+#: rustconn/src/dialogs/connection/ssh.rs:686
 #: rustconn/src/dialogs/template.rs:698
 msgid "ProxyJump"
 msgstr "ProxyJump"
 
-#: rustconn/src/dialogs/connection/ssh.rs:594
+#: rustconn/src/dialogs/connection/ssh.rs:693
 msgid "ProxyCommand"
 msgstr "ProxyCommand"
 
-#: rustconn/src/dialogs/connection/ssh.rs:595
+#: rustconn/src/dialogs/connection/ssh.rs:694
 msgid "Custom proxy command (e.g., for .onion hosts)"
 msgstr "Commande proxy personnalisée (p. ex., pour les hôtes .onion)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:602
+#: rustconn/src/dialogs/connection/ssh.rs:701
 #: rustconn/src/dialogs/template.rs:706
 msgid "Use Only Specified Key"
 msgstr "Utiliser uniquement la clé spécifiée"
 
-#: rustconn/src/dialogs/connection/ssh.rs:603
+#: rustconn/src/dialogs/connection/ssh.rs:702
 #: rustconn/src/dialogs/template.rs:707
 msgid "Prevents trying other keys (IdentitiesOnly)"
 msgstr "Empêche d'essayer d'autres clés (IdentitiesOnly)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:609
+#: rustconn/src/dialogs/connection/ssh.rs:708
 #: rustconn/src/dialogs/template.rs:713
 msgid "Connection Multiplexing"
 msgstr "Multiplexage des connexions"
 
-#: rustconn/src/dialogs/connection/ssh.rs:610
+#: rustconn/src/dialogs/connection/ssh.rs:709
 #: rustconn/src/dialogs/template.rs:714
 msgid "Reuse connections (ControlMaster)"
 msgstr "Réutiliser les connexions (ControlMaster)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:618
+#: rustconn/src/dialogs/connection/ssh.rs:717
 msgid "Keep-Alive Interval"
 msgstr "Intervalle Keep-Alive"
 
-#: rustconn/src/dialogs/connection/ssh.rs:619
+#: rustconn/src/dialogs/connection/ssh.rs:718
 msgid "Seconds between keep-alive packets (0 = disabled)"
 msgstr "Secondes entre les paquets keep-alive (0 = désactivé)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:626
+#: rustconn/src/dialogs/connection/ssh.rs:725
 msgid "Keep-Alive Count"
 msgstr "Nombre de Keep-Alive"
 
-#: rustconn/src/dialogs/connection/ssh.rs:627
+#: rustconn/src/dialogs/connection/ssh.rs:726
 msgid "Disconnect after this many unanswered packets"
 msgstr "Déconnecter après ce nombre de paquets sans réponse"
 
-#: rustconn/src/dialogs/connection/ssh.rs:660
+#: rustconn/src/dialogs/connection/ssh.rs:759
 #: rustconn/src/dialogs/template.rs:722
 msgid "Session"
 msgstr "Session"
 
-#: rustconn/src/dialogs/connection/ssh.rs:665
+#: rustconn/src/dialogs/connection/ssh.rs:764
 #: rustconn/src/dialogs/template.rs:727
 msgid "Agent Forwarding"
 msgstr "Transfert d'agent"
 
-#: rustconn/src/dialogs/connection/ssh.rs:666
+#: rustconn/src/dialogs/connection/ssh.rs:765
 #: rustconn/src/dialogs/template.rs:728
 msgid "Forward SSH agent to remote host (-A)"
 msgstr "Transférer l'agent SSH vers l'hôte distant (-A)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:671
+#: rustconn/src/dialogs/connection/ssh.rs:770
 msgid "Waypipe"
 msgstr "Waypipe"
 
-#: rustconn/src/dialogs/connection/ssh.rs:672
+#: rustconn/src/dialogs/connection/ssh.rs:771
 msgid "Wayland application forwarding via waypipe"
 msgstr "Transfert d'applications Wayland via waypipe"
 
-#: rustconn/src/dialogs/connection/ssh.rs:677
+#: rustconn/src/dialogs/connection/ssh.rs:776
 msgid "X11 Forwarding"
 msgstr "Transfert X11"
 
-#: rustconn/src/dialogs/connection/ssh.rs:678
+#: rustconn/src/dialogs/connection/ssh.rs:777
 msgid "Forward X11 display to local host (-X)"
 msgstr "Transférer l'affichage X11 vers l'hôte local (-X)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:683
+#: rustconn/src/dialogs/connection/ssh.rs:782
 #: rustconn/src/dialogs/connection/vnc.rs:197
 msgid "Compression"
 msgstr "Compression"
 
-#: rustconn/src/dialogs/connection/ssh.rs:684
+#: rustconn/src/dialogs/connection/ssh.rs:783
 msgid "Enable compression for slow connections (-C)"
 msgstr "Activer la compression pour les connexions lentes (-C)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:689
+#: rustconn/src/dialogs/connection/ssh.rs:788
 msgid "Verbose"
 msgstr "Verbeux"
 
-#: rustconn/src/dialogs/connection/ssh.rs:690
+#: rustconn/src/dialogs/connection/ssh.rs:789
 msgid "Show SSH debug output for troubleshooting (-v)"
 msgstr "Afficher la sortie de débogage SSH pour le dépannage (-v)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:697
+#: rustconn/src/dialogs/connection/ssh.rs:796
 msgid "Use multiple network paths for mobility and aggregation (mptcpize run)"
 msgstr ""
 "Utiliser plusieurs chemins réseau pour la mobilité et l’agrégation (mptcpize "
 "run)Utiliser plusieurs chemins réseau pour la mobilité et l'agrégation (-o "
 "mptcpize run)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:700
+#: rustconn/src/dialogs/connection/ssh.rs:799
 msgid ""
 "Use multiple network paths for mobility and aggregation. Install mptcpize "
 "(mptcpd) to enable"
@@ -3748,7 +3756,7 @@ msgstr ""
 "Utiliser plusieurs chemins réseau pour la mobilité et l’agrégation. "
 "Installez mptcpize (mptcpd) pour activer"
 
-#: rustconn/src/dialogs/connection/ssh.rs:704
+#: rustconn/src/dialogs/connection/ssh.rs:803
 msgid ""
 "Use multiple network paths (mptcpize run). Not available: kernel MPTCP is "
 "disabled"
@@ -3756,47 +3764,47 @@ msgstr ""
 "Utiliser plusieurs chemins réseau (mptcpize run). Non disponible : MPTCP du "
 "noyau est désactivé"
 
-#: rustconn/src/dialogs/connection/ssh.rs:712
+#: rustconn/src/dialogs/connection/ssh.rs:811
 #: rustconn/src/dialogs/template.rs:740
 msgid "Startup Command"
 msgstr "Commande de démarrage"
 
-#: rustconn/src/dialogs/connection/ssh.rs:713
+#: rustconn/src/dialogs/connection/ssh.rs:812
 #: rustconn/src/dialogs/template.rs:741
 msgid "Execute after connection established"
 msgstr "Exécuter après l'établissement de la connexion"
 
-#: rustconn/src/dialogs/connection/ssh.rs:714
+#: rustconn/src/dialogs/connection/ssh.rs:813
 #: rustconn/src/dialogs/template.rs:735
 msgid "Command to run on connect"
 msgstr "Commande à exécuter à la connexion"
 
-#: rustconn/src/dialogs/connection/ssh.rs:719
+#: rustconn/src/dialogs/connection/ssh.rs:818
 #: rustconn/src/dialogs/template.rs:754
 msgid "Custom Options"
 msgstr "Options personnalisées"
 
-#: rustconn/src/dialogs/connection/ssh.rs:720
+#: rustconn/src/dialogs/connection/ssh.rs:819
 msgid "Key=Value, comma-separated (-o flags)"
 msgstr "Clé=Valeur, séparées par des virgules (options -o)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:727
+#: rustconn/src/dialogs/connection/ssh.rs:826
 #: rustconn/src/window/edit_group.rs:853
 msgid "SSH Agent Socket"
 msgstr "Socket SSH Agent"
 
-#: rustconn/src/dialogs/connection/ssh.rs:730
+#: rustconn/src/dialogs/connection/ssh.rs:829
 msgid "Overrides global setting and auto-detected socket for this connection"
 msgstr ""
 "Remplace le paramètre global et le socket détecté automatiquement pour cette "
 "connexionRemplace le paramètre global et le socket détecté automatiquement "
 "pour cette connexion"
 
-#: rustconn/src/dialogs/connection/ssh.rs:757
+#: rustconn/src/dialogs/connection/ssh.rs:856
 msgid "PKCS#11 Provider"
 msgstr "Fournisseur PKCS#11"
 
-#: rustconn/src/dialogs/connection/ssh.rs:760
+#: rustconn/src/dialogs/connection/ssh.rs:859
 msgid ""
 "Path to a PKCS#11 library for hardware-token login (e.g. /usr/lib64/"
 "libykcs11.so.2)"
@@ -3804,11 +3812,11 @@ msgstr ""
 "Chemin vers une bibliothèque PKCS#11 pour la connexion par jeton matériel "
 "(par ex. /usr/lib64/libykcs11.so.2)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:786
+#: rustconn/src/dialogs/connection/ssh.rs:885
 msgid "SFTP Remote Directory"
 msgstr "Répertoire distant SFTP"
 
-#: rustconn/src/dialogs/connection/ssh.rs:789
+#: rustconn/src/dialogs/connection/ssh.rs:888
 msgid ""
 "Directory the SFTP file browser opens in. Leave empty to detect the home "
 "directory automatically."
@@ -3816,12 +3824,12 @@ msgstr ""
 "Répertoire ouvert par le navigateur de fichiers SFTP. Laissez vide pour "
 "détecter automatiquement le répertoire personnel."
 
-#: rustconn/src/dialogs/connection/ssh.rs:818
+#: rustconn/src/dialogs/connection/ssh.rs:917
 #: rustconn/src/dialogs/connection/telnet.rs:52
 msgid "Keyboard"
 msgstr "Clavier"
 
-#: rustconn/src/dialogs/connection/ssh.rs:820
+#: rustconn/src/dialogs/connection/ssh.rs:919
 #: rustconn/src/dialogs/connection/telnet.rs:54
 msgid ""
 "If Backspace or Delete is not recognised, try Backspace (^H) or Delete (^?) "
@@ -3831,97 +3839,97 @@ msgstr ""
 "(^?) — les appareils qui rejettent une valeur par défaut les rejettent "
 "généralement toutes les deux"
 
-#: rustconn/src/dialogs/connection/ssh.rs:831
+#: rustconn/src/dialogs/connection/ssh.rs:930
 #: rustconn/src/dialogs/connection/telnet.rs:74
 msgid "Backspace sends"
 msgstr "Retour arrière envoie"
 
-#: rustconn/src/dialogs/connection/ssh.rs:832
+#: rustconn/src/dialogs/connection/ssh.rs:931
 #: rustconn/src/dialogs/connection/telnet.rs:75
 msgid "What the Backspace key sends to the remote"
 msgstr "Ce que la touche Retour arrière envoie au distant"
 
-#: rustconn/src/dialogs/connection/ssh.rs:844
+#: rustconn/src/dialogs/connection/ssh.rs:943
 #: rustconn/src/dialogs/connection/telnet.rs:93
 msgid "Delete sends"
 msgstr "Suppr envoie"
 
-#: rustconn/src/dialogs/connection/ssh.rs:845
+#: rustconn/src/dialogs/connection/ssh.rs:944
 #: rustconn/src/dialogs/connection/telnet.rs:94
 msgid "What the Delete key sends to the remote"
 msgstr "Ce que la touche Suppr envoie au distant"
 
-#: rustconn/src/dialogs/connection/ssh.rs:877
+#: rustconn/src/dialogs/connection/ssh.rs:976
 msgid "Port Forwarding"
 msgstr "Redirection de ports"
 
-#: rustconn/src/dialogs/connection/ssh.rs:878
+#: rustconn/src/dialogs/connection/ssh.rs:977
 msgid "Forward ports through the SSH tunnel"
 msgstr "Rediriger les ports via le tunnel SSH"
 
-#: rustconn/src/dialogs/connection/ssh.rs:883
+#: rustconn/src/dialogs/connection/ssh.rs:982
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:420
 msgid "Local (-L)"
 msgstr "Local (-L)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:884
+#: rustconn/src/dialogs/connection/ssh.rs:983
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:421
 msgid "Remote (-R)"
 msgstr "Remote (-R)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:885
+#: rustconn/src/dialogs/connection/ssh.rs:984
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:422
 msgid "Dynamic (-D)"
 msgstr "Dynamic (-D)"
 
-#: rustconn/src/dialogs/connection/ssh.rs:893
+#: rustconn/src/dialogs/connection/ssh.rs:992
 msgid "Direction"
 msgstr "Direction"
 
-#: rustconn/src/dialogs/connection/ssh.rs:894
+#: rustconn/src/dialogs/connection/ssh.rs:993
 msgid "Type of port forwarding"
 msgstr "Type de redirection de ports"
 
-#: rustconn/src/dialogs/connection/ssh.rs:907
+#: rustconn/src/dialogs/connection/ssh.rs:1006
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:459
 msgid "Local Port"
 msgstr "Port local"
 
-#: rustconn/src/dialogs/connection/ssh.rs:908
+#: rustconn/src/dialogs/connection/ssh.rs:1007
 msgid "Port to bind locally"
 msgstr "Port à lier localement"
 
-#: rustconn/src/dialogs/connection/ssh.rs:919
+#: rustconn/src/dialogs/connection/ssh.rs:1018
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:477
 msgid "Remote Host"
 msgstr "Hôte distant"
 
-#: rustconn/src/dialogs/connection/ssh.rs:920
+#: rustconn/src/dialogs/connection/ssh.rs:1019
 msgid "Destination host on the remote side"
 msgstr "Hôte de destination côté distant"
 
-#: rustconn/src/dialogs/connection/ssh.rs:933
+#: rustconn/src/dialogs/connection/ssh.rs:1032
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:493
 msgid "Remote Port"
 msgstr "Port distant"
 
-#: rustconn/src/dialogs/connection/ssh.rs:934
+#: rustconn/src/dialogs/connection/ssh.rs:1033
 msgid "Destination port on the remote side"
 msgstr "Port de destination côté distant"
 
-#: rustconn/src/dialogs/connection/ssh.rs:950
+#: rustconn/src/dialogs/connection/ssh.rs:1049
 msgid "Add Forward"
 msgstr "Ajouter une redirection"
 
-#: rustconn/src/dialogs/connection/ssh.rs:980
+#: rustconn/src/dialogs/connection/ssh.rs:1079
 msgid "Port already in use"
 msgstr "Port déjà utilisé"
 
-#: rustconn/src/dialogs/connection/ssh.rs:1057
+#: rustconn/src/dialogs/connection/ssh.rs:1156
 msgid "Remove this port forward"
 msgstr "Supprimer ce transfert de port"
 
-#: rustconn/src/dialogs/connection/ssh.rs:1060
+#: rustconn/src/dialogs/connection/ssh.rs:1159
 msgid "Remove port forward"
 msgstr "Supprimer la redirection de port"
 
@@ -4580,7 +4588,7 @@ msgid "Copy"
 msgstr "Copier"
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
-#: rustconn/src/dialogs/key_setup.rs:625 rustconn/src/dialogs/script.rs:171
+#: rustconn/src/dialogs/key_setup.rs:628 rustconn/src/dialogs/script.rs:171
 #: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:1127
 msgid "Stop"
 msgstr "Arrêter"
@@ -4695,7 +4703,7 @@ msgstr "Copie arrêtée"
 #: rustconn/src/dialogs/credential_transfer.rs:719
 #: rustconn/src/dialogs/export.rs:1180 rustconn/src/dialogs/history.rs:340
 #: rustconn/src/dialogs/import/sources.rs:708
-#: rustconn/src/dialogs/key_setup.rs:1030
+#: rustconn/src/dialogs/key_setup.rs:1037
 #: rustconn/src/dialogs/portable_passphrase_change.rs:376
 #: rustconn/src/dialogs/recording.rs:831 rustconn/src/dialogs/recording.rs:843
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
@@ -4703,7 +4711,7 @@ msgstr "Copie arrêtée"
 #: rustconn/src/dialogs/widgets.rs:608 rustconn/src/sidebar_ui.rs:479
 #: rustconn/src/split_view/adapter.rs:1199
 #: rustconn/src/terminal/tab_menu.rs:689 rustconn/src/vault_ops.rs:65
-#: rustconn/src/window/mod.rs:4406
+#: rustconn/src/window/mod.rs:4407
 msgid "Close"
 msgstr "Fermer"
 
@@ -5818,7 +5826,7 @@ msgstr "Installation de la clé sur {}…"
 msgid "Checking that the key signs in…"
 msgstr "Vérification de la connexion avec la clé…"
 
-#: rustconn/src/dialogs/key_setup.rs:240
+#: rustconn/src/dialogs/key_setup.rs:243
 msgid ""
 "RustConn has not seen this server's host key yet, so nothing was sent. "
 "Connect once so the key is recorded, then try again. If the terminal asks "
@@ -5829,11 +5837,11 @@ msgstr ""
 "réessayez. Si le terminal vous interroge sur la clé, vérifiez-la avant de "
 "l'accepter."
 
-#: rustconn/src/dialogs/key_setup.rs:242
+#: rustconn/src/dialogs/key_setup.rs:245
 msgid "Unknown Host Key"
 msgstr "Clé d'hôte inconnue"
 
-#: rustconn/src/dialogs/key_setup.rs:246
+#: rustconn/src/dialogs/key_setup.rs:249
 msgid ""
 "The server's host key differs from the one on record. Someone may be "
 "intercepting the connection. Nothing was sent. Check the key with the "
@@ -5843,29 +5851,33 @@ msgstr ""
 "peut-être la connexion. Rien n'a été envoyé. Vérifiez la clé auprès de "
 "l'administrateur du serveur avant de vous connecter."
 
-#: rustconn/src/dialogs/key_setup.rs:248
+#: rustconn/src/dialogs/key_setup.rs:251
 msgid "Host Key Changed"
 msgstr "Clé d'hôte modifiée"
 
-#: rustconn/src/dialogs/key_setup.rs:252
+#: rustconn/src/dialogs/key_setup.rs:255
 msgid ""
 "The account password has expired. Change it on the server, then try again."
 msgstr ""
 "Le mot de passe du compte a expiré. Modifiez-le sur le serveur, puis "
 "réessayez."
 
-#: rustconn/src/dialogs/key_setup.rs:256
+#: rustconn/src/dialogs/key_setup.rs:259
 msgid "The passphrase is not correct for this key."
 msgstr "La phrase secrète n'est pas correcte pour cette clé."
 
-#: rustconn/src/dialogs/key_setup.rs:262
+#: rustconn/src/dialogs/key_setup.rs:265
 msgid ""
 "The key was installed, but the server does not accept it. Common causes are "
 "wrong permissions on the home folder or ~/.ssh (StrictModes), a custom "
 "AuthorizedKeysFile, SELinux, or key sign-in being disabled."
-msgstr "La clé a été installée, mais le serveur ne l'accepte pas. Les causes courantes sont des permissions incorrectes sur le dossier personnel ou ~/.ssh (StrictModes), un AuthorizedKeysFile personnalisé, SELinux, ou la connexion par clé désactivée."
+msgstr ""
+"La clé a été installée, mais le serveur ne l'accepte pas. Les causes "
+"courantes sont des permissions incorrectes sur le dossier personnel ou "
+"~/.ssh (StrictModes), un AuthorizedKeysFile personnalisé, SELinux, ou la "
+"connexion par clé désactivée."
 
-#: rustconn/src/dialogs/key_setup.rs:267
+#: rustconn/src/dialogs/key_setup.rs:270
 msgid ""
 "The key was installed, but the server does not accept it. Common causes are "
 "wrong permissions on the home folder or ~/.ssh (StrictModes), a custom "
@@ -5878,7 +5890,7 @@ msgstr ""
 "par clé désactivée. La clé est conservée pour que vous puissiez réessayer "
 "après avoir corrigé le serveur."
 
-#: rustconn/src/dialogs/key_setup.rs:272
+#: rustconn/src/dialogs/key_setup.rs:275
 msgid ""
 "Sign-in worked, but the server did not run the install command. The account "
 "may be limited to a fixed command or a restricted shell."
@@ -5887,7 +5899,7 @@ msgstr ""
 "d'installation. Le compte est peut-être limité à une commande fixe ou à un "
 "shell restreint."
 
-#: rustconn/src/dialogs/key_setup.rs:276
+#: rustconn/src/dialogs/key_setup.rs:279
 msgid ""
 "The server has no POSIX shell, for example a Windows server. Key setup "
 "supports Linux and other Unix-like servers."
@@ -5896,98 +5908,104 @@ msgstr ""
 "configuration de clé prend en charge Linux et les autres serveurs de type "
 "Unix."
 
-#: rustconn/src/dialogs/key_setup.rs:283
+#: rustconn/src/dialogs/key_setup.rs:286
 msgid "ssh exited with code {}."
 msgstr "ssh s'est terminé avec le code {}."
 
-#: rustconn/src/dialogs/key_setup.rs:288
+#: rustconn/src/dialogs/key_setup.rs:291
 msgid "ssh was stopped by a signal."
 msgstr "ssh a été arrêté par un signal."
 
-#: rustconn/src/dialogs/key_setup.rs:293
+#: rustconn/src/dialogs/key_setup.rs:296
 msgid "ssh-keygen was not found. Install the OpenSSH client."
 msgstr "ssh-keygen est introuvable. Installez le client OpenSSH."
 
-#: rustconn/src/dialogs/key_setup.rs:296
+#: rustconn/src/dialogs/key_setup.rs:299
 msgid "ssh was not found. Install the OpenSSH client."
 msgstr "ssh est introuvable. Installez le client OpenSSH."
 
-#: rustconn/src/dialogs/key_setup.rs:299
+#: rustconn/src/dialogs/key_setup.rs:302
 msgid "ssh-keygen could not create the key."
 msgstr "ssh-keygen n'a pas pu créer la clé."
 
-#: rustconn/src/dialogs/key_setup.rs:302
+#: rustconn/src/dialogs/key_setup.rs:305
 msgid "Your home folder could not be found."
 msgstr "Votre dossier personnel est introuvable."
 
-#: rustconn/src/dialogs/key_setup.rs:305
+#: rustconn/src/dialogs/key_setup.rs:308
 msgid "Could not use the key folder {}."
 msgstr "Impossible d'utiliser le dossier de clés {}."
 
-#: rustconn/src/dialogs/key_setup.rs:310
+#: rustconn/src/dialogs/key_setup.rs:313
 msgid "A file already exists at {}."
 msgstr "Un fichier existe déjà à l'emplacement {}."
 
-#: rustconn/src/dialogs/key_setup.rs:315
+#: rustconn/src/dialogs/key_setup.rs:318
 msgid "There is no free key file name in {}. Remove unused keys from it."
 msgstr ""
 "Il n'y a aucun nom de fichier de clé libre dans {}. Supprimez-en les clés "
 "inutilisées."
 
-#: rustconn/src/dialogs/key_setup.rs:319
+#: rustconn/src/dialogs/key_setup.rs:322
 msgid "Could not read the key file {}."
 msgstr "Impossible de lire le fichier de clé {}."
 
-#: rustconn/src/dialogs/key_setup.rs:324
+#: rustconn/src/dialogs/key_setup.rs:327
 msgid "{} was not created by RustConn, so it was not deleted."
 msgstr "{} n'a pas été créé par RustConn et n'a donc pas été supprimé."
 
-#: rustconn/src/dialogs/key_setup.rs:332
+#: rustconn/src/dialogs/key_setup.rs:335
 msgid "Key setup supports Ed25519 and RSA keys. Choose another key."
-msgstr "La configuration de clé prend en charge les clés Ed25519 et RSA. Choisissez une autre clé."
+msgstr ""
+"La configuration de clé prend en charge les clés Ed25519 et RSA. Choisissez "
+"une autre clé."
 
-#: rustconn/src/dialogs/key_setup.rs:336
+#: rustconn/src/dialogs/key_setup.rs:339
 msgid "The public key of this key file is not valid."
 msgstr "La clé publique de ce fichier de clé n'est pas valide."
 
-#: rustconn/src/dialogs/key_setup.rs:340
+#: rustconn/src/dialogs/key_setup.rs:343
 msgid "The generated public key is not valid."
 msgstr "La clé publique générée n'est pas valide."
 
-#: rustconn/src/dialogs/key_setup.rs:343
+#: rustconn/src/dialogs/key_setup.rs:346
 msgid ""
 "{} is not a private key. Choose the private key file, not the .pub file."
-msgstr "{} n'est pas une clé privée. Choisissez le fichier de clé privée, pas le fichier .pub."
+msgstr ""
+"{} n'est pas une clé privée. Choisissez le fichier de clé privée, pas le "
+"fichier .pub."
 
-#: rustconn/src/dialogs/key_setup.rs:347
+#: rustconn/src/dialogs/key_setup.rs:350
 msgid ""
 "The public key for {} was not found. Put its .pub file next to it, or choose "
 "a key in the OpenSSH format."
-msgstr "La clé publique de {} n'a pas été trouvée. Placez son fichier .pub à côté, ou choisissez une clé au format OpenSSH."
+msgstr ""
+"La clé publique de {} n'a pas été trouvée. Placez son fichier .pub à côté, "
+"ou choisissez une clé au format OpenSSH."
 
-#: rustconn/src/dialogs/key_setup.rs:351
+#: rustconn/src/dialogs/key_setup.rs:354
 msgid "This host name or user name cannot be used for key setup."
 msgstr ""
 "Ce nom d'hôte ou ce nom d'utilisateur ne peut pas être utilisé pour la "
 "configuration de la clé."
 
-#: rustconn/src/dialogs/key_setup.rs:354
+#: rustconn/src/dialogs/key_setup.rs:357
 msgid "Could not prepare the password helper."
 msgstr "Impossible de préparer l'assistant de mot de passe."
 
-#: rustconn/src/dialogs/key_setup.rs:357
+#: rustconn/src/dialogs/key_setup.rs:360
 msgid "Could not start {}."
 msgstr "Impossible de démarrer {}."
 
-#: rustconn/src/dialogs/key_setup.rs:360
+#: rustconn/src/dialogs/key_setup.rs:363
 msgid "The server did not answer in time."
 msgstr "Le serveur n'a pas répondu à temps."
 
-#: rustconn/src/dialogs/key_setup.rs:364
+#: rustconn/src/dialogs/key_setup.rs:367
 msgid "Cancelled."
 msgstr "Annulé."
 
-#: rustconn/src/dialogs/key_setup.rs:373
+#: rustconn/src/dialogs/key_setup.rs:376
 msgid ""
 "Connection refused. Check the host, the port and that the SSH server is "
 "running."
@@ -5995,36 +6013,36 @@ msgstr ""
 "Connexion refusée. Vérifiez l'hôte, le port et que le serveur SSH est en "
 "cours d'exécution."
 
-#: rustconn/src/dialogs/key_setup.rs:376
+#: rustconn/src/dialogs/key_setup.rs:379
 msgid "The connection timed out. Check that the host is reachable."
 msgstr ""
 "Le délai de connexion a été dépassé. Vérifiez que l'hôte est accessible."
 
-#: rustconn/src/dialogs/key_setup.rs:379
+#: rustconn/src/dialogs/key_setup.rs:382
 msgid "The host is unreachable. Check the network connection."
 msgstr "L'hôte est injoignable. Vérifiez la connexion réseau."
 
-#: rustconn/src/dialogs/key_setup.rs:382
+#: rustconn/src/dialogs/key_setup.rs:385
 msgid "The host name could not be resolved. Check the host name."
 msgstr "Le nom d'hôte n'a pas pu être résolu. Vérifiez le nom d'hôte."
 
-#: rustconn/src/dialogs/key_setup.rs:384
+#: rustconn/src/dialogs/key_setup.rs:387
 msgid "The server closed the connection."
 msgstr "Le serveur a fermé la connexion."
 
-#: rustconn/src/dialogs/key_setup.rs:390
+#: rustconn/src/dialogs/key_setup.rs:393
 msgid "Could not create ~/.ssh on the server."
 msgstr "Impossible de créer ~/.ssh sur le serveur."
 
-#: rustconn/src/dialogs/key_setup.rs:392
+#: rustconn/src/dialogs/key_setup.rs:395
 msgid "Could not create ~/.ssh/authorized_keys on the server."
 msgstr "Impossible de créer ~/.ssh/authorized_keys sur le serveur."
 
-#: rustconn/src/dialogs/key_setup.rs:394
+#: rustconn/src/dialogs/key_setup.rs:397
 msgid "The server did not receive the key."
 msgstr "Le serveur n'a pas reçu la clé."
 
-#: rustconn/src/dialogs/key_setup.rs:396
+#: rustconn/src/dialogs/key_setup.rs:399
 msgid ""
 "Could not add the key to ~/.ssh/authorized_keys on the server. Check the "
 "disk space and file permissions."
@@ -6032,7 +6050,7 @@ msgstr ""
 "Impossible d'ajouter la clé à ~/.ssh/authorized_keys sur le serveur. "
 "Vérifiez l'espace disque et les droits des fichiers."
 
-#: rustconn/src/dialogs/key_setup.rs:417
+#: rustconn/src/dialogs/key_setup.rs:420
 msgid ""
 "Too many authentication attempts. Remove unused keys from the SSH agent and "
 "try again."
@@ -6040,7 +6058,7 @@ msgstr ""
 "Trop de tentatives d'authentification. Retirez les clés inutilisées de "
 "l'agent SSH et réessayez."
 
-#: rustconn/src/dialogs/key_setup.rs:423
+#: rustconn/src/dialogs/key_setup.rs:426
 msgid ""
 "The server does not allow password sign-in (it offers: {}), so the key "
 "cannot be installed this way."
@@ -6048,7 +6066,7 @@ msgstr ""
 "Le serveur n'autorise pas la connexion par mot de passe (il propose : {}), "
 "la clé ne peut donc pas être installée ainsi."
 
-#: rustconn/src/dialogs/key_setup.rs:431
+#: rustconn/src/dialogs/key_setup.rs:434
 msgid ""
 "The server did not accept the password. Enter the account password and try "
 "again."
@@ -6056,7 +6074,7 @@ msgstr ""
 "Le serveur n'a pas accepté le mot de passe. Saisissez le mot de passe du "
 "compte et réessayez."
 
-#: rustconn/src/dialogs/key_setup.rs:438
+#: rustconn/src/dialogs/key_setup.rs:441
 msgid ""
 "The server asks for a password, but this connection's options or proxy "
 "prevent RustConn from passing the stored one safely."
@@ -6065,34 +6083,34 @@ msgstr ""
 "connexion empêchent RustConn de transmettre celui qui est enregistré en "
 "toute sécurité."
 
-#: rustconn/src/dialogs/key_setup.rs:442
+#: rustconn/src/dialogs/key_setup.rs:445
 msgid ""
 "The server asks for a password. Enter the account password and try again."
 msgstr ""
 "Le serveur demande un mot de passe. Saisissez le mot de passe du compte et "
 "réessayez."
 
-#: rustconn/src/dialogs/key_setup.rs:498
+#: rustconn/src/dialogs/key_setup.rs:501
 msgid "Create a New Key"
 msgstr "Créer une nouvelle clé"
 
-#: rustconn/src/dialogs/key_setup.rs:499
+#: rustconn/src/dialogs/key_setup.rs:502
 msgid "Use an Existing Key"
 msgstr "Utiliser une clé existante"
 
-#: rustconn/src/dialogs/key_setup.rs:504
+#: rustconn/src/dialogs/key_setup.rs:507
 msgid "Key Type"
 msgstr "Type de clé"
 
-#: rustconn/src/dialogs/key_setup.rs:506
+#: rustconn/src/dialogs/key_setup.rs:509
 msgid "Ed25519 (Recommended)"
 msgstr "Ed25519 (recommandé)"
 
-#: rustconn/src/dialogs/key_setup.rs:507
+#: rustconn/src/dialogs/key_setup.rs:510
 msgid "RSA 4096"
 msgstr "RSA 4096"
 
-#: rustconn/src/dialogs/key_setup.rs:520
+#: rustconn/src/dialogs/key_setup.rs:523
 msgid ""
 "In the snap, the key is kept in the snap's own folder and is deleted when "
 "the snap is removed. Without an SSH agent, a key passphrase is asked on "
@@ -6102,59 +6120,59 @@ msgstr ""
 "supprimée lorsque le snap est retiré. Sans agent SSH, la phrase secrète de "
 "la clé est demandée à chaque connexion."
 
-#: rustconn/src/dialogs/key_setup.rs:526 rustconn/src/toast.rs:72
+#: rustconn/src/dialogs/key_setup.rs:529 rustconn/src/toast.rs:72
 msgid "Warning"
 msgstr "Avertissement"
 
-#: rustconn/src/dialogs/key_setup.rs:537 rustconn/src/dialogs/key_setup.rs:817
-#: rustconn/src/dialogs/key_setup.rs:861
+#: rustconn/src/dialogs/key_setup.rs:540 rustconn/src/dialogs/key_setup.rs:821
+#: rustconn/src/dialogs/key_setup.rs:868
 msgid "No keys found. Choose a key file."
 msgstr "Aucune clé trouvée. Choisissez un fichier de clé."
 
-#: rustconn/src/dialogs/key_setup.rs:543 rustconn/src/dialogs/key_setup.rs:545
+#: rustconn/src/dialogs/key_setup.rs:546 rustconn/src/dialogs/key_setup.rs:548
 #: rustconn/src/window/edit_group.rs:714 rustconn/src/window/edit_group.rs:716
 msgid "Select SSH key file"
 msgstr "Sélectionner le fichier de clé SSH"
 
-#: rustconn/src/dialogs/key_setup.rs:554 rustconn/src/dialogs/key_setup.rs:792
+#: rustconn/src/dialogs/key_setup.rs:557 rustconn/src/dialogs/key_setup.rs:796
 msgid "Passphrase (Optional)"
 msgstr "Phrase secrète (facultatif)"
 
-#: rustconn/src/dialogs/key_setup.rs:559
+#: rustconn/src/dialogs/key_setup.rs:562
 msgid "Used once to install the key. Not saved."
 msgstr "Utilisé une seule fois pour installer la clé. Non enregistré."
 
-#: rustconn/src/dialogs/key_setup.rs:563
+#: rustconn/src/dialogs/key_setup.rs:566
 msgid "Account Password"
 msgstr "Mot de passe du compte"
 
-#: rustconn/src/dialogs/key_setup.rs:590
+#: rustconn/src/dialogs/key_setup.rs:593
 msgid "Delete Generated Key"
 msgstr "Supprimer la clé générée"
 
-#: rustconn/src/dialogs/key_setup.rs:592
+#: rustconn/src/dialogs/key_setup.rs:595
 msgid "Use Key"
 msgstr "Utiliser la clé"
 
-#: rustconn/src/dialogs/key_setup.rs:593
+#: rustconn/src/dialogs/key_setup.rs:596
 msgid "Keep Current Settings"
 msgstr "Conserver les réglages actuels"
 
-#: rustconn/src/dialogs/key_setup.rs:606
+#: rustconn/src/dialogs/key_setup.rs:609
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1003
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:45
 msgid "Status"
 msgstr "État"
 
-#: rustconn/src/dialogs/key_setup.rs:620 rustconn/src/dialogs/key_setup.rs:1078
+#: rustconn/src/dialogs/key_setup.rs:623 rustconn/src/dialogs/key_setup.rs:1085
 msgid "Set Up"
 msgstr "Configurer"
 
-#: rustconn/src/dialogs/key_setup.rs:630
+#: rustconn/src/dialogs/key_setup.rs:633
 msgid "Set Up Key Authentication"
 msgstr "Configurer l'authentification par clé"
 
-#: rustconn/src/dialogs/key_setup.rs:689
+#: rustconn/src/dialogs/key_setup.rs:692
 msgid ""
 "RustConn creates a key, installs it on {} and checks that it signs in. The "
 "stored password is kept."
@@ -6162,13 +6180,15 @@ msgstr ""
 "RustConn crée une clé, l'installe sur {} et vérifie que la connexion "
 "fonctionne avec elle. Le mot de passe enregistré est conservé."
 
-#: rustconn/src/dialogs/key_setup.rs:693
+#: rustconn/src/dialogs/key_setup.rs:696
 msgid ""
 "RustConn installs the key on {} and checks that it signs in. The stored "
 "password is kept."
-msgstr "RustConn installe la clé sur {} et vérifie qu'elle permet de se connecter. Le mot de passe enregistré est conservé."
+msgstr ""
+"RustConn installe la clé sur {} et vérifie qu'elle permet de se connecter. "
+"Le mot de passe enregistré est conservé."
 
-#: rustconn/src/dialogs/key_setup.rs:702
+#: rustconn/src/dialogs/key_setup.rs:705
 msgid ""
 "A key from an earlier attempt is ready and will be used again. Enter its "
 "passphrase if it has one."
@@ -6176,7 +6196,7 @@ msgstr ""
 "Une clé d'une tentative précédente est prête et sera réutilisée. Saisissez "
 "sa phrase secrète si elle en a une."
 
-#: rustconn/src/dialogs/key_setup.rs:706
+#: rustconn/src/dialogs/key_setup.rs:709
 msgid ""
 "A passphrase protects the key if someone copies it. Without an SSH agent it "
 "is asked on every connect."
@@ -6184,28 +6204,30 @@ msgstr ""
 "Une phrase secrète protège la clé si quelqu'un la copie. Sans agent SSH, "
 "elle est demandée à chaque connexion."
 
-#: rustconn/src/dialogs/key_setup.rs:874
+#: rustconn/src/dialogs/key_setup.rs:881
 msgid "Key Passphrase"
 msgstr "Phrase secrète de la clé"
 
-#: rustconn/src/dialogs/key_setup.rs:879
+#: rustconn/src/dialogs/key_setup.rs:886
 msgid "Key Passphrase (Optional)"
 msgstr "Phrase secrète de la clé (facultatif)"
 
-#: rustconn/src/dialogs/key_setup.rs:887
+#: rustconn/src/dialogs/key_setup.rs:894
 msgid "Used once to check that the key signs in. Not saved."
-msgstr "Utilisée une fois pour vérifier que la clé permet de se connecter. Non enregistrée."
+msgstr ""
+"Utilisée une fois pour vérifier que la clé permet de se connecter. Non "
+"enregistrée."
 
-#: rustconn/src/dialogs/key_setup.rs:1040
+#: rustconn/src/dialogs/key_setup.rs:1047
 #: rustconn/src/embedded_rdp/file_dnd.rs:229
 msgid "Try Again"
 msgstr "Réessayer"
 
-#: rustconn/src/dialogs/key_setup.rs:1056
+#: rustconn/src/dialogs/key_setup.rs:1063
 msgid "Key Accepted, More Required"
 msgstr "Clé acceptée, autre facteur requis"
 
-#: rustconn/src/dialogs/key_setup.rs:1058
+#: rustconn/src/dialogs/key_setup.rs:1065
 msgid ""
 "The server accepted the key but also asks for another factor, such as a one-"
 "time code. Use the key for this connection anyway?"
@@ -6213,7 +6235,7 @@ msgstr ""
 "Le serveur a accepté la clé mais demande aussi un autre facteur, comme un "
 "code à usage unique. Utiliser quand même la clé pour cette connexion ?"
 
-#: rustconn/src/dialogs/key_setup.rs:1075
+#: rustconn/src/dialogs/key_setup.rs:1082
 msgid "The generated key was deleted."
 msgstr "La clé générée a été supprimée."
 
@@ -6456,7 +6478,7 @@ msgid "{} bits"
 msgstr "{} bits"
 
 #: rustconn/src/dialogs/password_generator.rs:396
-#: rustconn/src/window/copy_field_actions.rs:274
+#: rustconn/src/window/copy_field_actions.rs:276
 msgid "Password copied (auto-clears in 30s)"
 msgstr "Mot de passe copié (effacement auto dans 30 s)"
 
@@ -6713,7 +6735,7 @@ msgstr "Entrez un nouveau nom d'affichage pour cet enregistrement."
 
 #: rustconn/src/dialogs/recording.rs:524 rustconn/src/dialogs/workspace.rs:127
 #: rustconn/src/dialogs/workspace.rs:238 rustconn/src/sidebar_ui.rs:356
-#: rustconn/src/sidebar_ui.rs:407 rustconn/src/window/edit_dialogs.rs:317
+#: rustconn/src/sidebar_ui.rs:407 rustconn/src/window/edit_dialogs.rs:334
 msgid "Rename"
 msgstr "Renommer"
 
@@ -6784,8 +6806,8 @@ msgstr "Échec de l'importation"
 #: rustconn/src/toast.rs:333 rustconn/src/toast.rs:363
 #: rustconn/src/window/clusters.rs:599
 #: rustconn/src/window/connection_dialogs.rs:888
-#: rustconn/src/window/edit_dialogs.rs:390
-#: rustconn/src/window/edit_dialogs.rs:494
+#: rustconn/src/window/edit_dialogs.rs:407
+#: rustconn/src/window/edit_dialogs.rs:511
 #: rustconn/src/window/edit_group.rs:1884
 msgid "Error"
 msgstr "Erreur"
@@ -9424,7 +9446,7 @@ msgstr "Nouveau groupe"
 
 #: rustconn/src/dialogs/shortcuts.rs:169 rustconn/src/sidebar_ui.rs:573
 #: rustconn/src/sidebar_ui.rs:1295 rustconn/src/split_view/bridge.rs:1863
-#: rustconn/src/window/edit_dialogs.rs:753 rustconn/src/window/ui.rs:265
+#: rustconn/src/window/edit_dialogs.rs:770 rustconn/src/window/ui.rs:265
 msgid "Quick Connect"
 msgstr "Connexion rapide"
 
@@ -10515,7 +10537,7 @@ msgid "Review"
 msgstr "Vérification"
 
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:228
-#: rustconn/src/window/copy_field_actions.rs:198
+#: rustconn/src/window/copy_field_actions.rs:200
 msgid "Copied"
 msgstr "Copié"
 
@@ -12040,10 +12062,6 @@ msgstr "Journal de session…"
 msgid "Open SFTP"
 msgstr "Ouvrir SFTP"
 
-#: rustconn/src/sidebar_ui.rs:505
-msgid "Set Up Key Authentication…"
-msgstr "Configurer l'authentification par clé…"
-
 #: rustconn/src/sidebar_ui.rs:511
 msgid "Open Browser via Tunnel"
 msgstr "Ouvrir le navigateur via le tunnel"
@@ -12639,7 +12657,7 @@ msgid "Info"
 msgstr "Info"
 
 #: rustconn/src/toast.rs:295 rustconn/src/window/batch_edit.rs:239
-#: rustconn/src/window/key_setup.rs:794
+#: rustconn/src/window/key_setup.rs:871
 msgid "Undo"
 msgstr "Annuler"
 
@@ -12685,7 +12703,7 @@ msgstr "{} session(s) active(s)"
 msgid "About RustConn"
 msgstr "À propos de RustConn"
 
-#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:5373
+#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:5374
 msgid "Passphrase Does Not Open the Portable File"
 msgstr "La phrase secrète n’ouvre pas le fichier portable"
 
@@ -13081,32 +13099,32 @@ msgstr "{} connexions importées dans le groupe ‘{}’"
 msgid "Port ({})"
 msgstr "Port ({})"
 
-#: rustconn/src/window/copy_field_actions.rs:190
+#: rustconn/src/window/copy_field_actions.rs:192
 msgid "Copied (auto-clears in {}s)"
 msgstr "Copié (effacement auto dans {} s)"
 
-#: rustconn/src/window/copy_field_actions.rs:248
+#: rustconn/src/window/copy_field_actions.rs:250
 msgid "No username configured"
 msgstr "Aucun nom d'utilisateur configuré"
 
-#: rustconn/src/window/copy_field_actions.rs:262
+#: rustconn/src/window/copy_field_actions.rs:264
 msgid "Username copied"
 msgstr "Nom d'utilisateur copié"
 
-#: rustconn/src/window/copy_field_actions.rs:285
+#: rustconn/src/window/copy_field_actions.rs:287
 msgid "Cached password is empty"
 msgstr "Le mot de passe en cache est vide"
 
-#: rustconn/src/window/copy_field_actions.rs:316
+#: rustconn/src/window/copy_field_actions.rs:318
 msgid "Password is empty"
 msgstr "Le mot de passe est vide"
 
-#: rustconn/src/window/copy_field_actions.rs:317
 #: rustconn/src/window/copy_field_actions.rs:319
+#: rustconn/src/window/copy_field_actions.rs:321
 msgid "No password configured for this connection"
 msgstr "Aucun mot de passe configuré pour cette connexion"
 
-#: rustconn/src/window/copy_field_actions.rs:322
+#: rustconn/src/window/copy_field_actions.rs:324
 msgid "Could not retrieve password from secret backend"
 msgstr "Impossible de récupérer le mot de passe depuis le backend de secrets"
 
@@ -13122,7 +13140,7 @@ msgstr ""
 
 #: rustconn/src/window/credentials.rs:1021
 #: rustconn/src/window/credentials.rs:1257
-#: rustconn/src/window/edit_actions.rs:2311
+#: rustconn/src/window/edit_actions.rs:2330
 msgid "Connection failed. Host unreachable."
 msgstr "Connexion échouée. Hôte injoignable."
 
@@ -13163,83 +13181,83 @@ msgstr "Impossible de déplacer la session vers sa propre fenêtre."
 msgid "Could not move the session back to the main window."
 msgstr "Impossible de ramener la session dans la fenêtre principale."
 
-#: rustconn/src/window/edit_actions.rs:346
+#: rustconn/src/window/edit_actions.rs:352
 msgid "Item restored"
 msgstr "Élément restauré"
 
-#: rustconn/src/window/edit_actions.rs:475
+#: rustconn/src/window/edit_actions.rs:481
 msgid "No Wake On LAN configured. Edit the connection to set a MAC address."
 msgstr ""
 "Wake On LAN non configuré. Modifiez la connexion pour définir une adresse "
 "MAC."
 
-#: rustconn/src/window/edit_actions.rs:503
+#: rustconn/src/window/edit_actions.rs:509
 msgid "Wake On LAN sent to {} — waiting for host to come online…"
 msgstr "Wake On LAN envoyé à {} — en attente de l'hôte…"
 
-#: rustconn/src/window/edit_actions.rs:544
+#: rustconn/src/window/edit_actions.rs:550
 msgid "{} is online — connecting…"
 msgstr "{} est en ligne — connexion…"
 
-#: rustconn/src/window/edit_actions.rs:559
+#: rustconn/src/window/edit_actions.rs:565
 msgid "{} did not come online after WoL"
 msgstr "{} n'est pas passé en ligne après WoL"
 
-#: rustconn/src/window/edit_actions.rs:571
+#: rustconn/src/window/edit_actions.rs:577
 msgid "Failed to send Wake On LAN packet. Check network permissions."
 msgstr ""
 "Impossible d'envoyer le paquet Wake On LAN. Vérifiez les permissions "
 "réseau.Échec de l'envoi du paquet Wake On LAN. Vérifiez les permissions "
 "réseau."
 
-#: rustconn/src/window/edit_actions.rs:606
+#: rustconn/src/window/edit_actions.rs:612
 msgid "Checking if {} is online…"
 msgstr "Vérification si {} est en ligne…"
 
-#: rustconn/src/window/edit_actions.rs:637
+#: rustconn/src/window/edit_actions.rs:643
 msgid "{} is online"
 msgstr "{} est en ligne"
 
-#: rustconn/src/window/edit_actions.rs:652
+#: rustconn/src/window/edit_actions.rs:658
 msgid "{} did not come online within timeout"
 msgstr "{} n'est pas passé en ligne dans le délai imparti"
 
-#: rustconn/src/window/edit_actions.rs:659
+#: rustconn/src/window/edit_actions.rs:665
 msgid "Host check failed: {}"
 msgstr "Vérification de l'hôte échouée : {}"
 
-#: rustconn/src/window/edit_actions.rs:748
-#: rustconn/src/window/edit_actions.rs:840
-#: rustconn/src/window/edit_actions.rs:895
+#: rustconn/src/window/edit_actions.rs:746
+#: rustconn/src/window/edit_actions.rs:838
+#: rustconn/src/window/edit_actions.rs:893
 msgid "SFTP is only available for SSH connections."
 msgstr "SFTP est disponible uniquement pour les connexions SSH."
 
-#: rustconn/src/window/edit_actions.rs:758
+#: rustconn/src/window/edit_actions.rs:756
 msgid "mc requires SSH key in agent. Password auth is not supported."
 msgstr ""
 "mc nécessite une clé SSH dans l'agent. L'authentification par mot de passe "
 "n'est pas prise en charge."
 
-#: rustconn/src/window/edit_actions.rs:766
+#: rustconn/src/window/edit_actions.rs:764
 msgid "SSH agent not running. Run 'eval $(ssh-agent)' and retry."
 msgstr ""
 "L'agent SSH n'est pas en cours d'exécution. Exécutez « eval $(ssh-agent) » "
 "puis réessayez."
 
-#: rustconn/src/window/edit_actions.rs:773
+#: rustconn/src/window/edit_actions.rs:771
 msgid "SSH key not available"
 msgstr "Clé SSH non disponible"
 
-#: rustconn/src/window/edit_actions.rs:783
+#: rustconn/src/window/edit_actions.rs:781
 msgid "Midnight Commander (mc) is not installed."
 msgstr "Midnight Commander (mc) n'est pas installé."
 
-#: rustconn/src/window/edit_actions.rs:788
+#: rustconn/src/window/edit_actions.rs:786
 msgid "Opening mc SFTP…"
 msgstr "Ouverture mc SFTP…"
 
-#: rustconn/src/window/edit_actions.rs:866
-#: rustconn/src/window/edit_actions.rs:2459
+#: rustconn/src/window/edit_actions.rs:864
+#: rustconn/src/window/edit_actions.rs:2478
 msgid ""
 "External file managers cannot access SSH agent in "
 "Flatpak.                          Enable \"SFTP via mc\" in Settings for "
@@ -13249,53 +13267,53 @@ msgstr ""
 "dans Flatpak. Activez « SFTP via mc » dans les Paramètres pour un accès "
 "fiable."
 
-#: rustconn/src/window/edit_actions.rs:882
-#: rustconn/src/window/edit_actions.rs:2477
+#: rustconn/src/window/edit_actions.rs:880
+#: rustconn/src/window/edit_actions.rs:2496
 msgid "Jump host detected. Opening SFTP via mc instead of the file manager."
 msgstr ""
 "Hôte de rebond détecté. SFTP est ouvert via mc au lieu du gestionnaire de "
 "fichiers."
 
-#: rustconn/src/window/edit_actions.rs:945
+#: rustconn/src/window/edit_actions.rs:943
 msgid "Opening SFTP…"
 msgstr "Ouverture SFTP…"
 
-#: rustconn/src/window/edit_actions.rs:992
+#: rustconn/src/window/edit_actions.rs:990
 msgid "SSH agent not running — file manager may not authenticate."
 msgstr ""
 "L'agent SSH n'est pas en cours d'exécution — le gestionnaire de fichiers "
 "pourrait ne pas s'authentifier."
 
-#: rustconn/src/window/edit_actions.rs:1066
+#: rustconn/src/window/edit_actions.rs:1085
 msgid "This connection type cannot host a SOCKS tunnel"
 msgstr "Ce type de connexion ne prend pas en charge un tunnel SOCKS"
 
-#: rustconn/src/window/edit_actions.rs:1087
+#: rustconn/src/window/edit_actions.rs:1106
 msgid "application is busy"
 msgstr "l’application est occupée"
 
-#: rustconn/src/window/edit_actions.rs:1090
+#: rustconn/src/window/edit_actions.rs:1109
 msgid "the SSH connection it tunnels through is gone"
 msgstr "la connexion SSH par laquelle le tunnel passe n’existe plus"
 
-#: rustconn/src/window/edit_actions.rs:1433
+#: rustconn/src/window/edit_actions.rs:1452
 msgid "Opened outside RustConn: the embedded browser is off in the snap"
 msgstr ""
 "Ouvert hors de RustConn : le navigateur intégré est désactivé dans le snap"
 
-#: rustconn/src/window/edit_actions.rs:1494
-#: rustconn/src/window/edit_actions.rs:1658
-#: rustconn/src/window/edit_actions.rs:1909
-#: rustconn/src/window/edit_actions.rs:2007
+#: rustconn/src/window/edit_actions.rs:1513
+#: rustconn/src/window/edit_actions.rs:1677
+#: rustconn/src/window/edit_actions.rs:1928
+#: rustconn/src/window/edit_actions.rs:2026
 msgid "Could not open the SSH tunnel: {}"
 msgstr "Impossible d’ouvrir le tunnel SSH : {}"
 
-#: rustconn/src/window/edit_actions.rs:1507
-#: rustconn/src/window/edit_actions.rs:1630
+#: rustconn/src/window/edit_actions.rs:1526
+#: rustconn/src/window/edit_actions.rs:1649
 msgid "Starting the tunnel…"
 msgstr "Démarrage du tunnel…"
 
-#: rustconn/src/window/edit_actions.rs:1583
+#: rustconn/src/window/edit_actions.rs:1602
 msgid ""
 "The tunnelled browser command ‘{}’ is not Chromium-based and can't be "
 "tunnelled; opening the embedded browser instead. Set a chromium/chrome/brave/"
@@ -13306,7 +13324,7 @@ msgstr ""
 "Définissez une commande chromium/chrome/brave/vivaldi/edge dans les Réglages "
 "pour utiliser un navigateur externe."
 
-#: rustconn/src/window/edit_actions.rs:1587
+#: rustconn/src/window/edit_actions.rs:1606
 msgid ""
 "The tunnelled browser command ‘{}’ is not a Chromium-based browser. Only "
 "Chromium-family browsers can be proxied through the tunnel; set a chromium/"
@@ -13317,7 +13335,7 @@ msgstr ""
 "par le tunnel ; définissez une commande chromium/chrome/brave/vivaldi/edge "
 "dans les Réglages."
 
-#: rustconn/src/window/edit_actions.rs:1593
+#: rustconn/src/window/edit_actions.rs:1612
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH; opening the "
 "embedded browser instead. Check the command in Settings, or clear it to auto-"
@@ -13327,7 +13345,7 @@ msgstr ""
 "ouverture du navigateur intégré à la place. Vérifiez la commande dans les "
 "Réglages ou effacez-la pour détecter automatiquement un navigateur."
 
-#: rustconn/src/window/edit_actions.rs:1597
+#: rustconn/src/window/edit_actions.rs:1616
 msgid ""
 "The tunnelled browser command ‘{}’ was not found on PATH. Check the command "
 "in Settings, or clear it to auto-detect a browser."
@@ -13336,7 +13354,7 @@ msgstr ""
 "Vérifiez la commande dans les Réglages ou effacez-la pour détecter "
 "automatiquement un navigateur."
 
-#: rustconn/src/window/edit_actions.rs:1603
+#: rustconn/src/window/edit_actions.rs:1622
 msgid ""
 "No Chromium-based browser found; opening the embedded browser instead. "
 "Install a Chromium-based browser to tunnel an external one."
@@ -13345,7 +13363,7 @@ msgstr ""
 "à la place. Installez un navigateur basé sur Chromium pour tunneliser un "
 "navigateur externe."
 
-#: rustconn/src/window/edit_actions.rs:1608
+#: rustconn/src/window/edit_actions.rs:1627
 msgid ""
 "No Chromium-based browser found, and the embedded browser is off in the "
 "snap. Turn it on in Settings to open a tunnelled browser."
@@ -13354,7 +13372,7 @@ msgstr ""
 "est désactivé dans le snap. Activez-le dans les paramètres pour ouvrir un "
 "navigateur tunnelisé."
 
-#: rustconn/src/window/edit_actions.rs:1612
+#: rustconn/src/window/edit_actions.rs:1631
 msgid ""
 "No Chromium-based browser found. Install a Chromium-based browser, or use a "
 "build with the embedded browser, to open a tunnelled browser."
@@ -13363,31 +13381,31 @@ msgstr ""
 "Chromium, ou utilisez une version avec le navigateur intégré, pour ouvrir un "
 "navigateur tunnelisé."
 
-#: rustconn/src/window/edit_actions.rs:1734
+#: rustconn/src/window/edit_actions.rs:1753
 msgid "Opened a tunnelled browser"
 msgstr "Navigateur tunnelisé ouvert"
 
-#: rustconn/src/window/edit_actions.rs:1739
-#: rustconn/src/window/edit_actions.rs:1792
+#: rustconn/src/window/edit_actions.rs:1758
+#: rustconn/src/window/edit_actions.rs:1811
 msgid "Failed to open browser: {}"
 msgstr "Impossible d’ouvrir le navigateur : {}"
 
-#: rustconn/src/window/edit_actions.rs:1769
+#: rustconn/src/window/edit_actions.rs:1788
 msgid "{} (tunnel)"
 msgstr "{} (tunnel)"
 
-#: rustconn/src/window/edit_actions.rs:1783
-#: rustconn/src/window/edit_actions.rs:1948
+#: rustconn/src/window/edit_actions.rs:1802
+#: rustconn/src/window/edit_actions.rs:1967
 msgid "Could not open the page: {}"
 msgstr "Impossible d’ouvrir la page : {}"
 
-#: rustconn/src/window/edit_actions.rs:1980
-#: rustconn/src/window/edit_actions.rs:2094
-#: rustconn/src/window/edit_actions.rs:2140
+#: rustconn/src/window/edit_actions.rs:1999
+#: rustconn/src/window/edit_actions.rs:2113
+#: rustconn/src/window/edit_actions.rs:2159
 msgid "Failed to open URL: {}"
 msgstr "Impossible d'ouvrir l'URL : {}"
 
-#: rustconn/src/window/edit_actions.rs:2040
+#: rustconn/src/window/edit_actions.rs:2059
 msgid ""
 "This browser can't be tunnelled from the command line. Use a Chromium-based "
 "browser or the embedded browser for SSH tunnelling."
@@ -13396,12 +13414,12 @@ msgstr ""
 "Utilisez un navigateur basé sur Chromium ou le navigateur intégré pour le "
 "tunnel SSH."
 
-#: rustconn/src/window/edit_actions.rs:2083
-#: rustconn/src/window/edit_actions.rs:2160
+#: rustconn/src/window/edit_actions.rs:2102
+#: rustconn/src/window/edit_actions.rs:2179
 msgid "Opened in browser"
 msgstr "Ouvert dans le navigateur"
 
-#: rustconn/src/window/edit_actions.rs:2111
+#: rustconn/src/window/edit_actions.rs:2130
 msgid ""
 "This tunnelled connection needs the embedded browser, which is off in the "
 "snap"
@@ -13409,7 +13427,7 @@ msgstr ""
 "Cette connexion tunnelisée nécessite le navigateur intégré, qui est "
 "désactivé dans le snap"
 
-#: rustconn/src/window/edit_actions.rs:2127
+#: rustconn/src/window/edit_actions.rs:2146
 msgid ""
 "SSH tunnelling needs the embedded or a Custom (Chromium) browser; the system "
 "browser opens without the tunnel."
@@ -13417,44 +13435,44 @@ msgstr ""
 "Le tunnel SSH nécessite le navigateur intégré ou un navigateur personnalisé "
 "(Chromium) ; le navigateur système s’ouvre sans le tunnel."
 
-#: rustconn/src/window/edit_dialogs.rs:260
+#: rustconn/src/window/edit_dialogs.rs:277
 msgid "Failed to update vault entry: {}"
 msgstr "Échec de la mise à jour de l’entrée du coffre : {}"
 
-#: rustconn/src/window/edit_dialogs.rs:277
+#: rustconn/src/window/edit_dialogs.rs:294
 msgid "Error Updating Connection"
 msgstr "Erreur lors de la mise à jour de la connexion"
 
-#: rustconn/src/window/edit_dialogs.rs:308
+#: rustconn/src/window/edit_dialogs.rs:325
 msgid "Rename Group"
 msgstr "Renommer le groupe"
 
-#: rustconn/src/window/edit_dialogs.rs:310
+#: rustconn/src/window/edit_dialogs.rs:327
 msgid "Rename Connection"
 msgstr "Renommer la connexion"
 
-#: rustconn/src/window/edit_dialogs.rs:352
+#: rustconn/src/window/edit_dialogs.rs:369
 msgid "Name cannot be empty"
 msgstr "Le nom ne peut pas être vide"
 
-#: rustconn/src/window/edit_dialogs.rs:369
+#: rustconn/src/window/edit_dialogs.rs:386
 #: rustconn/src/window/edit_group.rs:1672
 msgid "Group with name '{}' already exists"
 msgstr "Un groupe nommé « {} » existe déjà"
 
-#: rustconn/src/window/edit_dialogs.rs:467
+#: rustconn/src/window/edit_dialogs.rs:484
 msgid "Failed to rename vault entry: {}"
 msgstr "Échec du renommage de l’entrée du coffre : {}"
 
-#: rustconn/src/window/edit_dialogs.rs:773
+#: rustconn/src/window/edit_dialogs.rs:790
 msgid "⚠ This connection will not be saved"
 msgstr "⚠ Cette connexion ne sera pas enregistrée"
 
-#: rustconn/src/window/edit_dialogs.rs:795
+#: rustconn/src/window/edit_dialogs.rs:812
 msgid "Template"
 msgstr "Modèle"
 
-#: rustconn/src/window/edit_dialogs.rs:853
+#: rustconn/src/window/edit_dialogs.rs:870
 msgid "Recent"
 msgstr "Récents"
 
@@ -13752,41 +13770,41 @@ msgstr ""
 msgid "Global variables could not be saved to disk."
 msgstr "Les variables globales n'ont pas pu être enregistrées sur le disque."
 
-#: rustconn/src/window/key_setup.rs:620
+#: rustconn/src/window/key_setup.rs:672
 msgid "The connection could not be read. Try again."
 msgstr "Impossible de lire la connexion. Réessayez."
 
-#: rustconn/src/window/key_setup.rs:781
+#: rustconn/src/window/key_setup.rs:858
 msgid "The key works, but the connection could not be switched to it: {}"
 msgstr ""
 "La clé fonctionne, mais la connexion n'a pas pu être basculée vers celle-"
 "ci : {}"
 
-#: rustconn/src/window/key_setup.rs:793
+#: rustconn/src/window/key_setup.rs:870
 msgid "'{}' now signs in with a key"
 msgstr "« {} » se connecte désormais avec une clé"
 
-#: rustconn/src/window/key_setup.rs:821
+#: rustconn/src/window/key_setup.rs:898
 msgid "the application is busy"
 msgstr "l’application est occupée"
 
-#: rustconn/src/window/key_setup.rs:825
+#: rustconn/src/window/key_setup.rs:902
 msgid "the connection no longer exists"
 msgstr "la connexion n'existe plus"
 
-#: rustconn/src/window/key_setup.rs:828
+#: rustconn/src/window/key_setup.rs:905
 msgid "the connection is not an SSH connection"
 msgstr "la connexion n'est pas une connexion SSH"
 
-#: rustconn/src/window/key_setup.rs:852
+#: rustconn/src/window/key_setup.rs:929
 msgid "Restored the previous sign-in settings for '{}'"
 msgstr "Les anciens réglages de connexion de « {} » ont été rétablis"
 
-#: rustconn/src/window/key_setup.rs:859
+#: rustconn/src/window/key_setup.rs:936
 msgid "The previous sign-in settings could not be restored."
 msgstr "Impossible de rétablir les anciens réglages de connexion."
 
-#: rustconn/src/window/key_setup.rs:903
+#: rustconn/src/window/key_setup.rs:980
 msgid ""
 "Once the session is open and the host key is recorded, choose Set Up Key "
 "Authentication again."
@@ -13794,11 +13812,11 @@ msgstr ""
 "Une fois la session ouverte et la clé d'hôte enregistrée, choisissez de "
 "nouveau Configurer l'authentification par clé."
 
-#: rustconn/src/window/key_setup.rs:933
+#: rustconn/src/window/key_setup.rs:1008
 msgid "Delete Generated Key?"
 msgstr "Supprimer la clé générée ?"
 
-#: rustconn/src/window/key_setup.rs:935
+#: rustconn/src/window/key_setup.rs:1010
 msgid ""
 "The key files are removed from this computer. If the public key was already "
 "installed, it stays in the server's authorized_keys."
@@ -13981,17 +13999,17 @@ msgstr ""
 "Vérifiez que le service de trousseau est actif et déverrouillé, puis "
 "enregistrez à nouveau les paramètres."
 
-#: rustconn/src/window/mod.rs:4399
+#: rustconn/src/window/mod.rs:4400
 msgid "Close RustConn?"
 msgstr "Fermer RustConn ?"
 
-#: rustconn/src/window/mod.rs:4401
+#: rustconn/src/window/mod.rs:4402
 msgid "{} session tab(s) are open. Active connections will be disconnected."
 msgstr ""
 "{} onglet(s) de session sont ouverts. Les connexions actives seront "
 "déconnectées."
 
-#: rustconn/src/window/mod.rs:4438
+#: rustconn/src/window/mod.rs:4439
 msgid ""
 "Settings could not be read, so defaults are in use. The unreadable file was "
 "kept as {}."
@@ -13999,7 +14017,7 @@ msgstr ""
 "Les paramètres n'ont pas pu être lus ; les valeurs par défaut sont donc "
 "utilisées. Le fichier illisible a été conservé sous le nom {}."
 
-#: rustconn/src/window/mod.rs:4443
+#: rustconn/src/window/mod.rs:4444
 msgid ""
 "These settings were saved by a newer RustConn ({}). A backup is kept before "
 "they are changed."
@@ -14007,35 +14025,35 @@ msgstr ""
 "Ces paramètres ont été enregistrés par une version plus récente de RustConn "
 "({}). Une sauvegarde est conservée avant leur modification."
 
-#: rustconn/src/window/mod.rs:4468
+#: rustconn/src/window/mod.rs:4469
 msgid "Cloud sync failed for '{}': {}"
 msgstr "Échec de la synchronisation cloud pour « {} » : {}"
 
-#: rustconn/src/window/mod.rs:4651
+#: rustconn/src/window/mod.rs:4652
 msgid "Startup connection not found"
 msgstr "Connexion de démarrage introuvable"
 
-#: rustconn/src/window/mod.rs:4687
+#: rustconn/src/window/mod.rs:4688
 msgid "Failed to open .rdp file"
 msgstr "Échec de l'ouverture du fichier .rdp"
 
-#: rustconn/src/window/mod.rs:4723
+#: rustconn/src/window/mod.rs:4724
 msgid "Failed to open .vv file"
 msgstr "Échec de l'ouverture du fichier .vv"
 
-#: rustconn/src/window/mod.rs:4760
+#: rustconn/src/window/mod.rs:4761
 msgid "Tunnel “{}” stopped: {}"
 msgstr "Le tunnel “{}” s'est arrêté : {}"
 
-#: rustconn/src/window/mod.rs:4776
+#: rustconn/src/window/mod.rs:4777
 msgid "Gave up reconnecting tunnel “{}”: {}"
 msgstr "Abandon de la reconnexion du tunnel “{}” : {}"
 
-#: rustconn/src/window/mod.rs:5289
+#: rustconn/src/window/mod.rs:5290
 msgid "Successfully exported {} connection(s). {} skipped."
 msgstr "{} connexion(s) exportée(s) avec succès. {} ignorée(s)."
 
-#: rustconn/src/window/mod.rs:5375
+#: rustconn/src/window/mod.rs:5376
 msgid ""
 "The passphrase you saved does not decrypt the portable credential file, so "
 "none of the passwords in it can be read. Open Settings ▸ Secrets and enter "

@@ -105,6 +105,8 @@ impl ConnectionDialog {
         let ssh_key_entry = ssh_widgets.key_entry;
         let ssh_key_button = ssh_widgets.key_button;
         let ssh_agent_key_dropdown = ssh_widgets.agent_key_dropdown;
+        let ssh_key_auth = ssh_widgets.key_auth;
+        let ssh_key_setup_row = ssh_widgets.key_setup_row;
         let ssh_jump_host_dropdown = ssh_widgets.jump_host_dropdown;
         let ssh_jump_host_row = ssh_widgets.jump_host_row;
         let ssh_proxy_entry = ssh_widgets.proxy_entry;
@@ -345,6 +347,7 @@ impl ConnectionDialog {
             mosh_settings_group: mosh_settings_group.clone(),
             // Not kept on the dialog: only the protocol dropdown ever touches it.
             ssh_keyboard_group,
+            ssh_key_setup_row: ssh_key_setup_row.clone(),
         };
         Self::connect_protocol_dropdown(
             &protocol_dropdown,
@@ -835,6 +838,8 @@ impl ConnectionDialog {
             ssh_key_entry,
             ssh_key_button,
             ssh_agent_key_dropdown,
+            ssh_key_auth,
+            ssh_key_setup_row,
             ssh_agent_keys,
             pending_agent_selection,
             network_mode_row,

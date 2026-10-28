@@ -121,6 +121,7 @@ impl MainWindow {
         let state_clone = state.clone();
         let sidebar_clone = sidebar.clone();
         let window_weak = window.downgrade();
+        let key_setup_ctx = self.key_setup_context(window, state, sidebar);
         edit_action.connect_activate(move |_, param| {
             let Some(id) = param
                 .and_then(glib::Variant::get::<String>)
@@ -134,6 +135,7 @@ impl MainWindow {
                     &state_clone,
                     &sidebar_clone,
                     id,
+                    &key_setup_ctx,
                 );
             }
         });

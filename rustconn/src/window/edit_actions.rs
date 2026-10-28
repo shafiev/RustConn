@@ -140,9 +140,15 @@ impl MainWindow {
         let window_weak = window.downgrade();
         let state_clone = state.clone();
         let sidebar_clone = sidebar.clone();
+        let key_setup_ctx_for_edit = self.key_setup_context(window, state, sidebar);
         edit_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
-                Self::edit_selected_connection(win.upcast_ref(), &state_clone, &sidebar_clone);
+                Self::edit_selected_connection(
+                    win.upcast_ref(),
+                    &state_clone,
+                    &sidebar_clone,
+                    &key_setup_ctx_for_edit,
+                );
             }
         });
         window.add_action(&edit_action);
@@ -674,15 +680,7 @@ impl MainWindow {
         // Set Up Key Authentication — generate, install and verify an SSH key,
         // then switch the connection to it. The window is held weakly: it owns
         // this action, which owns the context.
-        let key_setup_context = Rc::new(super::key_setup::KeySetupContext {
-            window: window.downgrade(),
-            state: state.clone(),
-            sidebar: sidebar.clone(),
-            notebook: self.terminal_notebook.clone(),
-            split_view: self.split_view.clone(),
-            monitoring: self.monitoring.clone(),
-            toast_overlay: self.toast_overlay.clone(),
-        });
+        let key_setup_context = self.key_setup_context(window, state, sidebar);
         register_selected_and_by_id(window, sidebar, "set-up-key-auth", move |id| {
             super::key_setup::open_key_setup_dialog(Rc::clone(&key_setup_context), id);
         });
@@ -1018,6 +1016,27 @@ impl MainWindow {
             Self::open_browser_via_tunnel(&state_obt, &notebook_obt, &sidebar_obt, conn_id);
         });
         window.add_action(&obt_action);
+    }
+
+    /// Builds the context `window::key_setup` needs to open "Set Up Key
+    /// Authentication…", shared by the sidebar menu's action and the
+    /// connection editor's own row (K4) — one function, so the two entry
+    /// points cannot end up wired to a different window, state or notebook.
+    pub(super) fn key_setup_context(
+        &self,
+        window: &adw::ApplicationWindow,
+        state: &SharedAppState,
+        sidebar: &SharedSidebar,
+    ) -> Rc<super::key_setup::KeySetupContext> {
+        Rc::new(super::key_setup::KeySetupContext {
+            window: window.downgrade(),
+            state: state.clone(),
+            sidebar: sidebar.clone(),
+            notebook: self.terminal_notebook.clone(),
+            split_view: self.split_view.clone(),
+            monitoring: self.monitoring.clone(),
+            toast_overlay: self.toast_overlay.clone(),
+        })
     }
 
     /// Raises a dynamic SOCKS proxy (`ssh -N -D`) to the given SSH or Tailscale SSH connection

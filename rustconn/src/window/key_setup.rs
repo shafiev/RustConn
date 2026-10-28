@@ -35,6 +35,17 @@ use crate::dialogs::key_setup::{
 use crate::i18n::{i18n, i18n_f};
 use crate::utils::spawn_blocking_with_callback;
 
+/// Whether a connection may open "Set Up Key Authentication…" from the
+/// connection editor's own row (K4) — SSH only, the same test
+/// [`open_key_setup_dialog`] already applies for the sidebar menu. One
+/// function, so the two entry points cannot drift apart.
+pub(super) fn offers_editor_key_setup(connection: &rustconn_core::Connection) -> bool {
+    matches!(
+        connection.protocol_config,
+        rustconn_core::ProtocolConfig::Ssh(_)
+    )
+}
+
 /// What the dialog needs from the main window.
 pub(super) struct KeySetupContext {
     /// Weak: the window owns the action that owns this context.
@@ -140,6 +151,12 @@ struct Controller {
     /// Whether the existing-key dropdown has been filled yet; it is only
     /// scanned once, the first time the mode switches to `Existing`.
     existing_keys_loaded: Cell<bool>,
+    /// `Some` when this dialog was opened from the connection editor's own
+    /// row (K4) rather than the sidebar menu: the key goes into the editor's
+    /// widgets through this closure instead of being persisted directly, and
+    /// no Undo toast is shown (D1 in the K4 plan — the editor's own Cancel is
+    /// the undo).
+    apply_to_editor: Option<Rc<dyn Fn(&Path)>>,
 }
 
 impl Controller {
@@ -164,8 +181,26 @@ impl Controller {
     }
 }
 
-/// Opens the dialog for a connection. Does nothing for a connection that is not SSH.
+/// Opens the dialog for a connection, from the sidebar menu. Does nothing for
+/// a connection that is not SSH.
 pub(super) fn open_key_setup_dialog(ctx: Rc<KeySetupContext>, connection_id: Uuid) {
+    open(ctx, connection_id, None);
+}
+
+/// Opens the dialog for a connection, from the connection editor's own "Set
+/// Up Key Authentication…" row (K4). `apply` writes a successful result into
+/// the editor's widgets instead of persisting it — see
+/// [`Controller::apply_to_editor`].
+pub(super) fn open_key_setup_for_editor(
+    ctx: Rc<KeySetupContext>,
+    connection_id: Uuid,
+    apply: Rc<dyn Fn(&Path)>,
+) {
+    open(ctx, connection_id, Some(apply));
+}
+
+/// Does nothing for a connection that is not SSH.
+fn open(ctx: Rc<KeySetupContext>, connection_id: Uuid, apply_to_editor: Option<Rc<dyn Fn(&Path)>>) {
     let Some(window) = ctx.window.upgrade() else {
         return;
     };
@@ -186,10 +221,7 @@ pub(super) fn open_key_setup_dialog(ctx: Rc<KeySetupContext>, connection_id: Uui
     let current_key_path =
         rustconn_core::connection::ssh_inheritance::resolve_ssh_key_path(&connection, &groups)
             .and_then(|path| rustconn_core::resolve_key_path(&path));
-    if !matches!(
-        connection.protocol_config,
-        rustconn_core::ProtocolConfig::Ssh(_)
-    ) {
+    if !offers_editor_key_setup(&connection) {
         tracing::debug!(%connection_id, "key setup: not an SSH connection");
         return;
     }
@@ -219,6 +251,7 @@ pub(super) fn open_key_setup_dialog(ctx: Rc<KeySetupContext>, connection_id: Uui
         busy: Cell::new(false),
         current_key_path,
         existing_keys_loaded: Cell::new(false),
+        apply_to_editor,
     });
     wire(&controller, &dialog);
     refresh_slot_hint(&controller);
@@ -775,7 +808,7 @@ fn succeed(c: &Rc<Controller>) {
     let Some(path) = c.key.borrow().as_ref().map(|k| k.path.clone()) else {
         return;
     };
-    switch_connection_to_key(c, &path);
+    adopt_key(c, &path);
 }
 
 /// Use Key after a second-factor warning.
@@ -783,7 +816,26 @@ fn use_key(c: &Rc<Controller>) {
     let Some(path) = c.key.borrow().as_ref().map(|k| k.path.clone()) else {
         return;
     };
-    switch_connection_to_key(c, &path);
+    adopt_key(c, &path);
+}
+
+/// The key works: either write it into the open editor's widgets (K4, no
+/// persist, no Undo toast) or persist it to the stored connection with Undo
+/// (sidebar menu) — whichever this dialog was opened for.
+///
+/// Order matters for D4 in the K4 plan: the dialog handle is cloned out of
+/// its `RefCell` and closed *before* `apply` runs, so the editor callback
+/// only ever touches GTK widgets, never `Controller`'s own `RefCell`s.
+fn adopt_key(c: &Rc<Controller>, path: &Path) {
+    match c.apply_to_editor.clone() {
+        Some(apply) => {
+            if let Some(dialog) = c.dialog() {
+                dialog.close();
+            }
+            apply(path);
+        }
+        None => switch_connection_to_key(c, path),
+    }
 }
 
 /// Saves the connection with key authentication, closes the dialog and offers Undo.
@@ -1048,6 +1100,21 @@ mod tests {
         let mut connection = Connection::new_rdp("desk".into(), "desk.example".into(), 3389);
         assert!(!apply_key_auth(&mut connection, Path::new("/k/new")));
         assert!(matches!(connection.protocol_config, ProtocolConfig::Rdp(_)));
+    }
+
+    #[test]
+    fn offers_editor_key_setup_only_for_ssh() {
+        let ssh = Connection::new_ssh("web".into(), "web.example".into(), 22);
+        assert!(offers_editor_key_setup(&ssh));
+
+        let sftp = Connection::new_sftp("files".into(), "files.example".into(), 22);
+        assert!(!offers_editor_key_setup(&sftp));
+
+        let mosh = Connection::new_mosh("shell".into(), "shell.example".into(), 60000);
+        assert!(!offers_editor_key_setup(&mosh));
+
+        let rdp = Connection::new_rdp("desk".into(), "desk.example".into(), 3389);
+        assert!(!offers_editor_key_setup(&rdp));
     }
 
     #[test]
