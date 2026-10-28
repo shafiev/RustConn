@@ -149,10 +149,11 @@ as in the Flatpak and the native packages:
   **Custom** in the connection dialog's **Mode** list. For the tunnelled browser,
   turn off Settings → Interface → Connections → **Open tunnelled browser in the
   embedded browser** to use an external Chromium-based browser instead.
-- A tunnelled Web connection or *Open Browser via Tunnel* with no usable external
-  Chromium-based browser opens the embedded browser instead, with a toast
-  explaining the fallback — it never silently falls back to the system browser,
-  which cannot take the SOCKS proxy.
+- *Open Browser via Tunnel* with no usable external Chromium-based browser opens
+  the embedded browser instead, with a toast explaining the fallback — it never
+  silently falls back to the system browser, which cannot take the SOCKS proxy.
+  A Web connection that tunnels through SSH needs **Embedded** or a Chromium
+  **Custom** command: **System** opens it without the tunnel.
 - Or use the Flatpak or a native package, which keep web content in a sandbox.
 
 Embedded browser cookies and cache live under the snap's user data (see
