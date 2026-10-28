@@ -1731,11 +1731,9 @@ URL. Other Zero Trust providers are not supported yet.
 Where it opens is a global setting — Settings → Interface → Connections → **Open
 tunnelled browser in the embedded browser**:
 
-- **On** (default, except in the snap) — the in-app WebKit browser opens in a tab,
-  and the tunnel stays up only as long as that tab. Available in builds that ship
-  the embedded browser. In the snap the switch is **off** by default and has no
-  effect until you also turn on **Allow the embedded browser** (a snap-only row
-  just above it), because the snap's embedded browser runs without a sandbox; see
+- **On** (default) — the in-app WebKit browser opens in a tab, and the tunnel
+  stays up only as long as that tab. Available in builds that ship the embedded
+  browser. In the snap the embedded browser runs without a WebKit sandbox; see
   the Web connection's known limitations.
 - **Off**, or a build without the embedded browser — an external Chromium-based
   browser (Chromium, Chrome, Brave, Vivaldi, Edge) launches with `--proxy-server`
@@ -1908,13 +1906,13 @@ Web connections store website URLs and can open them in three browser modes depe
 
 | Mode | Description | Default |
 |------|-------------|---------|
-| **Embedded** | Built-in WebKitGTK 6.0 browser in a notebook tab (Linux only) | Yes (Linux, except the snap) |
-| **System** | Opens URL in the default system browser via GTK4 `UriLauncher` (portal-aware, works in Flatpak) | Default in the snap; fallback / other platforms |
+| **Embedded** | Built-in WebKitGTK 6.0 browser in a notebook tab (Linux only) | Yes (Linux) |
+| **System** | Opens URL in the default system browser via GTK4 `UriLauncher` (portal-aware, works in Flatpak) | Fallback / other platforms |
 | **Custom** | Opens URL with a user-defined browser command | Manual |
 
 Configure the browser mode in the connection dialog's protocol tab.
 
-**Snap:** the embedded browser runs without a sandbox there, so it is used only after you switch on Settings → Interface → Connections → **Allow the embedded browser** on that device. Until then a connection stored as Embedded (for example synced from a Flatpak or native install) opens in the system browser, with a one-time notice; its stored mode is not changed and other devices still open it embedded.
+**Snap:** the embedded browser is the default there too, as in the Flatpak and the native packages, but it runs without a WebKit sandbox (see [Snap — Embedded web browser](SNAP.md#embedded-web-browser-webkitgtk)). For a connection where that matters, pick **System** or **Custom** in Mode instead.
 
 **Creating a Web connection:**
 1. Click "New Connection" → select **Web** protocol

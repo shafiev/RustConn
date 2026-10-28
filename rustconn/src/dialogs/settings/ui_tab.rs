@@ -104,8 +104,6 @@ pub fn create_ui_page() -> (
     adw::SpinRow,
     // sidebar_font_size (issue #379)
     adw::ComboRow,
-    // snap_embedded_browser_allowed (snap-only opt-in)
-    adw::SwitchRow,
 ) {
     let page = adw::PreferencesPage::builder()
         .title(i18n("Interface"))
@@ -502,18 +500,6 @@ pub fn create_ui_page() -> (
         .build();
     connections_group.add(&double_click_opens_new_session);
 
-    // Device-local opt-in for the embedded browser in the snap, where WebKitGTK
-    // runs without its sandbox. Shown only in the snap; elsewhere the row is
-    // hidden but still loaded and collected so the stored value round-trips.
-    let snap_embedded_browser_allowed = adw::SwitchRow::builder()
-        .title(i18n("Allow the embedded browser"))
-        .subtitle(i18n(
-            "In the snap, pages in the embedded browser run without a sandbox and can reach your files, SSH keys and stored credentials",
-        ))
-        .visible(cfg!(feature = "web-embedded") && rustconn_core::snap::is_snap())
-        .build();
-    connections_group.add(&snap_embedded_browser_allowed);
-
     // "Open Browser via Tunnel" (SSH context menu) target browser.
     let open_tunnelled_browser_in_embedded = adw::SwitchRow::builder()
         .title(i18n("Open tunnelled browser in the embedded browser"))
@@ -522,18 +508,6 @@ pub fn create_ui_page() -> (
         ))
         .build();
     connections_group.add(&open_tunnelled_browser_in_embedded);
-    // The tunnelled-browser toggle has no effect in the snap until the embedded
-    // browser is allowed, so do not offer it as if it did, and say why it is
-    // unavailable.
-    if snap_embedded_browser_allowed.is_visible() {
-        open_tunnelled_browser_in_embedded.set_subtitle(&i18n(
-            "‘Open Browser via Tunnel’ uses the in-app browser when ‘Allow the embedded browser’ is on; otherwise it launches an external Chromium browser in incognito mode",
-        ));
-        snap_embedded_browser_allowed
-            .bind_property("active", &open_tunnelled_browser_in_embedded, "sensitive")
-            .sync_create()
-            .build();
-    }
 
     // Start page for the tunnelled browser. The EntryRow holds the actual value
     // (what gets saved); a presets dropdown beside it just fills the entry with
@@ -731,7 +705,6 @@ pub fn create_ui_page() -> (
         // existing positional layout stable.
         sidebar_row_margin_row,
         sidebar_font_size_row,
-        snap_embedded_browser_allowed,
     )
 }
 
@@ -796,7 +769,6 @@ pub fn load_ui_settings(
     renderer_row: &adw::ComboRow,
     sidebar_row_margin_row: &adw::SpinRow,
     sidebar_font_size_row: &adw::ComboRow,
-    snap_embedded_browser_allowed: &adw::SwitchRow,
     settings: &UiSettings,
     connections: &[&Connection],
 ) {
@@ -883,7 +855,6 @@ pub fn load_ui_settings(
     double_click_opens_new_session.set_active(settings.double_click_opens_new_session);
 
     open_tunnelled_browser_in_embedded.set_active(settings.open_tunnelled_browser_in_embedded);
-    snap_embedded_browser_allowed.set_active(settings.snap_embedded_browser_allowed);
     tunnel_start_url_row.set_text(&settings.tunnel_browser_start_url);
     tunnel_start_preset.set_selected(tunnel_preset_index_for(&settings.tunnel_browser_start_url));
     tunnel_browser_command_row.set_text(&settings.tunnel_browser_command);
@@ -979,7 +950,6 @@ pub fn collect_ui_settings(
     renderer_row: &adw::ComboRow,
     sidebar_row_margin_row: &adw::SpinRow,
     sidebar_font_size_row: &adw::ComboRow,
-    snap_embedded_browser_allowed: &adw::SwitchRow,
     connections: &[&Connection],
 ) -> UiSettings {
     let mut selected_scheme = ColorScheme::System;
@@ -1061,10 +1031,6 @@ pub fn collect_ui_settings(
         show_welcome_on_startup: show_welcome_switch.is_active(),
         double_click_opens_new_session: double_click_opens_new_session.is_active(),
         open_tunnelled_browser_in_embedded: open_tunnelled_browser_in_embedded.is_active(),
-        snap_embedded_browser_allowed: snap_embedded_browser_allowed.is_active(),
-        // The one-time notice is not a user choice; the caller copies the stored
-        // value back so a save never re-arms it.
-        snap_browser_notice_shown: false,
         tunnel_browser_start_url: tunnel_start_url_row.text().to_string(),
         tunnel_browser_command: tunnel_browser_command_row.text().to_string(),
         show_split_pane_labels: show_split_pane_labels.is_active(),

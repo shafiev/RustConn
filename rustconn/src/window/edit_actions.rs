@@ -1425,44 +1425,10 @@ impl MainWindow {
             .and_then(|p| p.into_os_string().into_string().ok())
     }
 
-    /// Shows the "the embedded browser is off in the snap" notice once per device.
-    ///
-    /// The flag lives in the device-local settings, so the notice is not repeated
-    /// on every launch and is never part of any synced data. The state borrow is
-    /// released before the toast is raised; if the state is busy the notice is
-    /// simply shown next time.
-    ///
-    /// Call it on the success path, once the page is known to have opened: the
-    /// notice says it did, and a failed first attempt must not spend the only
-    /// explanation. Returns whether the notice was shown.
-    fn show_snap_browser_notice_once(state: &SharedAppState) -> bool {
-        let show = {
-            let Ok(mut state_mut) = state.try_borrow_mut() else {
-                return false;
-            };
-            let show = state_mut.settings_mut().ui.take_snap_browser_notice();
-            if show && let Err(e) = state_mut.save_settings() {
-                tracing::warn!(error = %e, "Failed to save the snap browser notice flag");
-            }
-            show
-        };
-        if show {
-            crate::toast::show_warning_toast_with_action_on_active_window(
-                &crate::i18n::i18n(
-                    "Opened outside RustConn: the embedded browser is off in the snap",
-                ),
-                &crate::i18n::i18n("Open Settings"),
-                "win.settings",
-            );
-        }
-        show
-    }
-
     /// Opens a browser routed through a fresh SOCKS tunnel to the selected SSH
     /// connection — RustConn's take on Ásbrú's incognito browser.
     ///
-    /// Uses the embedded browser when this build has it, it is allowed (always
-    /// outside the snap; in the snap only after the device-local opt-in) and the
+    /// Uses the embedded browser when this build has it and the
     /// `open_tunnelled_browser_in_embedded` setting is on; otherwise launches an
     /// external Chromium-family browser in an isolated throwaway profile with
     /// `--proxy-server=socks5://…`. The start page comes from the
@@ -1471,11 +1437,11 @@ impl MainWindow {
     ///
     /// When the external browser cannot be used — a configured command that is
     /// not Chromium-family or not found, or no Chromium binary at all — RustConn
-    /// explains why in a toast and falls back to the embedded browser if it is
-    /// available and allowed (it can always tunnel), otherwise stops with an
-    /// error toast asking for a Chromium-based browser. The system browser is
-    /// not an option: it cannot take a proxy. A tunnel failure is reported and
-    /// nothing is opened. It never browses un-tunnelled.
+    /// explains why in a toast and falls back to the embedded browser if this
+    /// build has it (it can always tunnel), otherwise stops with an error toast
+    /// asking for a Chromium-based browser. The system browser is not an option:
+    /// it cannot take a proxy. A tunnel failure is reported and nothing is
+    /// opened. It never browses un-tunnelled.
     fn open_browser_via_tunnel(
         state: &SharedAppState,
         notebook: &SharedNotebook,
@@ -1484,7 +1450,7 @@ impl MainWindow {
     ) {
         // Only connections `supports_browser_tunnel` accepts (SSH/SFTP, Tailscale
         // SSH with a matching provider and config) can host a SOCKS tunnel.
-        let (can_tunnel, prefer_embedded, embedded_allowed, start_url, browser_command) = {
+        let (can_tunnel, prefer_embedded, start_url, browser_command) = {
             let Ok(state_ref) = state.try_borrow() else {
                 return;
             };
@@ -1497,7 +1463,6 @@ impl MainWindow {
             (
                 can_tunnel,
                 ui.open_tunnelled_browser_in_embedded,
-                ui.embedded_browser_allowed(),
                 Self::normalize_start_url(&ui.tunnel_browser_start_url),
                 ui.tunnel_browser_command.trim().to_string(),
             )
@@ -1551,39 +1516,23 @@ impl MainWindow {
         //
         // `embedded_available` is a runtime flag rather than raw `cfg!` so the
         // match arms below read the same on both builds; the compiler prunes the
-        // dead branch.
+        // dead branch. It is simply whether this build has the feature — no
+        // snap-specific gating, for parity with Flatpak.
         #[cfg(feature = "web-embedded")]
-        let embedded_built = true;
+        let embedded_available = true;
         #[cfg(not(feature = "web-embedded"))]
-        let embedded_built = false;
-        // In the snap the embedded browser is unsandboxed, so it is also a
-        // per-device opt-in: without it the external Chromium path runs, and when
-        // that is unusable nothing opens (the system browser cannot be proxied).
-        let gate = rustconn_core::models::TunnelledBrowserGate::decide(
-            prefer_embedded,
-            embedded_built,
-            embedded_allowed,
-        );
-        let embedded_available = gate.embedded_available;
+        let embedded_available = false;
 
         // Emits the reason a chosen/auto external browser is unusable. When the
         // embedded browser will pick up the slack the message is informational
         // ("… opening the embedded browser instead"); when nothing can proceed
-        // it is an error. Returns the `Path` to take.
+        // (no embedded browser in this build either) it is an error. Returns the
+        // `Path` to take.
         let external_unusable =
             |reason_with_embedded: String, reason_no_embedded: &str| -> TunnelBrowserPath {
                 if embedded_available {
                     crate::toast::show_info_toast_on_active_window(&reason_with_embedded);
                     TunnelBrowserPath::Embedded
-                } else if embedded_built {
-                    // Built with the embedded browser but not allowed: the snap.
-                    // Offer the switch that would fix it.
-                    crate::toast::show_warning_toast_with_action_on_active_window(
-                        reason_no_embedded,
-                        &crate::i18n::i18n("Open Settings"),
-                        "win.settings",
-                    );
-                    TunnelBrowserPath::Fail
                 } else {
                     crate::toast::show_error_toast_on_active_window(reason_no_embedded);
                     TunnelBrowserPath::Fail
@@ -1621,16 +1570,9 @@ impl MainWindow {
                     crate::i18n::i18n(
                         "No Chromium-based browser found; opening the embedded browser instead. Install a Chromium-based browser to tunnel an external one.",
                     ),
-                    &if embedded_built {
-                        // Built with the embedded browser but not allowed: the snap.
-                        crate::i18n::i18n(
-                            "No Chromium-based browser found, and the embedded browser is off in the snap. Turn it on in Settings to open a tunnelled browser.",
-                        )
-                    } else {
-                        crate::i18n::i18n(
-                            "No Chromium-based browser found. Install a Chromium-based browser, or use a build with the embedded browser, to open a tunnelled browser.",
-                        )
-                    },
+                    &crate::i18n::i18n(
+                        "No Chromium-based browser found. Install a Chromium-based browser, or use a build with the embedded browser, to open a tunnelled browser.",
+                    ),
                 ),
             }
         };
@@ -1647,7 +1589,6 @@ impl MainWindow {
         // read and released before it starts. The one-shot closure owns plain `Rc`
         // clones and is stored nowhere, so it forms no cycle.
         crate::toast::show_info_toast_on_active_window(&crate::i18n::i18n("Starting the tunnel…"));
-        let notice = gate.notice;
         let state_cb = std::rc::Rc::clone(state);
         let notebook_cb = notebook.clone();
         let sidebar_cb = sidebar.clone();
@@ -1656,12 +1597,6 @@ impl MainWindow {
             drop(start_guard);
             match result {
                 Ok(tunnel) => {
-                    // The setting asked for the embedded browser but the snap has
-                    // not opted in, so an external one is used: say why, once,
-                    // now that the tunnel is up and the browser is about to open.
-                    if notice {
-                        Self::show_snap_browser_notice_once(&state_cb);
-                    }
                     Self::launch_tunnel_browser(
                         &state_cb,
                         &notebook_cb,
@@ -1823,7 +1758,7 @@ impl MainWindow {
         connection_id: Uuid,
         observer: Option<types::SessionStartObserver>,
     ) {
-        let (url, web_config, conn_name, embedded_allowed) = {
+        let (url, web_config, conn_name) = {
             let Ok(state_ref) = state.try_borrow() else {
                 return;
             };
@@ -1836,8 +1771,6 @@ impl MainWindow {
                 rustconn_core::models::ProtocolConfig::Web(cfg) => cfg.clone(),
                 _ => rustconn_core::models::WebConfig::default(),
             };
-            // Device-local: in a snap the embedded browser needs an explicit opt-in.
-            let embedded_allowed = state_ref.settings().ui.embedded_browser_allowed();
             drop(state_ref);
             // Update last_connected timestamp
             if let Ok(mut state_mut) = state.try_borrow_mut()
@@ -1845,7 +1778,7 @@ impl MainWindow {
             {
                 tracing::warn!(?e, "Failed to update last_connected for web connection");
             }
-            (url, config, name, embedded_allowed)
+            (url, config, name)
         };
 
         if url.is_empty() {
@@ -1853,19 +1786,6 @@ impl MainWindow {
             sidebar.update_connection_status(&connection_id.to_string(), "");
             return;
         }
-
-        // The mode this launch uses. A stored `Embedded` becomes `System` where the
-        // embedded browser is not allowed (the snap, until the user opts in); the
-        // stored config is never touched, so a synced connection keeps its mode.
-        let effective_mode = web_config.browser_mode.effective(embedded_allowed);
-        // Only a build that can open the embedded browser has anything to explain.
-        // The decision is a pure core function so its matrix is unit-tested.
-        let gate = rustconn_core::models::EmbeddedGate::decide(
-            web_config.browser_mode,
-            cfg!(feature = "web-embedded"),
-            embedded_allowed,
-            web_config.tunnel_via.is_some(),
-        );
 
         // Silence unused-variable warnings when web-embedded feature is disabled.
         // These are used in the #[cfg(feature = "web-embedded")] block below.
@@ -1890,7 +1810,7 @@ impl MainWindow {
 
         // Embedded mode: create an in-tab WebKitGTK widget
         #[cfg(feature = "web-embedded")]
-        if effective_mode == rustconn_core::models::WebBrowserMode::Embedded {
+        if web_config.browser_mode == rustconn_core::models::WebBrowserMode::Embedded {
             use std::rc::Rc;
 
             use crate::embedded_web::EmbeddedWebWidget;
@@ -2119,24 +2039,6 @@ impl MainWindow {
             return;
         }
 
-        // The stored mode is Embedded but the snap has not opted in. A tunnelled
-        // connection must not fall back to a browser that cannot take the proxy
-        // (it would browse un-tunnelled), so explain and stop; a plain one opens
-        // in the system browser, explaining why once it has opened.
-        if gate == rustconn_core::models::EmbeddedGate::RefuseTunnelled {
-            sidebar.update_connection_status(&connection_id.to_string(), "");
-            crate::toast::show_warning_toast_with_action_on_active_window(
-                &crate::i18n::i18n(
-                    "This tunnelled connection needs the embedded browser, which is off in the snap",
-                ),
-                &crate::i18n::i18n("Open Settings"),
-                "win.settings",
-            );
-            return;
-        }
-        let notice_pending = gate == rustconn_core::models::EmbeddedGate::NoticeThenSystem;
-        let state_notice = std::rc::Rc::clone(state);
-
         // System mode (default): use gtk4::UriLauncher for portal-aware URL opening.
         // A tunnel cannot be applied here — the portal picks the browser and
         // RustConn cannot pass it a proxy flag — so say so instead of silently
@@ -2163,12 +2065,6 @@ impl MainWindow {
                     tracing::info!("Web bookmark opened in browser");
                     // Clear "connecting" status — Web has no persistent session
                     sidebar_clone.update_connection_status(&connection_id.to_string(), "");
-                    // In the snap the notice replaces the plain success toast: it
-                    // says the page opened outside RustConn and why. Claimed only
-                    // here, so a failed first attempt keeps it for the next one.
-                    if notice_pending && Self::show_snap_browser_notice_once(&state_notice) {
-                        return;
-                    }
                     // Show success toast on active window
                     if let Some(app) = gtk4::gio::Application::default()
                         && let Some(gtk_app) = app.downcast_ref::<gtk4::Application>()
