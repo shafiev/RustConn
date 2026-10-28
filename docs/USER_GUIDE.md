@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.23.21** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.24.0** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes, Web protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1158,6 +1158,8 @@ This uses the RDP clipboard channel (`CF_HDROP` / `FILEDESCRIPTORW` format) and 
 
 The setting is shown for both client modes, not only External, because an embedded session hands over to the external client whenever the built-in IronRDP client cannot serve the server — a legacy security layer, RemoteApp, remote audio playback, or a failed connection. In that case this is the only setting that decides how large the window opens.
 
+One such server is GNOME Remote Desktop's **Remote Login** mode (GNOME 46+): it is known to rely on a redirect to a second, per-session server with one-time credentials, which the embedded IronRDP client does not yet support, so the connection stalls for about a minute before handing over to the external FreeRDP client. To skip the wait, set **Client mode** to **External** for that connection.
+
 Before 0.20.9 there was no such setting. A separate window was sized from a fixed resolution that the editor collected in a hidden row and defaulted to 1920×1080, so on a 4K display the client opened at roughly a quarter of the screen. **A connection that genuinely needs a fixed resolution has to select *Custom resolution* once** — a stored 1920×1080 cannot be told apart from that old default, so it is not assumed.
 
 From the CLI: `--rdp-display-mode fit|fullscreen|custom|multimon` and `--rdp-resolution WIDTHxHEIGHT`.
@@ -1711,19 +1713,28 @@ SFTP connections use the `folder-remote-symbolic` icon in the sidebar and behave
 
 #### Open Browser via Tunnel
 
-Right-click an SSH connection and choose **Open Browser via Tunnel** to reach web
+Right-click an SSH connection — or a Zero Trust connection of the Tailscale SSH
+type — and choose **Open Browser via Tunnel** to reach web
 services that only that SSH host can see — an internal dashboard, a router admin
 page, a service in a DMZ — without configuring a separate Web connection. RustConn
 raises a dynamic SOCKS proxy (`ssh -N -D`) to the host on a free local port and
 opens a browser on a start page routed through it; every request exits from the
 SSH host. This is RustConn's equivalent of Ásbrú's incognito browser.
 
+For a Tailscale SSH connection RustConn runs `tailscale ssh <user@host> -N -D <port>`,
+the same command the session uses, so tailnet authentication, ACLs and the host-key
+check are the session's own. The connection's port, Custom Args and stored password
+are not used. If your Tailscale SSH policy asks for a check in the browser, open a
+normal session first and pass the check, because the tunnel does not show the check
+URL. Other Zero Trust providers are not supported yet.
+
 Where it opens is a global setting — Settings → Interface → Connections → **Open
 tunnelled browser in the embedded browser**:
 
 - **On** (default) — the in-app WebKit browser opens in a tab, and the tunnel
   stays up only as long as that tab. Available in builds that ship the embedded
-  browser.
+  browser. In the snap the embedded browser runs without a WebKit sandbox; see
+  the Web connection's known limitations.
 - **Off**, or a build without the embedded browser — an external Chromium-based
   browser (Chromium, Chrome, Brave, Vivaldi, Edge) launches with `--proxy-server`
   in an isolated throwaway profile, so a browser you already have open cannot
@@ -1754,7 +1765,10 @@ first Chromium binary found on `PATH`. So if your default browser is Chrome or
 Brave, that is what opens. When the default is Firefox or another browser that
 cannot take a command-line proxy, RustConn uses an installed Chromium binary
 instead; if none exists, it opens the embedded browser (which can always tunnel)
-and shows a toast suggesting you install a Chromium-based browser.
+and shows a toast suggesting you install a Chromium-based browser. In the snap
+the embedded browser is not used for this fallback unless you allowed it; without
+a Chromium browser RustConn shows a toast and opens nothing, since the system
+browser cannot be pointed at the tunnel.
 
 If the tunnel cannot be raised, RustConn shows a toast and opens nothing — it
 never falls back to browsing directly, so traffic meant for the tunnel does not
@@ -1898,6 +1912,8 @@ Web connections store website URLs and can open them in three browser modes depe
 
 Configure the browser mode in the connection dialog's protocol tab.
 
+**Snap:** the embedded browser is the default there too, as in the Flatpak and the native packages, but it runs without a WebKit sandbox (see [Snap — Embedded web browser](SNAP.md#embedded-web-browser-webkitgtk)). For a connection where that matters, pick **System** or **Custom** in Mode instead.
+
 **Creating a Web connection:**
 1. Click "New Connection" → select **Web** protocol
 2. Enter the full URL in the **URL** field (must start with `http://`, `https://`, or `file://`)
@@ -2005,7 +2021,7 @@ Available via the "⋯" menu → "Open in System Browser" — opens the current 
 - WebKitGTK does not support WebCodecs (needed for Selkies/WebRTC streaming)
 - No DRM/EME content (Widevine not available in WebKitGTK)
 - Embedded mode is Linux-only (requires WebKitGTK 6.0)
-- Not available in the snap package: the core26 GNOME platform (gnome-core26) still provides no GTK4 WebKitGTK 6.0, and bundling it is still pending (issue [#244](https://github.com/totoshko88/RustConn/issues/244)). Web connections there use System or Custom mode; a connection saved with Embedded mode falls back to the system browser.
+- In the snap package the embedded browser is available since 0.24.0 (issue [#244](https://github.com/totoshko88/RustConn/issues/244)), using the WebKitGTK 6.0 of the gnome-core26 platform. WebKit turns its own bubblewrap sandbox off inside a snap, so the web content is confined only by the snap's strict confinement and has the same access as RustConn itself. See [Snap — Embedded web browser](SNAP.md#embedded-web-browser-webkitgtk); use System or Custom mode for a connection where that matters.
 
 **Context menu actions:**
 - **Copy ▸ Host / Username / Password** — copies the URL or stored credentials to the clipboard; the password auto-clears after 30 seconds (see [Copy Menu](#copy-menu))
@@ -3406,6 +3422,8 @@ Standalone window for managing SSH port-forwarding tunnels that run independentl
 
 6. Optionally enable **Auto-start** (tunnel starts when RustConn launches) and **Auto-reconnect** (tunnel restarts if the SSH process exits unexpectedly)
 7. Click **Save**
+
+> **Bind address:** the rules you write here are passed to `ssh` exactly as typed, so they follow OpenSSH's `GatewayPorts` setting (default `no`, loopback only), like a hand-typed `ssh -L` or `-D`. With `GatewayPorts yes` in `~/.ssh/config` they listen on all interfaces. The tunnels RustConn creates for itself (jump hosts for RDP/VNC/SPICE, the browser SOCKS proxy) are always bound to `127.0.0.1`.
 
 **Manage Tunnels:**
 

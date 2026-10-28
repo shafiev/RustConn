@@ -113,6 +113,21 @@ const SYNC_TTL_SECS: u64 = 600;
 /// blocking entry.
 static BW_UNLOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+/// One Bitwarden `bw sync` at a time, process-wide.
+///
+/// The unlock path no longer syncs (#353), so the first retrieve/store after an
+/// unlock — and the startup thread's background warm-up — each run a
+/// `sync_due()`-gated sync. Without a lock a connect made the instant the
+/// background sync starts sees `sync_due()` still true (neither has called
+/// `mark_synced()` yet) and fires a *second* `bw sync` alongside the first,
+/// which the #353-follow-up trace showed costing a retrieve the full ~13 s.
+/// [`BitwardenBackend::sync_if_due`] takes this guard and re-checks `sync_due()`
+/// under it, so the second caller waits, then finds the vault freshly synced and
+/// does nothing. Unconditional [`BitwardenBackend::sync`] (explicit user sync,
+/// the #351 refused-retry, the store out-of-date retry) does not take it — those
+/// must sync regardless of the TTL.
+static BW_SYNC: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 /// Ceiling on a single `bw` invocation.
 ///
 /// One number for "one child process", so the guarantee is the same wherever a
@@ -221,6 +236,24 @@ pub fn clear_session_key() {
         *guard = None;
     }
     clear_verified();
+}
+
+/// Clears every process-global Bitwarden unlock mark: the session key, the
+/// verify timestamp and the last-sync timestamp.
+///
+/// Call this when the user switches their preferred secret backend away from
+/// Bitwarden. [`SecretManager::rebuild_from_settings`](crate::secret::SecretManager::rebuild_from_settings)
+/// rebuilds the backend chain but leaves these process-global marks in place,
+/// so without this a stale session key would keep answering `is_unlocked_fast`
+/// and `sync_due` from the previous backend. Unlike [`sync_on_next_unlock`] —
+/// which clears the verify and sync marks but keeps the session for a fresh
+/// re-check — this also drops the session key, because the backend it unlocked
+/// is no longer the preferred one.
+pub fn clear_bitwarden_session_state() {
+    clear_session_key();
+    if let Ok(mut guard) = BW_LAST_SYNCED.write() {
+        *guard = None;
+    }
 }
 
 /// Stores the resolved `bw` CLI command path.
@@ -796,6 +829,29 @@ impl BitwardenBackend {
         Ok(())
     }
 
+    /// Syncs the vault only if one is due, serialized process-wide.
+    ///
+    /// Takes [`BW_SYNC`] and re-checks [`sync_due`] under it, so two callers that
+    /// both saw a sync as due — a connect racing the startup background warm-up —
+    /// run exactly one `bw sync` between them: the first syncs, the second waits
+    /// on the lock and then finds nothing to do. A no-op when a sync ran within
+    /// [`SYNC_TTL_SECS`]. Use this on the optimisation paths (retrieve, store,
+    /// startup warm-up); use [`sync`](Self::sync) when a sync must happen
+    /// regardless of the TTL.
+    ///
+    /// # Errors
+    /// Returns `SecretError` if the sync command fails.
+    pub async fn sync_if_due(&self) -> SecretResult<()> {
+        let _one_at_a_time = BW_SYNC.lock().await;
+        if !sync_due() {
+            tracing::debug!("Bitwarden: skipping sync (another caller just synced)");
+            return Ok(());
+        }
+        self.run_command(&["sync"]).await?;
+        mark_synced();
+        Ok(())
+    }
+
     /// Gets or creates the RustConn folder
     async fn get_or_create_folder(&self) -> SecretResult<Option<String>> {
         // List folders
@@ -1154,11 +1210,16 @@ impl BitwardenBackend {
             ));
         }
 
-        // Note: `bw sync` is intentionally NOT called here. The vault is
-        // synced once during `auto_unlock` and on explicit user request.
-        // Skipping the per-retrieve sync eliminates a ~0.5-2s network
-        // round-trip on every credential lookup, which is critical for
-        // fast reconnect and batch operations.
+        // `bw sync` runs here at most once per `SYNC_TTL_SECS`, gated by
+        // `sync_due()` — NOT on every lookup. `auto_unlock` no longer syncs on
+        // the unlock path (it cost ~6 s on the critical path to a ready vault,
+        // #353), so the freshness it used to guarantee is picked up here on the
+        // first retrieve after an unlock: `BW_LAST_SYNCED` is still unset/stale,
+        // so this one call syncs, `mark_synced()` restarts the window, and every
+        // reconnect and batch lookup within it skips the ~0.5-2 s round-trip.
+        // A refused sign-in (#351) clears the mark via `sync_on_next_unlock()`,
+        // so the retry still reads a fresh item.
+        let _ = self.sync_if_due().await;
 
         let item = if let Some(item) = self.find_item_with_aliases(connection_id, aliases).await? {
             tracing::debug!(
@@ -1233,6 +1294,11 @@ impl BitwardenBackend {
             "Bitwarden find_password_by_exact_name: searching vault"
         );
 
+        // One-shot sync — the same freshness the unlock path used to guarantee,
+        // now paid on the first lookup after an unlock. See the longer note in
+        // `retrieve_with_aliases`.
+        let _ = self.sync_if_due().await;
+
         let output = self
             .run_command(&["list", "items", "--search", entry_name])
             .await?;
@@ -1296,6 +1362,11 @@ impl SecretBackend for BitwardenBackend {
                 "Bitwarden vault is locked. Please unlock with 'bw unlock'".to_string(),
             ));
         }
+
+        // One-shot sync before the find-then-edit-or-create below, so a fresh
+        // unlock sees items added in another client and edits them instead of
+        // creating a duplicate. See the note in `retrieve_with_aliases`.
+        let _ = self.sync_if_due().await;
 
         // Get or create folder
         let folder_id = self.get_or_create_folder().await?;
@@ -2157,6 +2228,10 @@ async fn try_relogin_and_unlock(
 pub async fn auto_unlock(
     settings: &crate::config::SecretSettings,
 ) -> SecretResult<BitwardenBackend> {
+    // Times the whole unlock to "vault ready" — the 0.24 target of ≤ 4 s starts
+    // here. Off unless `RUST_LOG=rustconn::perf=info`; see `tracing::perf`.
+    let _perf = crate::tracing::perf::PerfSpan::new("vault.unlock", "bitwarden");
+
     // One unlock at a time, process-wide. The GUI's startup unlock runs on a
     // thread of its own, outside the vault-op lock, so a connect made while it
     // was still going started a second `bw status` / `bw unlock` / `bw sync`
@@ -2238,7 +2313,12 @@ async fn unlock_with_saved_credentials(
     {
         tracing::debug!("Bitwarden: vault already unlocked");
         mark_verified();
-        let _ = bare.sync().await;
+        // No blocking `bw sync` on the unlock path: it cost ~6 s in the #353
+        // startup trace and sat on the critical path to a ready vault. The
+        // sync is deferred — `BW_LAST_SYNCED` is left as it is, so `sync_due()`
+        // fires it on the first vault operation (or the startup caller runs it
+        // in the background after signalling readiness). Freshness is kept
+        // (#351): the first read still syncs; only the *when* moved.
         return Ok(bare);
     }
 
@@ -2265,7 +2345,7 @@ async fn unlock_with_saved_credentials(
                 set_session_key(session_key.clone());
                 mark_verified();
                 let backend = BitwardenBackend::with_session(session_key);
-                let _ = backend.sync().await;
+                // Deferred sync — see the "vault already unlocked" arm above.
                 return Ok(backend);
             }
             Err(e) => {
@@ -2301,7 +2381,7 @@ async fn unlock_with_saved_credentials(
                     set_session_key(session_key.clone());
                     mark_verified();
                     let backend = BitwardenBackend::with_session(session_key);
-                    let _ = backend.sync().await;
+                    // Deferred sync — see the "vault already unlocked" arm above.
                     return Ok(backend);
                 }
                 Err(e) => {
@@ -2377,9 +2457,9 @@ mod debug_tests {
 mod unlock_tests {
     use super::{
         BW_INVOCATION_TIMEOUT, BW_SESSION_STORE, BW_UNLOCK, BitwardenBackend, SYNC_TTL_SECS,
-        SecretBackend, SecretString, has_session_key, is_recently_verified, is_sync_due,
-        mark_synced, mark_verified, redact_session_keys, sync_due, sync_on_next_unlock,
-        with_unlock_lock_blocking,
+        SecretBackend, SecretString, clear_bitwarden_session_state, has_session_key,
+        is_recently_verified, is_sync_due, mark_synced, mark_verified, redact_session_keys,
+        sync_due, sync_on_next_unlock, with_unlock_lock_blocking,
     };
     use std::sync::{Mutex, MutexGuard, PoisonError};
 
@@ -2542,9 +2622,22 @@ mod unlock_tests {
             };
             let mut creds = Credentials::with_username("alice");
             creds.password = Some(SecretString::from("hunter2-store"));
-            runtime
-                .block_on(backend.store("c1", &creds))
-                .expect("store through the stub bw");
+            // ETXTBSY race: a just-written, just-chmod-executable stub can still
+            // be held open for write by the OS under parallel test load, so the
+            // exec inside `store` intermittently fails with "Text file busy".
+            // That is a test-harness artefact, not a backend bug, so retry the
+            // store a few times on exactly that error before giving up.
+            let mut attempts = 0;
+            loop {
+                attempts += 1;
+                match runtime.block_on(backend.store("c1", &creds)) {
+                    Ok(()) => break,
+                    Err(e) if e.to_string().contains("Text file busy") && attempts < 10 => {
+                        std::thread::sleep(std::time::Duration::from_millis(20));
+                    }
+                    Err(e) => panic!("store through the stub bw: {e:?}"),
+                }
+            }
 
             let argv = std::fs::read_to_string(dir.path().join("argv")).unwrap();
             let stdin = std::fs::read_to_string(dir.path().join("stdin")).unwrap();
@@ -2725,6 +2818,36 @@ Invalid master password.";
         sync_on_next_unlock();
 
         assert!(!is_recently_verified());
+    }
+
+    /// Switching the preferred backend away from Bitwarden must drop every
+    /// process-global unlock mark, or a stale session would keep answering the
+    /// fast path and `sync_due` would stay satisfied from the old backend.
+    #[test]
+    fn clearing_session_state_drops_session_verify_and_sync_marks() {
+        let _globals = lock_globals();
+
+        set_global_session(Some("stale-session-after-switch"));
+        mark_verified();
+        mark_synced();
+        assert!(has_session_key(), "precondition: a session is stored");
+        assert!(is_recently_verified(), "precondition: verified mark set");
+        assert!(
+            !sync_due(),
+            "precondition: a recent sync satisfies sync_due"
+        );
+
+        clear_bitwarden_session_state();
+
+        assert!(!has_session_key(), "session key must be cleared");
+        assert!(!is_recently_verified(), "verify mark must be cleared");
+        assert!(
+            sync_due(),
+            "sync mark must be cleared so the new backend syncs on first use"
+        );
+
+        // Leave the globals clean for sibling tests sharing the lock.
+        set_global_session(None);
     }
 }
 

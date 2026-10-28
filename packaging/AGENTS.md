@@ -48,9 +48,13 @@ first.
   extension's cargo and OBS/Debian use the distro cargo, so neither reads it — they
   compile with whatever their base provides. The file itself lists every channel
   and whether it honours the pin; keep that list correct when adding a channel.
-- Snap is on `core24` with the `gnome-46-2404` extension, which is why it trails
-  the Flatpak's GNOME runtime. The extension only exists for core22/core24 — a
-  `core26` gnome extension shipping is the trigger to revisit (issue #174).
+- Snap is on `core26` with the `gnome` extension (platform `gnome-core26`, GPU
+  `mesa-2604`) and builds with `adw-1-8`. It needs Snapcraft >= 9.2, the first
+  release whose `gnome` extension accepts core26 (issue #174). It still trails
+  the Flatpak's GNOME runtime by a release or two. It builds the default
+  features plus `adw-1-8`, so `web-embedded` is on: WebKitGTK 6.0 comes from the
+  platform, and WebKit skips its bubblewrap sandbox inside snaps (issue #244,
+  `docs/SNAP.md`).
 - OBS needs the version in four places with four different syntaxes:
   `rustconn.spec` (`Version:` plus a `%changelog` entry), `rustconn.dsc` and
   `debian.dsc` (`Version: X.Y.Z-1`, plus tar filenames), and `_service`

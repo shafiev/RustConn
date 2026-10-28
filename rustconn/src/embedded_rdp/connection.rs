@@ -1406,8 +1406,6 @@ impl super::EmbeddedRdpWidget {
         let file_transfer = self.file_transfer.clone();
         let save_files_button = self.save_files_button.clone();
         let status_label = self.status_label.clone();
-        let on_file_progress = self.on_file_progress.clone();
-        let on_file_complete = self.on_file_complete.clone();
         let connection_generation = self.connection_generation.clone();
         #[cfg(feature = "rdp-audio")]
         let audio_player = self.audio_player.clone();
@@ -1683,8 +1681,6 @@ impl super::EmbeddedRdpWidget {
                     file_transfer: &file_transfer,
                     save_files_button: &save_files_button,
                     status_label: &status_label,
-                    on_file_progress: &on_file_progress,
-                    on_file_complete: &on_file_complete,
                     ironrdp_tx: &ironrdp_tx,
                     file_offer_active: &file_offer_active,
                 };

@@ -4,8 +4,8 @@
 #
 # Why this exists: the snap links against the libraries of its build
 # environment, but at runtime a strictly-confined snap only sees its own
-# `prime` tree, the base snap (core24) and the platform snap provided by the
-# `gnome` extension (gnome-46-2404). Adding a `-dev` package to
+# `prime` tree, the base snap (core26) and the platform snap provided by the
+# `gnome` extension (gnome-core26). Adding a `-dev` package to
 # `build-packages` without the matching runtime package in `stage-packages`
 # therefore produces a snap that builds, packs, uploads and installs cleanly,
 # and then dies at the dynamic linker before main():
@@ -48,12 +48,12 @@ for tool in unsquashfs readelf; do
 done
 
 # The runtime search path of a confined snap: its own prime tree plus the
-# read-only snaps mounted next to it. mesa-2404 is included because the gnome
-# extension wires it in as the GPU userspace provider.
+# read-only snaps mounted next to it. mesa-2604 is included because the gnome
+# extension wires it in as the GPU userspace provider (gpu-2604 content plug).
 RUNTIME_SNAPS=(
-  /snap/core24/current
-  /snap/gnome-46-2404/current
-  /snap/mesa-2404/current
+  /snap/core26/current
+  /snap/gnome-core26/current
+  /snap/mesa-2604/current
 )
 
 WORK_DIR=$(mktemp -d)

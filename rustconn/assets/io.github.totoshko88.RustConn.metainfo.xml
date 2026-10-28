@@ -140,6 +140,22 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.24.0" date="2026-10-28">
+      <url>https://github.com/totoshko88/RustConn/releases/tag/v0.24.0</url>
+      <description>
+        <p>Version 0.24.0 - a performance release with SSH key-authentication setup, an embedded browser in the snap, and connectivity fixes:</p>
+        <ul>
+          <li>Set Up Key Authentication: generate or reuse an SSH key, install and verify it on the server, and switch a connection to key auth, from the sidebar menu and the connection editor.</li>
+          <li>The embedded web browser is now the default in the snap, matching the Flatpak (issue #244).</li>
+          <li>Open Browser via Tunnel now works for Tailscale SSH connections (issue #397).</li>
+          <li>The current prompt line is no longer held back on prompts that use glyphs such as the arrow prompt or box-drawing and Nerd Font characters.</li>
+          <li>The CPU/RAM monitoring bar no longer stays washed out after Reconnect (issue #398).</li>
+          <li>Embedded RDP now hands a session that stalls after TLS to the external client, so GNOME Remote Desktop connects (issue #392).</li>
+          <li>F11 in a popped-out session window now gives a true, chrome-free full screen (issue #388).</li>
+          <li>Vault and SSH-connect operations no longer block the window, and the snap moves to the core26 GNOME platform (issue #174).</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.23.21" date="2026-10-23">
       <description>
         <p>Version 0.23.21 - a Save N Files timeout fix, Bitwarden hardening and performance, and dependency updates:</p>

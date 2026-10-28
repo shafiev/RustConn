@@ -38,8 +38,6 @@ pub(super) struct FileTransferContext<'a> {
     pub file_transfer: &'a Rc<RefCell<super::ClipboardFileTransfer>>,
     pub save_files_button: &'a gtk4::Button,
     pub status_label: &'a gtk4::Label,
-    pub on_file_progress: &'a Rc<RefCell<Option<Box<dyn Fn(f64, &str) + 'static>>>>,
-    pub on_file_complete: &'a Rc<RefCell<Option<Box<dyn Fn(usize, &str) + 'static>>>>,
     /// Command channel, used to send the follow-up RANGE requests that pull a
     /// clipboard file down chunk by chunk.
     pub ironrdp_tx: &'a Rc<
@@ -414,25 +412,6 @@ pub(super) fn handle_clipboard_file_contents(
         (outcome, transfer.file_index_of(stream_id))
     };
 
-    let (progress, completed, total) = {
-        let transfer = ctx.file_transfer.borrow();
-        (
-            transfer.overall_progress(),
-            transfer.completed_count,
-            transfer.total_files,
-        )
-    };
-
-    if let Some(ref callback) = *ctx.on_file_progress.borrow() {
-        callback(
-            progress,
-            &i18n_f(
-                "Downloaded {}/{} files",
-                &[&completed.to_string(), &total.to_string()],
-            ),
-        );
-    }
-
     match outcome {
         super::thread::ChunkOutcome::NeedMore { next_offset } => {
             // Pull the next slice; the file is not complete yet.
@@ -488,7 +467,7 @@ pub(super) fn handle_clipboard_file_contents(
 /// event that settles the last file, and before this was shared a refusal left
 /// the batch permanently unresolvable — no summary, no completion callback.
 fn finish_batch_if_settled(ctx: &FileTransferContext<'_>) {
-    let Some((saved, missing, target, file_count)) = ({
+    let Some((saved, missing, file_count)) = ({
         let transfer = ctx.file_transfer.borrow();
         transfer.all_complete().then(|| {
             (
@@ -498,11 +477,6 @@ fn finish_batch_if_settled(ctx: &FileTransferContext<'_>) {
                 // on disk. The log tells the two apart; the summary counts them
                 // together rather than making the user parse two numbers.
                 transfer.save_failures() + transfer.refused_count(),
-                transfer
-                    .target_directory
-                    .as_ref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_default(),
                 transfer.available_files.len(),
             )
         })
@@ -532,10 +506,6 @@ fn finish_batch_if_settled(ctx: &FileTransferContext<'_>) {
     glib::timeout_add_local_once(std::time::Duration::from_secs(3), move || {
         status_hide.set_visible(false);
     });
-
-    if let Some(ref callback) = *ctx.on_file_complete.borrow() {
-        callback(saved, &target);
-    }
 
     // The batch just settled, so the local-clipboard monitor's hold
     // (`holds_local_announce`) may now be down; send on whatever change it

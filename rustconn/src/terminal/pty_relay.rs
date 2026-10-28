@@ -89,7 +89,9 @@ pub type OutputStream = async_channel::Receiver<OutputChunk>;
 /// Owns a session's PTY master descriptor and the threads around it.
 ///
 /// Dropping the relay stops both threads: the writer ends when its queue is
-/// closed, and the reader ends at the next [`STOP_CHECK_INTERVAL`] boundary.
+/// closed, and the reader ends at the next [`STOP_CHECK_INTERVAL`] boundary, or
+/// at once if it is blocked handing a chunk to a consumer that stopped draining
+/// (the output queue is closed on drop).
 pub struct PtyRelay {
     /// Queue of pending input; closing it stops the writer thread.
     input: Option<async_channel::Sender<Zeroizing<Vec<u8>>>>,
@@ -99,6 +101,13 @@ pub struct PtyRelay {
     stop: Arc<AtomicBool>,
     reader: Option<JoinHandle<()>>,
     writer: Option<JoinHandle<()>>,
+    /// A second handle on the output queue, used only to close it on drop.
+    ///
+    /// The consumer may be parked (a selection drag holds output back) with the
+    /// queue full, which leaves the reader blocked in `send_blocking` where it
+    /// never sees `stop`. Closing the queue fails that send, so the reader ends
+    /// immediately instead of costing the main thread [`SHUTDOWN_GRACE`].
+    output_close: OutputStream,
     /// Last size pushed to the child, so an unchanged poll costs nothing.
     last_size: std::cell::Cell<(u16, u16)>,
 }
@@ -127,6 +136,7 @@ impl PtyRelay {
 
         let stop = Arc::new(AtomicBool::new(false));
         let (output_tx, output_rx) = async_channel::bounded(OUTPUT_QUEUE_CHUNKS);
+        let output_close = output_rx.clone();
         let (input_tx, input_rx) = async_channel::unbounded::<Zeroizing<Vec<u8>>>();
 
         let reader_stop = Arc::clone(&stop);
@@ -145,6 +155,7 @@ impl PtyRelay {
                 stop,
                 reader: Some(reader),
                 writer: Some(writer),
+                output_close,
                 last_size: std::cell::Cell::new(initial_size),
             },
             output_rx,
@@ -186,6 +197,8 @@ impl Drop for PtyRelay {
         // reader at its next poll timeout.
         self.input = None;
         self.stop.store(true, Ordering::Relaxed);
+        // Chunks already queued stay readable; only the blocked sender is freed.
+        self.output_close.close();
 
         for handle in [self.writer.take(), self.reader.take()]
             .into_iter()
@@ -443,6 +456,36 @@ mod tests {
         // The slave outliving the relay must not keep anything alive either.
         let mut buf = [0_u8; 8];
         let _ = slave.read(&mut buf);
+    }
+
+    #[test]
+    fn dropping_the_relay_does_not_wait_for_a_consumer_that_stopped_draining() {
+        // `yes` fills the queue; nothing reads it, as when a selection drag
+        // parks the output loop. The reader is then blocked in `send_blocking`,
+        // not in `poll`, and used to cost the closing thread SHUTDOWN_GRACE.
+        let child = super::super::pty_spawn::spawn_on_pty(&["yes"], &[], None, (24, 80))
+            .expect("yes should spawn");
+        let pid = child.pid;
+        let (relay, stream) = PtyRelay::start(child.master, (24, 80)).expect("relay starts");
+
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !stream.is_full() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            stream.is_full(),
+            "the queue should fill with nothing reading"
+        );
+
+        let started = std::time::Instant::now();
+        drop(relay);
+        let elapsed = started.elapsed();
+        reap(pid);
+        assert!(
+            elapsed < SHUTDOWN_GRACE / 2,
+            "drop stalled for {elapsed:?} on a reader blocked in send"
+        );
+        assert!(stream.is_closed(), "the queue must be closed after drop");
     }
 
     #[test]

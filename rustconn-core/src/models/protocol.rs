@@ -735,6 +735,12 @@ pub struct PortForward {
 
 impl PortForward {
     /// Builds the SSH command-line argument for this port forward rule
+    ///
+    /// The local port is deliberately passed without a bind address: a forward
+    /// the user wrote follows OpenSSH's `GatewayPorts` (default `no`, so loopback),
+    /// exactly like a hand-typed `ssh -L/-D`. Only the forwards RustConn creates
+    /// for itself (jump-host tunnels, the browser SOCKS proxy) are pinned to
+    /// `127.0.0.1`.
     #[must_use]
     pub fn to_ssh_arg(&self) -> Vec<String> {
         match self.direction {
@@ -3281,9 +3287,7 @@ impl ZeroTrustConfig {
                 ("tsh".to_string(), a)
             }
             ZeroTrustProviderConfig::TailscaleSsh(cfg) => {
-                let user = cfg.username.as_deref().or(username);
-                let target = user.map_or_else(|| cfg.host.clone(), |u| format!("{u}@{}", cfg.host));
-                let a = vec!["ssh".to_string(), target];
+                let a = vec!["ssh".to_string(), cfg.destination(username)];
                 ("tailscale".to_string(), a)
             }
             ZeroTrustProviderConfig::Boundary(cfg) => {
@@ -3557,6 +3561,16 @@ pub struct TailscaleSshConfig {
     /// SSH username
     #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
+}
+
+impl TailscaleSshConfig {
+    /// The `[user@]host` destination `tailscale ssh` is given — the connection's
+    /// own user wins over `fallback_username` (the connection-level username).
+    #[must_use]
+    pub fn destination(&self, fallback_username: Option<&str>) -> String {
+        let user = self.username.as_deref().or(fallback_username);
+        user.map_or_else(|| self.host.clone(), |u| format!("{u}@{}", self.host))
+    }
 }
 
 /// `HashiCorp` Boundary configuration
@@ -4054,10 +4068,10 @@ impl<'de> serde::Deserialize<'de> for WebBrowserMode {
     }
 }
 
-/// Unlike the enum itself, the *default* stays feature-conditional: a brand-new
-/// Web connection created on a build that cannot open a WebView should not start
-/// out asking for one. Nothing is lost either way — a default only applies where
-/// no stored value exists.
+/// Unlike the enum itself, the *default* stays feature-conditional: a
+/// brand-new Web connection created on a build that cannot open a WebView
+/// should not start out asking for one. Every environment, the snap included,
+/// gets the same default — there is no sandbox-based special case here.
 ///
 /// This doc comment is also what keeps `clippy::derivable_impls` quiet, which is
 /// why the `#[expect]` that used to sit here is gone: clippy skips a `Default`
@@ -4229,6 +4243,99 @@ mod web_browser_mode_tests {
             rendered.contains("browser_mode = \"embedded\""),
             "saving must not downgrade the stored mode, got:\n{rendered}"
         );
+    }
+
+    /// `WebBrowserMode::default()` follows only the build's `web-embedded`
+    /// feature. There is no snap or environment special case — every build
+    /// type agrees, which is the whole point of the 0.24.0 parity change.
+    #[test]
+    fn default_follows_only_the_build() {
+        let expected = if cfg!(feature = "web-embedded") {
+            WebBrowserMode::Embedded
+        } else {
+            WebBrowserMode::System
+        };
+        assert_eq!(WebBrowserMode::default(), expected);
+        assert_eq!(WebConfig::default().browser_mode, expected);
+    }
+
+    /// A stored Web record without a `browser_mode` key reads as the same
+    /// default as a brand-new connection — no snap-specific keyless default.
+    #[test]
+    fn keyless_browser_mode_reads_as_the_default() {
+        let config: WebConfig = toml::from_str("javascript_enabled = true\n")
+            .expect("a record without browser_mode must parse");
+        assert_eq!(config.browser_mode, WebBrowserMode::default());
+    }
+
+    /// Runs the defaults above again inside a child process with `SNAP` set,
+    /// to prove the snap gets the exact same answers as every other build type.
+    /// `std::env::set_var` is forbidden workspace-wide, so this spawns the test
+    /// binary itself with `Command::env` (which only touches the child's
+    /// environment) rather than mutating the parent process.
+    #[test]
+    fn defaults_are_the_same_inside_a_snap() {
+        let exe = std::env::current_exe().expect("test binary path");
+        let output = std::process::Command::new(exe)
+            .args([
+                "--exact",
+                "models::protocol::web_browser_mode_tests::snap_env_child_checks_defaults",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("SNAP", "/snap/rustconn/x1")
+            .env("RUSTCONN_SNAP_DEFAULTS_CHILD", "1")
+            .output()
+            .expect("spawning the test binary as a child process must succeed");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success(),
+            "child process failed; stdout:\n{stdout}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            stdout.contains("1 passed"),
+            "expected the child test to actually run, got stdout:\n{stdout}"
+        );
+    }
+
+    /// No-op under a normal test run; only asserts when spawned by
+    /// `defaults_are_the_same_inside_a_snap` with `SNAP` and
+    /// `RUSTCONN_SNAP_DEFAULTS_CHILD` set.
+    #[test]
+    fn snap_env_child_checks_defaults() {
+        if std::env::var("RUSTCONN_SNAP_DEFAULTS_CHILD").is_err() {
+            return;
+        }
+        assert!(
+            crate::snap::is_snap(),
+            "the child process must see the SNAP env var this test set"
+        );
+        let expected = if cfg!(feature = "web-embedded") {
+            WebBrowserMode::Embedded
+        } else {
+            WebBrowserMode::System
+        };
+        assert_eq!(WebBrowserMode::default(), expected);
+        assert_eq!(WebConfig::default().browser_mode, expected);
+
+        let config: WebConfig = toml::from_str("javascript_enabled = true\n")
+            .expect("a record without browser_mode must parse inside a snap");
+        assert_eq!(config.browser_mode, expected);
+
+        let config: WebConfig = toml::from_str("browser_mode = \"embedded\"\n")
+            .expect("a stored embedded browser_mode must parse inside a snap");
+        assert_eq!(config.browser_mode, WebBrowserMode::Embedded);
+        let rendered = toml::to_string(&config).expect("WebConfig must serialize inside a snap");
+        assert!(
+            rendered.contains("browser_mode = \"embedded\""),
+            "the snap must not rewrite the stored mode, got:\n{rendered}"
+        );
+
+        assert!(crate::config::UiSettings::default().open_tunnelled_browser_in_embedded);
+        let ui: crate::config::UiSettings =
+            toml::from_str("").expect("an [ui] table without the key must parse inside a snap");
+        assert!(ui.open_tunnelled_browser_in_embedded);
     }
 
     #[test]

@@ -7,6 +7,7 @@
 //! - Session options (Agent Forwarding, X11 Forwarding, Compression, Startup Command)
 
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -36,6 +37,16 @@ pub struct SshOptionsWidgets {
     pub key_entry: Entry,
     pub key_button: Button,
     pub agent_key_dropdown: DropDown,
+    /// Widgets `apply_key_file` writes to when "Set Up Key Authentication…"
+    /// (K4) succeeds for an already-saved connection — the same fields this
+    /// struct already exposes individually, grouped so the result of that flow
+    /// can be applied in one call.
+    pub key_auth: KeyFileAuthWidgets,
+    /// "Set Up Key Authentication…" row, last in the Authentication group.
+    /// Disabled with a hint subtitle until
+    /// `ConnectionDialog::connect_key_setup` enables it for a saved SSH
+    /// connection.
+    pub key_setup_row: adw::ActionRow,
     pub jump_host_dropdown: DropDown,
     /// The row wrapping [`Self::jump_host_dropdown`], so its subtitle can warn
     /// when the stored `jump_host_id` points at a deleted connection instead of
@@ -97,16 +108,14 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
     let (container, content) = ProtocolLayoutBuilder::new().build();
 
     // === Authentication Group ===
-    let (
-        auth_group,
-        auth_dropdown,
-        key_source_dropdown,
-        key_source_row,
-        key_entry,
-        key_button,
-        agent_key_dropdown,
-    ) = create_authentication_group();
+    let (auth_group, auth_widgets, key_setup_row) = create_authentication_group();
     content.append(&auth_group);
+    let auth_dropdown = auth_widgets.auth_dropdown.clone();
+    let key_source_dropdown = auth_widgets.key_source_dropdown.clone();
+    let key_source_row = auth_widgets.key_source_row.clone();
+    let key_entry = auth_widgets.key_entry.clone();
+    let key_button = auth_widgets.key_button.clone();
+    let agent_key_dropdown = auth_widgets.agent_key_dropdown.clone();
 
     // === Connection Options Group ===
     let ConnectionGroupWidgets {
@@ -122,6 +131,21 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         keep_alive_count_max,
     } = create_connection_group();
     content.append(&connection_group);
+
+    // Assembled only now: `identities_only` lives in the Connection group
+    // created above, but "Set Up Key Authentication…" (K4) needs to set it
+    // together with the Authentication-group widgets in one call.
+    let key_auth = KeyFileAuthWidgets {
+        auth_dropdown: auth_dropdown.clone(),
+        key_source_dropdown: key_source_dropdown.clone(),
+        key_source_row: key_source_row.clone(),
+        key_file_row: auth_widgets.key_file_row,
+        agent_key_row: auth_widgets.agent_key_row,
+        key_entry: key_entry.clone(),
+        key_button: key_button.clone(),
+        agent_key_dropdown: agent_key_dropdown.clone(),
+        identities_only: identities_only.clone(),
+    };
 
     // === Session Group ===
     let (
@@ -253,6 +277,8 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
         key_entry,
         key_button,
         agent_key_dropdown,
+        key_auth,
+        key_setup_row,
         jump_host_dropdown,
         jump_host_row,
         proxy_entry,
@@ -286,16 +312,70 @@ pub fn create_ssh_options() -> SshOptionsWidgets {
     }
 }
 
+/// Raw Authentication-group widgets, before `identities_only` exists (it is
+/// created later, in the Connection group) — the parts of
+/// [`KeyFileAuthWidgets`] available at this point. `create_ssh_options`
+/// assembles the rest.
+struct AuthWidgetsPartial {
+    auth_dropdown: DropDown,
+    key_source_dropdown: DropDown,
+    key_source_row: adw::ActionRow,
+    key_file_row: adw::ActionRow,
+    agent_key_row: adw::ActionRow,
+    key_entry: Entry,
+    key_button: Button,
+    agent_key_dropdown: DropDown,
+}
+
+/// Widgets "Set Up Key Authentication…" (K4) writes a working key file into,
+/// for an already-saved SSH connection whose editor is open.
+///
+/// Mirrors the `SshKeySource::File` branch of
+/// `dialog::populate::ConnectionDialog::set_ssh_config` and what
+/// `window::key_setup::apply_key_auth` writes to the stored connection: the
+/// same fields, reached through the widgets instead of the model. A
+/// subsequent Save reproduces it exactly, because `build_ssh_config`
+/// (`builders.rs`) reads these same widgets.
+#[derive(Clone)]
+pub struct KeyFileAuthWidgets {
+    pub auth_dropdown: DropDown,
+    pub key_source_dropdown: DropDown,
+    pub key_source_row: adw::ActionRow,
+    pub key_file_row: adw::ActionRow,
+    pub agent_key_row: adw::ActionRow,
+    pub key_entry: Entry,
+    pub key_button: Button,
+    pub agent_key_dropdown: DropDown,
+    pub identities_only: CheckButton,
+}
+
+impl KeyFileAuthWidgets {
+    /// Writes `path` into the widgets as public-key authentication restricted
+    /// to that file: Method = Public Key, Key Source = File, the path, and
+    /// "Use Only Specified Key" (`IdentitiesOnly`) on.
+    ///
+    /// Sets row visibility and widget sensitivity explicitly rather than
+    /// relying on the dropdowns' selection-changed signals: those signals do
+    /// not fire when a dropdown is already on the value being set (e.g. the
+    /// connection already used a key file before this call), which would
+    /// otherwise leave a stale row — the agent-key row visible, or the key
+    /// file row insensitive.
+    pub fn apply_key_file(&self, path: &Path) {
+        self.auth_dropdown.set_selected(1); // Public Key
+        self.key_source_dropdown.set_selected(1); // File
+        self.key_entry.set_text(&path.to_string_lossy());
+        self.key_entry.set_sensitive(true);
+        self.key_button.set_sensitive(true);
+        self.agent_key_dropdown.set_sensitive(false);
+        self.key_source_row.set_visible(true);
+        self.key_file_row.set_visible(true);
+        self.agent_key_row.set_visible(false);
+        self.identities_only.set_active(true);
+    }
+}
+
 /// Creates the Authentication preferences group
-fn create_authentication_group() -> (
-    adw::PreferencesGroup,
-    DropDown,
-    DropDown,
-    adw::ActionRow,
-    Entry,
-    Button,
-    DropDown,
-) {
+fn create_authentication_group() -> (adw::PreferencesGroup, AuthWidgetsPartial, adw::ActionRow) {
     let auth_group = adw::PreferencesGroup::builder()
         .title(i18n("Authentication"))
         .build();
@@ -438,14 +518,33 @@ fn create_authentication_group() -> (
     key_button.set_sensitive(false);
     agent_key_dropdown.set_sensitive(false);
 
+    // "Set Up Key Authentication…" (K4): same flow and the same msgid as the
+    // sidebar menu's item of the same name (`sidebar_ui.rs`), reached here as
+    // a second entry point. Starts disabled with a hint subtitle;
+    // `ConnectionDialog::connect_key_setup` enables it once the connection
+    // being edited is a saved SSH connection.
+    let key_setup_row = adw::ActionRow::builder()
+        .title(i18n("Set Up Key Authentication…"))
+        .subtitle(i18n("Available after the connection is saved"))
+        .activatable(true)
+        .sensitive(false)
+        .build();
+    key_setup_row.add_suffix(&gtk4::Image::from_icon_name("go-next-symbolic"));
+    auth_group.add(&key_setup_row);
+
     (
         auth_group,
-        auth_dropdown,
-        key_source_dropdown,
-        key_source_row,
-        key_entry,
-        key_button,
-        agent_key_dropdown,
+        AuthWidgetsPartial {
+            auth_dropdown,
+            key_source_dropdown,
+            key_source_row,
+            key_file_row,
+            agent_key_row,
+            key_entry,
+            key_button,
+            agent_key_dropdown,
+        },
+        key_setup_row,
     )
 }
 

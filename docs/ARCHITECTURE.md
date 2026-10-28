@@ -1,6 +1,6 @@
 # RustConn Architecture Guide
 
-**Version 0.23.21** | Last updated: October 2026
+**Version 0.24.0** | Last updated: October 2026
 
 This document describes the internal architecture of RustConn for contributors and maintainers.
 
@@ -215,6 +215,12 @@ and terminal reply *even with no PTY attached* (guaranteed by VTE for
 forwards those bytes to a writer thread. Both directions use bounded or
 off-thread I/O so that a flood of output or a paste into a process that is not
 reading cannot block the window.
+
+Owning the PTY also means taking over one thing VTE does for its own: it stops
+reading while the user drags out a mouse selection, because any output that
+arrives before the drag ends deselects. `terminal::selection_hold` restores that
+pause on the main-thread side of the channel, so a remote that redraws on a timer
+(a byobu or tmux status clock) does not cancel the selection.
 
 This arrangement exists because a session transcript has to be a copy of what
 the child wrote, and that cannot be recovered from the widget: VTE rewraps its
@@ -1576,7 +1582,6 @@ rustconn-core/src/
 ├── search/                # Search engine, command palette
 ├── rdp_client/            # RDP client implementation
 │   ├── mod.rs             # Module exports
-│   ├── backend.rs         # RdpBackendSelector
 │   ├── quick_actions.rs   # Windows admin quick actions (key sequences)
 │   └── ...
 ├── cli_download/          # Flatpak CLI download manager
@@ -1588,9 +1593,33 @@ rustconn-core/src/
 ├── flatpak.rs             # Flatpak sandbox detection, portal key path resolution, stable key copy
 ├── snap.rs                # Snap environment detection and paths
 ├── performance/           # String interner (connection-string dedup) + search debouncer
-├── tracing/               # Span name constants for structured tracing
+├── tracing/               # Span name constants + the `rustconn::perf` timing target (PerfSpan)
 └── ...
 ```
+
+## Performance Instrumentation (`rustconn::perf`)
+
+0.24 is a performance release, so its targets are measured rather than felt. Every vault operation and every SSH-connect phase is timed by a `PerfSpan` (`rustconn-core/src/tracing/perf.rs`): construct one at the start of an operation, hold it for the operation's lifetime, and its `Drop` emits one structured line to the `rustconn::perf` tracing target with fields `op`, `transport`, `elapsed_ms` and `calls`. The line carries fields, never a formatted string, so a baseline table and a post-change table compare field by field.
+
+The target is off by default. The application initialises its subscriber from `RUST_LOG`, so these lines appear only when you ask for them:
+
+```bash
+RUST_LOG=rustconn::perf=info ./target/debug/rustconn
+```
+
+A perf line never carries a secret, a credential, a vault item name, a hostname, or a username — only fixed `&'static str` labels. The timing of an operation is not sensitive; what it operated on is.
+
+### Instrumented phases (W0)
+
+| `op` | `transport` | Where | Measures |
+|---|---|---|---|
+| `vault.unlock` | `bitwarden` | `secret/bitwarden.rs::auto_unlock` | Start to "vault ready" (target ≤ 4 s) |
+| `vault.retrieve` / `vault.store` / `vault.delete` | the backend (`bitwarden`, `keepassxc`, `libsecret`, …) | `vault_ops.rs::dispatch_vault_op_for` | One vault operation against the named backend |
+| `ssh.connect.resolve` | `credentials` | `state/mod.rs::resolve_credentials_blocking` | The off-main-thread credential-resolve phase, incl. cold-backend retries |
+| `ssh.connect.agent` | `ssh-agent` | `window/protocols_ssh.rs::ensure_identity_in_agent` | ssh-agent identity add; `calls` counts the agent round trips (A1 target) |
+| `ssh.connect.args` | `ssh` | `window/protocols_ssh.rs::build_ssh_command_args` | Connect-args build: key inheritance, jump-host/ProxyCommand wiring, askpass helpers |
+
+`calls` defaults to 1 and is raised with `PerfSpan::add_calls` when one logical operation fans out into several underlying calls (several `bw` spawns behind one store, several agent round trips behind one key lookup) — exactly the counts 0.24 is driving down.
 
 ## Remote Monitoring Architecture
 
@@ -1686,7 +1715,6 @@ proptest! {
 - `session_restore_tests.rs` — Session persistence
 - `health_check_tests.rs` — Session health monitoring
 - `log_sanitization_tests.rs` — Sensitive data removal
-- `rdp_backend_tests.rs` — RDP backend selection
 - `vnc_client_tests.rs` — VNC client configuration
 - `bulk_credential_tests.rs` — Bulk credential operations
 - And 60+ more modules...

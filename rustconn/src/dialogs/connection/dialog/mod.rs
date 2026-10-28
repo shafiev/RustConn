@@ -11,6 +11,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::path::Path;
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -26,7 +27,7 @@ use rustconn_core::models::{
 use rustconn_core::variables::Variable;
 use uuid::Uuid;
 
-use super::logging_tab;
+use super::{logging_tab, ssh};
 
 /// Keyboard layout KLID values matching the dropdown order.
 /// Index 0 = Auto (None), rest map to specific Windows KLIDs.
@@ -133,6 +134,12 @@ pub struct ConnectionDialog {
     ssh_key_entry: Entry,
     ssh_key_button: Button,
     ssh_agent_key_dropdown: DropDown,
+    /// Widgets `connect_key_setup`'s callback writes a key file into — the
+    /// same ones as the `ssh_*` fields above, grouped for that one call.
+    ssh_key_auth: ssh::KeyFileAuthWidgets,
+    /// "Set Up Key Authentication…" row (K4). Enabled by `connect_key_setup`
+    /// for a saved SSH connection; otherwise disabled with a hint subtitle.
+    ssh_key_setup_row: adw::ActionRow,
     ssh_agent_keys: Rc<RefCell<Vec<rustconn_core::ssh_agent::AgentKey>>>,
     /// Pending agent key selection (fingerprint, comment) to restore after refresh
     pending_agent_selection: Rc<RefCell<Option<(String, String)>>>,
@@ -570,6 +577,29 @@ impl ConnectionDialog {
     #[must_use]
     pub const fn dialog(&self) -> &adw::Dialog {
         &self.dialog
+    }
+
+    /// Enables "Set Up Key Authentication…" (K4) for an already-saved SSH
+    /// connection being edited.
+    ///
+    /// `open` is called with a closure that writes the key the flow produces
+    /// into this editor's own authentication widgets (Method, Key Source, Key
+    /// File, "Use Only Specified Key") through [`ssh::KeyFileAuthWidgets`].
+    /// Nothing is persisted here: the result only takes effect once the user
+    /// presses Save, and Cancel discards it like any other unsaved edit — see
+    /// `window::key_setup` D1 for why this differs from the sidebar menu's
+    /// entry point, which persists directly.
+    ///
+    /// Not called for a new, unsaved connection: the row stays disabled with
+    /// its hint subtitle, set in `ssh::create_ssh_options`.
+    pub fn connect_key_setup(&self, open: impl Fn(Rc<dyn Fn(&Path)>) + 'static) {
+        self.ssh_key_setup_row.set_sensitive(true);
+        self.ssh_key_setup_row.set_subtitle("");
+        let auth = self.ssh_key_auth.clone();
+        let apply: Rc<dyn Fn(&Path)> = Rc::new(move |path: &Path| auth.apply_key_file(path));
+        self.ssh_key_setup_row.connect_activated(move |_| {
+            open(Rc::clone(&apply));
+        });
     }
 }
 

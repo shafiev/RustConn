@@ -131,6 +131,11 @@ impl MainWindow {
                         let mut state_ref = state_for_save.borrow_mut();
                         state_ref.settings_mut().global_variables = vars_to_save.clone();
 
+                        // A saved secret may differ from a cached copy, so drop
+                        // the resolved-secret cache — the next connect re-reads
+                        // from the vault (P1).
+                        crate::vault_ops::invalidate_global_secret_cache();
+
                         // Persist to disk
                         let save_error = match state_ref
                             .config_manager()

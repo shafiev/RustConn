@@ -3,13 +3,16 @@
 RustConn is available as a Snap package with **strict confinement** for enhanced security.
 Both `rustconn` (GUI) and `rustconn-cli` are included.
 
-> **Build platform:** the snap is built on **core24** (Ubuntu 24.04 base) via the
-> `gnome-46-2404` extension, which provides GTK 4.14 and libadwaita 1.5. It uses
-> the libadwaita 1.5 cfg-gated fallbacks rather than the full 1.8 widget tier the
-> Flatpak ships. A 0.23.2 migration to core26 (for libadwaita 1.8 parity) was
-> reverted in 0.23.3 because the snapcraft `gnome` extension still rejects
-> `base: core26`; revisit once a snapcraft release lists core26 among the gnome
-> extension's supported bases (snapcraft#6185, issue #174).
+> **Build platform:** the snap is built on **core26** (Ubuntu 26.04 base) via the
+> snapcraft `gnome` extension, which provides the `gnome-core26` platform (GTK 4.24,
+> libadwaita 1.10) and takes GPU drivers from `mesa-2604`. The snap is built with
+> `adw-1-8`, so it gets the same libadwaita 1.8 widget tier the Flatpak ships.
+> Building needs Snapcraft 9.2 or newer, the first release whose `gnome` extension
+> accepts core26 (an earlier 0.23.2 attempt was reverted for exactly that reason;
+> issue #174). On first update, snapd downloads the `gnome-core26` and `mesa-2604`
+> platform snaps. The embedded web browser (WebKitGTK 6.0) is built in and comes from
+> the same platform; see [Embedded web browser](#embedded-web-browser-webkitgtk) for
+> its sandbox caveat.
 
 ## Installation
 
@@ -105,6 +108,62 @@ The snap includes all core protocol clients — no separate installation needed:
 | Kubernetes | Components kubectl | Requires `kube-credentials` |
 | SFTP | Bundled mc | Midnight Commander FISH VFS |
 | Waypipe | Bundled waypipe | Wayland forwarding over SSH |
+| Web | WebKitGTK 6.0 from the `gnome-core26` platform | Embedded tab, system browser or custom command; the embedded content is not WebKit-sandboxed in the snap (see below) |
+
+### Embedded web browser (WebKitGTK)
+
+*New in 0.24.0 (issue [#244](https://github.com/totoshko88/RustConn/issues/244)).* Web
+connections can open in an embedded WebKitGTK tab, as in the Flatpak and the native
+packages. The snap does not carry WebKit itself: `libwebkitgtk-6.0` and
+`libjavascriptcoregtk-6.0` (WebKitGTK 2.52) come from the `gnome-core26` platform
+snap and are updated together with it. WebKit finds its helper processes through
+the `/usr/lib/<arch>/webkitgtk-6.0` layout that the snapcraft `gnome` extension adds
+for core26.
+
+> **Security caveat — no WebKit sandbox inside a snap.** WebKit isolates web content
+> with bubblewrap and seccomp, but it switches that off by itself whenever it runs
+> inside a snap, and WebKitGTK 6.0 offers no way to turn it back on. The web and
+> network processes therefore run as ordinary child processes of RustConn, confined
+> only by the snap's strict confinement. They have the same access as RustConn
+> itself: your home directory, SSH keys (`ssh-keys`), the cloud credential folders
+> you connected, the system keyring (`password-manager-service`), the network
+> (`network`, `network-bind`) and the X11 socket (`x11`, which lets a compromised
+> process watch keystrokes of other XWayland/X11 applications). That includes
+> RustConn's own data in `~/snap/rustconn/` (the connection list, settings, session
+> logs that may contain terminal output, the cookies of your other Web connections)
+> and the temporary credential files RustConn creates for SSH tunnels. The list is
+> an example, not a complete one. A browser-engine exploit in a page you open could therefore reach those. The
+> Flatpak (`flatpak-spawn --sandbox`) and the native packages (bubblewrap) keep the
+> web content in a sandbox of its own.
+
+RustConn sets no `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` for the snap: inside a
+snap WebKit already runs without its sandbox, so the variable would change nothing.
+
+Despite that caveat, **the embedded browser is the default in the snap**, the same
+as in the Flatpak and the native packages:
+
+- New Web connections, mRemoteNG and CSV imports, and the connection dialog's
+  **Mode** list default to **Embedded**. *Open Browser via Tunnel* defaults to the
+  in-app browser too.
+- For a connection where the missing sandbox matters, choose **System** or
+  **Custom** in the connection dialog's **Mode** list. For the tunnelled browser,
+  turn off Settings → Interface → Connections → **Open tunnelled browser in the
+  embedded browser** to use an external Chromium-based browser instead.
+- *Open Browser via Tunnel* with no usable external Chromium-based browser opens
+  the embedded browser instead, with a toast explaining the fallback — it never
+  silently falls back to the system browser, which cannot take the SOCKS proxy.
+  A Web connection that tunnels through SSH needs **Embedded** or a Chromium
+  **Custom** command: **System** opens it without the tunnel.
+- Or use the Flatpak or a native package, which keep web content in a sandbox.
+
+Embedded browser cookies and cache live under the snap's user data (see
+[Data Locations](#data-locations)).
+
+If an embedded tab stays blank, look for AppArmor denials:
+
+```bash
+journalctl -f | grep -i 'apparmor.*DENIED.*rustconn'
+```
 
 ### Serial Console
 
@@ -146,16 +205,16 @@ client cannot do:
 - connections set to the External client mode, including **Smart sizing** and
   **Dynamic resolution**
 
-It is the X11 client — it runs through XWayland on a Wayland session. The Wayland
-client (`wlfreerdp3`) is deprecated upstream and Ubuntu 24.04 has no SDL client, so
-neither is bundled. Before 0.22.7 the snap had no external RDP client at all, and
+It is the X11 client — it runs through XWayland on a Wayland session, and it is the
+client RemoteApp needs. The Wayland client (`wlfreerdp3`) is deprecated upstream and
+is not bundled. Before 0.22.7 the snap had no external RDP client at all, and
 those connections could not be made.
 
-> When the snap moves to `base: core26` (its Ubuntu 26.04 archive), re-check
-> whether an `sdl-freerdp3` package exists there: the SDL3 client is the
-> upstream-preferred one (the Flatpak already bundles it), so prefer it over the
-> X11 client at that point. This is tracked alongside the core26 base move in
-> the `snap/snapcraft.yaml` base comment (gnome extension / snapcraft#6185).
+> The snap is on `base: core26` (Ubuntu 26.04), whose archive also packages the SDL3
+> client as `freerdp3-sdl` — the upstream-preferred client that the Flatpak already
+> bundles. The snap deliberately stays on `freerdp3-x11` for now; switching to the
+> SDL client is a possible follow-up that needs its own RemoteApp and
+> strict-confinement test.
 
 ### Available CLIs
 
@@ -238,6 +297,7 @@ Due to snap confinement, RustConn stores data in snap-specific locations:
 | Connections | `~/snap/rustconn/current/.local/share/rustconn/` |
 | Config | `~/snap/rustconn/current/.config/rustconn/` |
 | Session logs | `~/snap/rustconn/current/.local/share/rustconn/logs/` |
+| Embedded browser data | `~/snap/rustconn/current/.local/share/rustconn/webkit/` (cache: `~/snap/rustconn/common/.cache/rustconn/webkit/`) |
 
 ## Troubleshooting
 
@@ -285,6 +345,7 @@ snap connections rustconn
 | Telnet | Bundled | Bundled | Host CLI |
 | Serial | Bundled | Bundled | Host CLI |
 | Waypipe | Bundled | Bundled | Host CLI |
+| Embedded web browser | Yes, but no WebKit sandbox (snap confinement only) | Yes, WebKit sandbox (`flatpak-spawn --sandbox`) | Yes, WebKit sandbox (bubblewrap) |
 | Kubernetes | Components kubectl | Components kubectl (flatpak-spawn) | Host kubectl |
 | Zero Trust | Components CLIs | Components CLIs (flatpak-spawn) | Host CLIs |
 | Password CLIs | Components CLIs | Components CLIs (flatpak-spawn) | Host CLIs |

@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 use rustconn_core::connection::{check_port, ssh_inheritance};
+use rustconn_core::ssh_askpass::{self, AskpassSlot};
 use secrecy::SecretString;
 use uuid::Uuid;
 
@@ -16,42 +17,6 @@ use super::protocols::{
 };
 use crate::state::SharedAppState;
 use crate::utils::spawn_blocking_with_callback;
-
-/// Environment variable carrying the target account password to the outer
-/// OpenSSH process. Nested proxy hops explicitly clear it before starting SSH.
-const TARGET_PASSWORD_ENV: &str = "_RC_TGT_PW_FILE";
-
-/// Environment variable carrying the jump host (bastion) password to the
-/// `SSH_ASKPASS` helper. Intentionally obscure to reduce exposure in
-/// `/proc/<pid>/environ`, matching the SSH tunnel askpass convention.
-const JUMP_HOST_PW_ENV: &str = "_RC_JH_PW_FILE";
-
-/// Returns the path to the prompt-aware helper for the target account password.
-fn target_password_askpass_script() -> Option<std::path::PathBuf> {
-    askpass_script_for_env(TARGET_PASSWORD_ENV)
-}
-
-/// Returns the path to a reusable `SSH_ASKPASS` helper that reads the jump
-/// host secret-file path from the given env var name.
-///
-/// The script holds no secret — only the env var name — so it is safe to keep
-/// for the process lifetime and share across sessions. The password is written
-/// directly from `SecretString` to a randomized mode-0600 runtime file; the env
-/// carries only its path, and the helper opens and reads it. It deliberately does
-/// not unlink the file (that would break a second, keyboard-interactive
-/// invocation — see `askpass_script_contents`, issue #382); cleanup is handled by
-/// `watch_child_exit` on ssh-child exit.
-/// The script itself is placed in `$XDG_RUNTIME_DIR` (mode 0700) to avoid `/tmp`
-/// symlink races on a fixed filename, falling back to a randomized temp path.
-/// Created once (mode 0700) and cached per env var name; returns `None` if
-/// creation fails.
-///
-/// For the legacy single-hop case (env var `_RC_JH_PW_FILE`), the script is the
-/// same singleton as before. For multi-hop (issue #203), each deeper hop gets
-/// its own script reading `_RC_JH_PW_FILE_1`, `_RC_JH_PW_FILE_2`, etc.
-fn jump_host_askpass_script() -> Option<std::path::PathBuf> {
-    askpass_script_for_env(JUMP_HOST_PW_ENV)
-}
 
 /// Points the session's Backspace and Delete keys at what this host expects.
 ///
@@ -81,6 +46,48 @@ fn insert_opaque_jump_host(
     debug_assert_eq!(jump_hosts.len(), hop_ids.len());
     jump_hosts.insert(index, host);
     hop_ids.insert(index, None);
+}
+
+/// Builds the per-hop password vector aligned with the jump-host chain (P2a).
+///
+/// One place for the multi-bastion password logic that was inline in
+/// [`build_ssh_command_args`]: the first reference hop's password is already
+/// resolved (through the chain loop, with its #191/#241/PKCS#11 handling) and
+/// is placed at the first `Some` entry of `hop_ids`; every other reference hop
+/// has its own password resolved through `resolve_hop` (issue #203). A `None`
+/// entry in `hop_ids` is a string proxy with no credential and is left `None`.
+///
+/// `resolve_hop` is the only side-effecting part — it reads the cache, falls
+/// back to the vault and warms the cache — so it is injected, which keeps this
+/// function pure and testable with a fake resolver. The result is the same
+/// length as `hop_ids`, so it stays index-aligned with `jump_hosts`
+/// (SHALL CONTINUE TO: host↔password alignment).
+///
+/// `len` is the jump-host count; `hop_ids` must be exactly that long.
+fn assemble_hop_passwords(
+    len: usize,
+    hop_ids: &[Option<Uuid>],
+    first_hop_password: Option<SecretString>,
+    mut resolve_hop: impl FnMut(Uuid) -> Option<SecretString>,
+) -> Vec<Option<SecretString>> {
+    debug_assert_eq!(hop_ids.len(), len);
+    let mut hop_passwords: Vec<Option<SecretString>> = vec![None; len];
+
+    // The first reference hop (first Some in hop_ids) is already resolved.
+    if let Some(first_ref_idx) = hop_ids.iter().position(Option::is_some) {
+        hop_passwords[first_ref_idx] = first_hop_password;
+    }
+
+    for (idx, hop_id) in hop_ids.iter().enumerate() {
+        if hop_passwords[idx].is_some() {
+            continue; // already resolved (first hop, or a prior pass)
+        }
+        if let Some(hid) = hop_id {
+            hop_passwords[idx] = resolve_hop(*hid);
+        }
+    }
+
+    hop_passwords
 }
 
 /// Parses a jump-host string (`[user@]host[:port]`) and returns `(host, port)`
@@ -118,224 +125,6 @@ fn parse_jump_host_for_control(jump_host: &str) -> (String, u16) {
 
     let port = port_str.and_then(|p| p.parse().ok()).unwrap_or(22);
     (host.to_string(), port)
-}
-
-/// Builds a helper that releases a credential only for an account-password prompt.
-///
-/// The matcher mirrors [`rustconn_core::looks_like_password_prompt`]
-/// (the terminal-watcher matcher): the shell `case` is **exclusion-first, then a broad
-/// positive match**. It lowercases the prompt, rejects the prompts that must never receive
-/// the account password — host-key confirmation, private-key passphrases, OTP/verification
-/// challenges, and password-*change* prompts (`old`/`current`/`new`/`retype`/`confirm`/
-/// `verify`/`repeat`, incl. uk/ru) — and only then accepts any account-password prompt.
-///
-/// Unlike the old `*"'s password:"*`-only glob, the positive branch accepts the
-/// server-/PAM-defined keyboard-interactive forms (`Password:`, ESXi's
-/// `(root@host) Password:`, localized `пароль:`/`passwort:`/`密码：`/`パスワード:` …),
-/// which is why issue #364 (ESXi via a jump host) was failing.
-///
-/// POSIX `sh` note: `tr '[:upper:]' '[:lower:]'` folds **ASCII only**, so the ASCII
-/// branches match against the folded copy `$lc`, while non-ASCII suffixes match against
-/// the **raw** `$prompt`. To stay case-insensitive without Unicode folding, the localized
-/// suffixes that have an uppercase first letter are matched by their first-letter-agnostic
-/// tail (e.g. `*ароль:` catches both `Пароль:` and `пароль:`); CJK/Kana suffixes are
-/// caseless and matched whole.
-///
-/// Re-invocation: the helper **reads** the secret file (`exec 3<` + `cat`) and
-/// must NOT delete it. OpenSSH counts `NumberOfPasswordPrompts` per *method*, so a
-/// server offering both `keyboard-interactive` and `password` runs this script
-/// **twice** against the same `$secret_file` path (the env-var name is fixed; only
-/// the path's value is per-connection). An in-script `rm -f` after the first read
-/// left the second invocation with no file → an empty password → `Permission
-/// denied` (issue
-/// [#382](https://github.com/totoshko88/RustConn/issues/382), a regression from
-/// the keyboard-interactive support added in #364). Cleanup is owned elsewhere:
-/// every secret-file path is registered in `cleanup_paths` and removed by
-/// `watch_child_exit` when the ssh child exits, and the file lives in a
-/// user-private tmpfs dir (`$XDG_RUNTIME_DIR`, mode 0600) — never world-writable
-/// `/tmp` — so the in-script delete bought no extra security.
-fn askpass_script_contents(env_var_name: &str) -> String {
-    format!(
-        "#!/bin/sh\n\
-         prompt=\"${{1-}}\"\n\
-         lc=$(printf '%s' \"$prompt\" | tr '[:upper:]' '[:lower:]')\n\
-         case \"$lc\" in\n\
-         \x20\x20# Not the account password — stay silent (passphrase, host-key, OTP, change).\n\
-         \x20\x20*passphrase*|*\"verification code\"*|*\"(current)\"*|\\\n\
-         \x20\x20*\"old password\"*|*\"current password\"*|*\"new password\"*|\\\n\
-         \x20\x20*\"retype password\"*|*\"retype new password\"*|*\"confirm password\"*|\\\n\
-         \x20\x20*\"verify password\"*|*\"repeat password\"*)\n\
-         \x20\x20\x20\x20exit 1 ;;\n\
-         esac\n\
-         case \"$prompt\" in\n\
-         \x20\x20# Localized password-change prompts (non-ASCII, matched raw, first-letter-agnostic).\n\
-         \x20\x20*\"тарий пароль\"*|*\"тарый пароль\"*|*\"овий пароль\"*|*\"овый пароль\"*)\n\
-         \x20\x20\x20\x20exit 1 ;;\n\
-         esac\n\
-         case \"$lc\" in\n\
-         \x20\x20# OpenSSH `password` auth + ASCII PAM/keyboard-interactive account prompts.\n\
-         \x20\x20*\"'s password:\"*|*\"password:\"|*\"password: \"|*\"pass:\"|*\"pass: \"|\\\n\
-         \x20\x20*\"passwort:\"|*\"passwort: \"|*\"kennwort:\"|*\"kennwort: \"|\\\n\
-         \x20\x20*\"mot de passe:\"|*\"mot de passe :\")\n\
-         \x20\x20\x20\x20_rc_emit=1 ;;\n\
-         \x20\x20*) _rc_emit=0 ;;\n\
-         esac\n\
-         if [ \"$_rc_emit\" = 0 ]; then\n\
-         \x20\x20case \"$prompt\" in\n\
-         \x20\x20\x20\x20# Non-ASCII account prompts, matched raw (first-letter-agnostic where cased).\n\
-         \x20\x20\x20\x20*\"ontraseña:\"|*\"enha:\"|*\"ароль:\"|*\"ароль: \"|*\"asło:\"|*\"eslo:\"|\\\n\
-         \x20\x20\x20\x20*\"achtwoord:\"|*\"ösenord:\"|*\"dgangskode:\"|\\\n\
-         \x20\x20\x20\x20*\"密码:\"|*\"密码：\"|*\"密碼:\"|*\"密碼：\"|\\\n\
-         \x20\x20\x20\x20*\"パスワード:\"|*\"パスワード：\"|*\"비밀번호:\"|*\"비밀번호：\")\n\
-         \x20\x20\x20\x20\x20\x20_rc_emit=1 ;;\n\
-         \x20\x20esac\n\
-         fi\n\
-         [ \"$_rc_emit\" = 1 ] || exit 1\n\
-         secret_file=\"${{{env_var_name}}}\"\n\
-         [ -n \"$secret_file\" ] || exit 1\n\
-         exec 3<\"$secret_file\" || exit 1\n\
-         cat <&3\n"
-    )
-}
-
-/// Creates (or returns cached) an askpass script that prints the value of
-/// `env_var_name`. Each unique env var gets its own on-disk script so that
-/// nested ProxyCommand hops read their own password (issue #203).
-fn askpass_script_for_env(env_var_name: &str) -> Option<std::path::PathBuf> {
-    use std::sync::Mutex;
-    static SCRIPTS: std::sync::OnceLock<
-        Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
-    > = std::sync::OnceLock::new();
-    let cache = SCRIPTS.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
-    let mut map = cache.lock().ok()?;
-
-    if let Some(path) = map.get(env_var_name) {
-        return Some(path.clone());
-    }
-
-    // Shared resolver: `$XDG_RUNTIME_DIR` on Linux, `$TMPDIR` on macOS. When a
-    // user-private directory exists the script gets a stable per-env name so a
-    // reconnect reuses it; only when the resolver declines (a Linux box with no
-    // runtime dir) do we fall back to a randomized `temp_dir()` path to avoid a
-    // fixed name in world-writable `/tmp`.
-    let path = match rustconn_core::secret_file_dir() {
-        Some(dir) => {
-            if env_var_name == TARGET_PASSWORD_ENV {
-                dir.join("rustconn-target-askpass.sh")
-            } else if env_var_name == JUMP_HOST_PW_ENV {
-                dir.join("rustconn-jh-askpass.sh")
-            } else {
-                // Unique file per hop index: rustconn-jh-askpass-1.sh, etc.
-                let suffix = env_var_name
-                    .strip_prefix("_RC_JH_PW_FILE_")
-                    .unwrap_or(env_var_name);
-                dir.join(format!("rustconn-jh-askpass-{suffix}.sh"))
-            }
-        }
-        None => std::env::temp_dir().join(format!("rc-askpass-{}.sh", Uuid::new_v4())),
-    };
-
-    let script = askpass_script_contents(env_var_name);
-    if let Err(e) = std::fs::write(&path, script.as_bytes()) {
-        tracing::error!(error = %e, "Failed to create SSH askpass script");
-        return None;
-    }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)) {
-            tracing::error!(error = %e, "Failed to chmod SSH askpass script");
-            return None;
-        }
-    }
-
-    map.insert(env_var_name.to_string(), path.clone());
-    Some(path)
-}
-
-fn create_askpass_secret_file(password: &SecretString) -> std::io::Result<std::path::PathBuf> {
-    use secrecy::ExposeSecret;
-    use std::io::Write;
-
-    // Shared resolver: `$XDG_RUNTIME_DIR` on Linux, `$TMPDIR` on macOS (which has
-    // no runtime dir). Only when it declines — a Linux box with no runtime dir,
-    // unusual — do we accept the weaker `temp_dir()` so a password can still be
-    // delivered rather than dropped.
-    let directory = rustconn_core::secret_file_dir().unwrap_or_else(std::env::temp_dir);
-    let path = directory.join(format!("rustconn-askpass-secret-{}", Uuid::new_v4()));
-    let mut options = std::fs::OpenOptions::new();
-    options.create_new(true).write(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-
-    let mut file = options.open(&path)?;
-    if let Err(error) = file.write_all(password.expose_secret().as_bytes()) {
-        drop(file);
-        let _ = std::fs::remove_file(&path);
-        return Err(error);
-    }
-    drop(file);
-    Ok(path)
-}
-
-/// Builds the per-child askpass environment for one SSH launch.
-///
-/// Concurrency invariant (why this cannot race between simultaneous sessions):
-/// the environment is returned as a plain `Vec` and applied only to the one
-/// child process spawned for this connection (through `build_child_env` →
-/// the VTE spawn's env vector). Nothing here touches the *process-global*
-/// environment — there is deliberately no `std::env::set_var`, which Rust 2024
-/// forbids anyway. Although the variable *names* are fixed (`_RC_TGT_PW_FILE`,
-/// `_RC_JH_PW_FILE`), their *values* are freshly randomised secret-file paths
-/// from `create_askpass_secret_file`, so two connections opened at the same time
-/// each carry their own file in their own child environment and cannot read each
-/// other's password. Keep it that way: never promote these to a global set.
-fn ssh_askpass_env(
-    jump_host_passwords: &[(String, SecretString)],
-    target_password: Option<(&SecretString, &std::path::Path)>,
-) -> (Vec<zeroize::Zeroizing<String>>, Vec<std::path::PathBuf>) {
-    let mut env = Vec::with_capacity(jump_host_passwords.len() + 3);
-    let mut cleanup_paths = Vec::with_capacity(jump_host_passwords.len() + 1);
-    for (env_name, password) in jump_host_passwords {
-        match create_askpass_secret_file(password) {
-            Ok(path) => {
-                env.push(zeroize::Zeroizing::new(format!(
-                    "{env_name}={}",
-                    path.display()
-                )));
-                cleanup_paths.push(path);
-            }
-            Err(error) => {
-                tracing::error!(%error, "Failed to create jump host askpass secret file");
-            }
-        }
-    }
-    if let Some((password, script)) = target_password {
-        match create_askpass_secret_file(password) {
-            Ok(path) => {
-                env.push(zeroize::Zeroizing::new(format!(
-                    "{TARGET_PASSWORD_ENV}={}",
-                    path.display()
-                )));
-                cleanup_paths.push(path);
-                env.push(zeroize::Zeroizing::new(format!(
-                    "SSH_ASKPASS={}",
-                    script.display()
-                )));
-                env.push(zeroize::Zeroizing::new(
-                    "SSH_ASKPASS_REQUIRE=force".to_string(),
-                ));
-            }
-            Err(error) => {
-                tracing::error!(%error, "Failed to create target askpass secret file");
-            }
-        }
-    }
-    (env, cleanup_paths)
 }
 
 /// Resolves the identity file for a connection that authenticates with a key
@@ -456,6 +245,11 @@ impl JumpAuthShape {
 fn ensure_identity_in_agent(key_path: &std::path::Path) {
     use rustconn_core::ssh_agent::SshAgentManager;
 
+    // Times the ssh-agent identity phase and counts the agent operations it
+    // runs — the A1 target is driving both the time and the spawn/process count
+    // down. Off unless `RUST_LOG=rustconn::perf=info`.
+    let mut perf = rustconn_core::tracing::perf::PerfSpan::new("ssh.connect.agent", "ssh-agent");
+
     if !key_path.exists() {
         return;
     }
@@ -464,6 +258,8 @@ fn ensure_identity_in_agent(key_path: &std::path::Path) {
         tracing::debug!("no ssh-agent socket; multi-hop -J relies on an existing agent identity");
         return;
     }
+    // One add-key round trip against the agent — the call this phase exists for.
+    perf.add_calls(1);
     // `add_key` with no passphrase covers unencrypted keys and keys whose
     // passphrase the agent/askpass can still resolve. Encrypted keys without a
     // resolvable passphrase fail here and are left to the agent/user.
@@ -497,17 +293,26 @@ fn build_ssh_command_args(
     state: &SharedAppState,
     groups: &[rustconn_core::ConnectionGroup],
     has_cached_target_password: bool,
+    // `ssh -G`'s answer when it was run off the main thread (P3). `Some(v)` is
+    // used as-is; `None` means it was not precomputed (the reconnect path, or
+    // port check disabled) and this falls back to spawning `ssh -G` here.
+    precomputed_declares_proxy: Option<bool>,
 ) -> (
     Option<String>,
     Vec<String>,
     bool,
     Option<String>,
-    Vec<(String, SecretString)>,
+    Vec<(AskpassSlot, SecretString)>,
     bool,
 ) {
     let rustconn_core::ProtocolConfig::Ssh(ssh_config) = &conn.protocol_config else {
         return (None, Vec::new(), false, None, Vec::new(), false);
     };
+
+    // Times the connect-args phase: key inheritance, jump-host/ProxyCommand
+    // wiring, bastion and target askpass helpers. Placed after the SSH guard so
+    // a non-SSH call emits no line. Off unless `RUST_LOG=rustconn::perf=info`.
+    let _perf = rustconn_core::tracing::perf::PerfSpan::new("ssh.connect.args", "ssh");
 
     // Resolve key path via inheritance (connection → group → parent group → root)
     let key = ssh_inheritance::resolve_ssh_key_path(conn, groups)
@@ -577,13 +382,25 @@ fn build_ssh_command_args(
     // on the bastion. Declining delivery leaves the connection to prompt, which is the documented
     // fallback; the alternative shipped in 0.21.2 was to append `ProxyJump=none`, which protected
     // the credential by discarding the user's routing.
+    //
+    // P3: when the caller ran `ssh -G` off the main thread (the initial connect,
+    // in the same background phase as the port check) the answer is passed in
+    // and no process is spawned here. `None` — the reconnect path, or port check
+    // disabled — falls back to spawning it synchronously, as before. The `&&`
+    // short-circuit means this is only evaluated once the two cheap conditions
+    // hold, so a `None` fallback spawn still runs only when it mattered before.
+    let declares_proxy = || -> bool {
+        precomputed_declares_proxy.unwrap_or_else(|| {
+            rustconn_core::ssh_tunnel::ssh_config_declares_proxy(
+                &conn.host,
+                conn.port,
+                conn.username.as_deref(),
+            )
+        })
+    };
     let target_askpass_allowed = has_cached_target_password
         && rustconn_core::ssh_tunnel::target_password_askpass_allowed(ssh_config, key.is_some())
-        && !rustconn_core::ssh_tunnel::ssh_config_declares_proxy(
-            &conn.host,
-            conn.port,
-            conn.username.as_deref(),
-        );
+        && !declares_proxy();
     if target_askpass_allowed {
         // Two options, both about the *shape* of the launch rather than about
         // which method authenticates.
@@ -871,26 +688,19 @@ fn build_ssh_command_args(
     }
 
     // Resolve passwords for deeper hops (issue #203: multi-bastion password
-    // chains). `first_hop_password` already covers `hop_ids[first_ref_index]`;
-    // deeper hops need their own password resolved from cache or vault.
-    // Build a parallel vec `hop_passwords` aligned with `jump_hosts`.
-    let mut hop_passwords: Vec<Option<SecretString>> = vec![None; jump_hosts.len()];
-    // Place first_hop_password at its correct index (first reference hop).
-    // The first reference hop is the first entry with a Some(id) in hop_ids.
-    if let Some(first_ref_idx) = hop_ids.iter().position(Option::is_some) {
-        hop_passwords[first_ref_idx] = first_hop_password;
-    }
-    // Resolve passwords for remaining reference hops.
-    for (idx, hop_id) in hop_ids.iter().enumerate() {
-        if hop_passwords[idx].is_some() {
-            continue; // already resolved (first hop)
-        }
-        if let Some(hid) = hop_id {
-            // Try cache first (fast path).
+    // chains). `first_hop_password` already covers the first reference hop; the
+    // alignment and per-hop resolution live in `assemble_hop_passwords`, which
+    // is given a resolver that reads the cache, falls back to the vault and
+    // warms the cache. The vault read stays synchronous here (P2a scope: the
+    // logic is extracted and deduplicated; moving it off the main thread is a
+    // separate change).
+    let hop_passwords: Vec<Option<SecretString>> =
+        assemble_hop_passwords(jump_hosts.len(), &hop_ids, first_hop_password, |hid| {
+            // Cache first (fast path).
             let cached = state
                 .try_borrow()
                 .ok()
-                .and_then(|s| s.get_cached_credentials(*hid).cloned())
+                .and_then(|s| s.get_cached_credentials(hid).cloned())
                 .and_then(|c| {
                     use secrecy::ExposeSecret;
                     if c.password.expose_secret().is_empty() {
@@ -900,34 +710,29 @@ fn build_ssh_command_args(
                     }
                 });
             if cached.is_some() {
-                hop_passwords[idx] = cached;
-                continue;
+                return cached;
             }
-            // Fallback: resolve from vault/variable.
+            // Fallback: resolve from vault/variable, then warm the cache.
             let conn_for_hop = state
                 .try_borrow()
                 .ok()
-                .and_then(|s| s.get_connection(*hid).cloned());
-            if let Some(hop_conn) = conn_for_hop {
-                let resolved_pw = state
-                    .try_borrow()
-                    .ok()
-                    .and_then(|s| s.resolve_connection_password_blocking(&hop_conn));
-                if let Some(pw_secret) = resolved_pw {
-                    if let Ok(mut state_mut) = state.try_borrow_mut() {
-                        use secrecy::ExposeSecret;
-                        state_mut.cache_credentials(
-                            *hid,
-                            hop_conn.username.as_deref().unwrap_or(""),
-                            pw_secret.expose_secret(),
-                            "",
-                        );
-                    }
-                    hop_passwords[idx] = Some(pw_secret);
-                }
+                .and_then(|s| s.get_connection(hid).cloned());
+            let hop_conn = conn_for_hop?;
+            let resolved_pw = state
+                .try_borrow()
+                .ok()
+                .and_then(|s| s.resolve_connection_password_blocking(&hop_conn))?;
+            if let Ok(mut state_mut) = state.try_borrow_mut() {
+                use secrecy::ExposeSecret;
+                state_mut.cache_credentials(
+                    hid,
+                    hop_conn.username.as_deref().unwrap_or(""),
+                    resolved_pw.expose_secret(),
+                    "",
+                );
             }
-        }
-    }
+            Some(resolved_pw)
+        });
 
     // In Flatpak, ~/.ssh is read-only — point known_hosts to a writable path.
     // Must be set BEFORE jump host resolution because ProxyCommand needs it too.
@@ -962,9 +767,9 @@ fn build_ssh_command_args(
     // identity files. Fix: replace -J with -o ProxyCommand that passes
     // UserKnownHostsFile and identity to the jump host SSH process.
     // Passwords to deliver to each hop via per-hop SSH_ASKPASS (issue #191/#203).
-    // Each entry: (env_var_name, password). Set only when askpass helpers are
+    // Each entry: (slot, password). Set only when askpass helpers are
     // successfully wired into ProxyCommand.
-    let mut jump_host_passwords: Vec<(String, SecretString)> = Vec::new();
+    let mut jump_host_passwords: Vec<(AskpassSlot, SecretString)> = Vec::new();
 
     let jump_host_str = if jump_hosts.is_empty() {
         None
@@ -993,7 +798,7 @@ fn build_ssh_command_args(
         // starting its own ssh process; the outer helper remains target-only.
         let any_hop_has_password = hop_passwords.iter().any(Option::is_some);
         let askpass_script = if hop_passwords.first().is_some_and(Option::is_some) {
-            jump_host_askpass_script()
+            ssh_askpass::helper_script(AskpassSlot::JumpHost(0)).ok()
         } else {
             None
         };
@@ -1033,8 +838,7 @@ fn build_ssh_command_args(
                     jump_hosts.len(),
                 ));
                 if let Some(Some(pw)) = hop_passwords.first() {
-                    let env_name = rustconn_core::ssh_tunnel::jump_host_pw_env_name(0);
-                    jump_host_passwords.push((env_name, pw.clone()));
+                    jump_host_passwords.push((AskpassSlot::JumpHost(0), pw.clone()));
                 }
             } else {
                 proxy_parts.extend(rustconn_core::ssh_tunnel::askpass_disabled_proxy_prefix(
@@ -1123,9 +927,7 @@ fn build_ssh_command_args(
                     .enumerate()
                     .map(|(rel_idx, pw_opt)| {
                         if pw_opt.is_some() {
-                            let env_name =
-                                rustconn_core::ssh_tunnel::jump_host_pw_env_name(rel_idx + 1);
-                            askpass_script_for_env(&env_name)
+                            ssh_askpass::helper_script(AskpassSlot::JumpHost(rel_idx + 1)).ok()
                         } else {
                             None
                         }
@@ -1138,9 +940,7 @@ fn build_ssh_command_args(
                     hop_passwords[1..].iter().zip(&inner_askpass).enumerate()
                 {
                     if let (Some(pw), Some(_script)) = (pw_opt, script_opt) {
-                        let env_name =
-                            rustconn_core::ssh_tunnel::jump_host_pw_env_name(rel_idx + 1);
-                        jump_host_passwords.push((env_name, pw.clone()));
+                        jump_host_passwords.push((AskpassSlot::JumpHost(rel_idx + 1), pw.clone()));
                     }
                 }
 
@@ -1222,6 +1022,134 @@ fn build_ssh_command_args(
         jump_host_passwords,
         target_askpass_allowed,
     )
+}
+
+/// What "Set Up Key Authentication" needs to reach a server the way a live
+/// session does: the target with the session's `ssh` arguments, and the
+/// credentials the same gates would let a session hand to OpenSSH.
+pub(super) struct KeySetupLaunch {
+    /// Host, port, user and the arguments of a live session.
+    pub(super) target: rustconn_core::ssh_key_setup::SshTarget,
+    /// The account password and bastion passwords the gates allow. `Debug`
+    /// redacts both.
+    pub(super) credentials: rustconn_core::ssh_key_setup::DeployCredentials,
+    /// An account password goes to OpenSSH through askpass.
+    pub(super) password_sent: bool,
+    /// A password was available but the connection's options or proxy route
+    /// stopped it from being passed (`target_password_askpass_allowed`,
+    /// `ssh_config_declares_proxy`), exactly as for a normal connect.
+    pub(super) password_gated_off: bool,
+}
+
+/// The session arguments for key setup: the identity file first, then the
+/// arguments [`build_ssh_command_args`] produced.
+///
+/// A live session passes the identity to `spawn_ssh` separately from the extra
+/// arguments, so rebuilding the same command line means putting `-i` back. The
+/// verify step drops any identity option it is given and uses the new key.
+fn key_setup_session_args(identity: Option<&str>, extra_args: Vec<String>) -> Vec<String> {
+    match identity {
+        Some(path) => {
+            let mut args = Vec::with_capacity(extra_args.len() + 2);
+            args.push("-i".to_string());
+            args.push(path.to_string());
+            args.extend(extra_args);
+            args
+        }
+        None => extra_args,
+    }
+}
+
+/// Builds the key setup target and credentials from a connection, through the
+/// same [`build_ssh_command_args`] a live session uses, so the jump hosts, the
+/// bastion passwords, the Flatpak `known_hosts` and the askpass gate are not
+/// re-derived here.
+///
+/// `password` is the account password from the vault or typed in the dialog. It
+/// reaches the result only if the connect gate lets it; otherwise
+/// `password_gated_off` says why a stored password was left out.
+/// `declares_proxy` is `ssh -G`'s answer, run off the main thread by the caller.
+///
+// ponytail: the bastion vault fallback inside `build_ssh_command_args` is
+// synchronous, as it is for a connect; and the `ssh.connect.args` perf span
+// fires here too. Both are the connect path's behaviour, unchanged.
+pub(super) fn build_key_setup_launch(
+    conn: &rustconn_core::Connection,
+    state: &SharedAppState,
+    groups: &[rustconn_core::ConnectionGroup],
+    password: Option<SecretString>,
+    declares_proxy: Option<bool>,
+) -> KeySetupLaunch {
+    let global_variables = super::protocols::resolve_globals_with_ask(state, conn.id);
+    let host = substitute_variables(&conn.host, &global_variables);
+    let username = conn
+        .username
+        .as_ref()
+        .map(|u| substitute_variables(u, &global_variables));
+
+    let (identity, extra_args, _use_waypipe, _jump_host_chain, jump_host_passwords, allowed) =
+        build_ssh_command_args(
+            conn,
+            conn.id,
+            state,
+            groups,
+            password.is_some(),
+            declares_proxy,
+        );
+
+    assemble_key_setup_launch(
+        KeySetupParts {
+            host,
+            port: conn.port,
+            username,
+            identity,
+            extra_args,
+            jump_host_passwords,
+        },
+        password,
+        allowed,
+    )
+}
+
+/// What [`build_ssh_command_args`] and the variable substitution produced.
+struct KeySetupParts {
+    host: String,
+    port: u16,
+    username: Option<String>,
+    identity: Option<String>,
+    extra_args: Vec<String>,
+    jump_host_passwords: Vec<(AskpassSlot, SecretString)>,
+}
+
+/// Applies the askpass gate to the account password and builds the launch.
+///
+/// `allowed` is the connect path's verdict (`target_password_askpass_allowed`
+/// and no `ssh_config_declares_proxy`). A closed gate drops the password, so
+/// it never reaches `DeployCredentials`, and records why. Split from
+/// [`build_key_setup_launch`] so this decision is testable without an
+/// application state.
+fn assemble_key_setup_launch(
+    parts: KeySetupParts,
+    password: Option<SecretString>,
+    allowed: bool,
+) -> KeySetupLaunch {
+    let password_gated_off = password.is_some() && !allowed;
+    let password = if allowed { password } else { None };
+    let password_sent = password.is_some();
+    KeySetupLaunch {
+        target: rustconn_core::ssh_key_setup::SshTarget::new(
+            parts.host,
+            parts.port,
+            parts.username,
+            key_setup_session_args(parts.identity.as_deref(), parts.extra_args),
+        ),
+        credentials: rustconn_core::ssh_key_setup::DeployCredentials {
+            password,
+            jump_host_passwords: parts.jump_host_passwords,
+        },
+        password_sent,
+        password_gated_off,
+    }
 }
 
 /// Returns `true` if the first reference jump hop may show an interactive
@@ -1381,14 +1309,22 @@ pub fn start_ssh_connection_observed(
         .unwrap_or_default();
     let has_inherited_proxy =
         ssh_inheritance::resolve_ssh_proxy_jump(conn, &groups, &settings.network).is_some();
+    // A live ControlMaster socket means the TCP connection to this host is
+    // already up and authenticated, so the pre-connect port check is redundant
+    // (P4). Checked here, once, and reused below to also skip writing a
+    // target-password askpass file — the master needs no password.
+    let has_control_socket = rustconn_core::control_socket_present(&conn.host, conn.port);
     // Use centralized probe-bypass logic + inherited proxy jump from groups
-    let should_check = conn.should_pre_connect_check(&settings.connection) && !has_inherited_proxy;
+    let should_check = conn.should_pre_connect_check(&settings.connection)
+        && !has_inherited_proxy
+        && !has_control_socket;
 
-    if conn.bypasses_direct_probe() || has_inherited_proxy {
+    if conn.bypasses_direct_probe() || has_inherited_proxy || has_control_socket {
         tracing::debug!(
             protocol = "ssh",
             host = %conn.host,
             port = conn.port,
+            control_socket = has_control_socket,
             "Skipping port check — connection bypasses direct probe"
         );
     }
@@ -1403,10 +1339,28 @@ pub fn start_ssh_connection_observed(
         let monitoring_clone = Rc::clone(monitoring);
         let conn_clone = conn.clone();
 
-        // Run port check in background thread
+        // `ssh -G` inputs, cloned for the background closure. Computing whether
+        // OpenSSH's own config routes this host through a proxy is a process
+        // spawn (~4 ms); it used to run on the GTK main thread inside
+        // `build_ssh_command_args`. Here it runs in the same background phase as
+        // the port check, so neither blocks the UI, and the answer is handed to
+        // the internal start below (P3). It lives only for this connect cycle.
+        let gss_host = conn.host.clone();
+        let gss_port = conn.port;
+        let gss_user = conn.username.clone();
+
+        // Run port check and `ssh -G` in the background thread, together.
         spawn_blocking_with_callback(
-            move || check_port(&host, port, timeout),
-            move |result| {
+            move || {
+                let port_ok = check_port(&host, port, timeout);
+                let declares_proxy = rustconn_core::ssh_tunnel::ssh_config_declares_proxy(
+                    &gss_host,
+                    gss_port,
+                    gss_user.as_deref(),
+                );
+                (port_ok, declares_proxy)
+            },
+            move |(result, declares_proxy)| {
                 match result {
                     Ok(_) => {
                         // Port is open, proceed with connection
@@ -1419,6 +1373,7 @@ pub fn start_ssh_connection_observed(
                             &conn_clone,
                             logging_enabled,
                             observer,
+                            Some(declares_proxy),
                         );
                     }
                     Err(e) => {
@@ -1467,6 +1422,9 @@ pub fn start_ssh_connection_observed(
             conn,
             logging_enabled,
             observer,
+            // Port check disabled, so there is no background phase to run
+            // `ssh -G` in; fall back to a synchronous spawn in build.
+            None,
         )
     }
 }
@@ -1487,6 +1445,10 @@ fn start_ssh_connection_internal(
     conn: &rustconn_core::Connection,
     logging_enabled: bool,
     observer: Option<super::types::SessionStartObserver>,
+    // `ssh -G`'s answer, computed off the main thread alongside the port check
+    // (P3). `None` when it was not precomputed, and `build_ssh_command_args`
+    // then falls back to a synchronous spawn.
+    precomputed_declares_proxy: Option<bool>,
 ) -> Option<Uuid> {
     use rustconn_core::protocol::{format_command_message, format_connection_message};
 
@@ -1611,6 +1573,7 @@ fn start_ssh_connection_internal(
         state,
         &groups,
         cached_password.is_some(),
+        precomputed_declares_proxy,
     );
 
     // Extract MPTCP flag from SSH config
@@ -1682,11 +1645,11 @@ fn start_ssh_connection_internal(
         // added only for the strict password-only launch plan and is consumed
         // by the prompt-aware outer OpenSSH helper, never by VTE output.
         let target_askpass_script = if target_askpass_allowed {
-            target_password_askpass_script()
+            ssh_askpass::helper_script(AskpassSlot::Target).ok()
         } else {
             None
         };
-        let (askpass_env, askpass_cleanup_paths) = ssh_askpass_env(
+        let (askpass_env, askpass_cleanup_paths) = ssh_askpass::child_env(
             &jump_host_passwords,
             cached_password
                 .as_ref()
@@ -1920,6 +1883,18 @@ pub fn reconnect_ssh_in_place(
         }
     };
 
+    // Discard the previous connection's monitoring bar and collector so a
+    // stale, dimmed bar (or a race with a collector that has not yet
+    // noticed the drop) does not survive into the new connection (#398).
+    // Done only now, after the two `return false` cases above, so a failed
+    // reconnect attempt does not tear down a still-valid bar for nothing.
+    // `had_monitoring_bar` records whether a bar actually existed — used
+    // below to decide whether to restart monitoring through
+    // `session_content_box` (tab or detached window) rather than
+    // `get_session_container` (tab only), without ever placing a bar into a
+    // split pane where monitoring is suspended by design.
+    let had_monitoring_bar = monitoring.reset_for_reconnect(session_id);
+
     // Re-apply highlight rules
     super::protocols::apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
@@ -1999,6 +1974,10 @@ pub fn reconnect_ssh_in_place(
         state,
         &groups,
         cached_password.is_some(),
+        // Reconnect runs on the main thread with no prior background phase, so
+        // `ssh -G` is spawned synchronously here (P3 only backgrounds the
+        // initial connect, which has the port-check phase to ride along).
+        None,
     );
 
     // Extract MPTCP flag from SSH config
@@ -2055,11 +2034,11 @@ pub fn reconnect_ssh_in_place(
         apply_ssh_erase_mode(notebook, session_id, &conn);
         // Same auth-scoped environment as the initial launch.
         let target_askpass_script = if target_askpass_allowed {
-            target_password_askpass_script()
+            ssh_askpass::helper_script(AskpassSlot::Target).ok()
         } else {
             None
         };
-        let (askpass_env, askpass_cleanup_paths) = ssh_askpass_env(
+        let (askpass_env, askpass_cleanup_paths) = ssh_askpass::child_env(
             &jump_host_passwords,
             cached_password
                 .as_ref()
@@ -2182,7 +2161,26 @@ pub fn reconnect_ssh_in_place(
                     return;
                 }
                 monitoring_started_clone.set(true);
-                if let Some(container) = notebook_clone.get_session_container(session_id) {
+                // Resolve through `get_session_container` first (tab-only).
+                // Only fall back to `session_content_box` when a bar existed
+                // before the reconnect reset it (#398) AND the session is
+                // confirmed detached right now — not merely "not in a tab".
+                // Between `reset_for_reconnect` and this closure running, the
+                // session may have been moved into a split as a guest (no
+                // `TabPage`, so `get_session_container` also returns `None`
+                // for it); `session_content_box` resolves that case through
+                // the split-pane box provider, which would place the bar in
+                // the pane while monitoring stays suspended there by design.
+                // Checking `is_detached` here rules that branch out, so this
+                // reconnect path never places a bar into a split pane.
+                let container = notebook_clone
+                    .get_session_container(session_id)
+                    .or_else(|| {
+                        (had_monitoring_bar && notebook_clone.is_detached(session_id))
+                            .then(|| notebook_clone.session_content_box(session_id))
+                            .flatten()
+                    });
+                if let Some(container) = container {
                     monitoring_clone.start_monitoring(
                         session_id,
                         &container,
@@ -2213,22 +2211,90 @@ pub fn reconnect_ssh_in_place(
 mod tests {
     use super::*;
 
-    fn run_askpass_script(prompt: &str) -> (std::process::Output, std::path::PathBuf) {
-        let secret_path =
-            std::env::temp_dir().join(format!("rustconn-askpass-test-secret-{}", Uuid::new_v4()));
-        std::fs::write(&secret_path, b"test-account-password")
-            .expect("test secret file must be writable");
-        let output = std::process::Command::new("sh")
-            .args([
-                "-c",
-                &askpass_script_contents("_RC_TEST_PW_FILE"),
-                "rustconn-askpass-test",
-                prompt,
-            ])
-            .env("_RC_TEST_PW_FILE", &secret_path)
-            .output()
-            .expect("test askpass script must run");
-        (output, secret_path)
+    #[test]
+    fn key_setup_session_args_puts_the_identity_first() {
+        let args = key_setup_session_args(
+            Some("/home/u/.ssh/id_work"),
+            vec!["-o".to_string(), "IdentitiesOnly=yes".to_string()],
+        );
+        assert_eq!(
+            args,
+            ["-i", "/home/u/.ssh/id_work", "-o", "IdentitiesOnly=yes"]
+        );
+    }
+
+    #[test]
+    fn key_setup_session_args_without_identity_is_unchanged() {
+        let extra = vec!["-J".to_string(), "bastion".to_string()];
+        assert_eq!(key_setup_session_args(None, extra.clone()), extra);
+        assert!(key_setup_session_args(None, Vec::new()).is_empty());
+    }
+
+    fn key_setup_parts() -> KeySetupParts {
+        KeySetupParts {
+            host: "web.example".to_string(),
+            port: 2222,
+            username: Some("anton".to_string()),
+            identity: None,
+            extra_args: vec!["-o".to_string(), "IdentitiesOnly=yes".to_string()],
+            jump_host_passwords: vec![(
+                AskpassSlot::JumpHost(0),
+                SecretString::from("bastion-secret".to_string()),
+            )],
+        }
+    }
+
+    #[test]
+    fn key_setup_launch_passes_the_password_when_the_gate_is_open() {
+        let launch = assemble_key_setup_launch(
+            key_setup_parts(),
+            Some(SecretString::from("account-secret".to_string())),
+            true,
+        );
+        assert!(launch.password_sent);
+        assert!(!launch.password_gated_off);
+        assert!(launch.credentials.password.is_some());
+        assert_eq!(launch.target.host, "web.example");
+        assert_eq!(launch.target.port, 2222);
+        assert_eq!(launch.target.username.as_deref(), Some("anton"));
+        assert_eq!(launch.target.session_args, ["-o", "IdentitiesOnly=yes"]);
+    }
+
+    #[test]
+    fn key_setup_launch_drops_the_password_when_the_gate_is_closed() {
+        let launch = assemble_key_setup_launch(
+            key_setup_parts(),
+            Some(SecretString::from("account-secret".to_string())),
+            false,
+        );
+        // The password never reaches the credentials, and the dialog is told why.
+        assert!(launch.credentials.password.is_none());
+        assert!(!launch.password_sent);
+        assert!(launch.password_gated_off);
+        // Bastion passwords are not the account password; the connect path
+        // decides them and they are carried through.
+        assert_eq!(launch.credentials.jump_host_passwords.len(), 1);
+    }
+
+    #[test]
+    fn key_setup_launch_without_a_password_is_neither_sent_nor_gated_off() {
+        for allowed in [true, false] {
+            let launch = assemble_key_setup_launch(key_setup_parts(), None, allowed);
+            assert!(launch.credentials.password.is_none());
+            assert!(!launch.password_sent);
+            assert!(!launch.password_gated_off);
+        }
+    }
+
+    #[test]
+    fn key_setup_launch_puts_the_identity_before_the_session_arguments() {
+        let mut parts = key_setup_parts();
+        parts.identity = Some("/k/id".to_string());
+        let launch = assemble_key_setup_launch(parts, None, true);
+        assert_eq!(
+            launch.target.session_args,
+            ["-i", "/k/id", "-o", "IdentitiesOnly=yes"]
+        );
     }
 
     fn jump_shape(hop_count: usize) -> JumpAuthShape {
@@ -2305,136 +2371,79 @@ mod tests {
         assert_eq!(ids, vec![None, Some(reference_id)]);
     }
 
-    #[test]
-    fn askpass_secret_file_is_owner_only_and_not_an_environment_value() {
-        use std::os::unix::fs::PermissionsExt;
+    // ── P2a: assemble_hop_passwords (pure, fake resolver) ─────────────────
 
-        let secret = SecretString::new("file-only-secret".to_string().into());
-        let path = create_askpass_secret_file(&secret).expect("secret file must be created");
-        let metadata = std::fs::metadata(&path).expect("secret file metadata must exist");
-        assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
+    #[test]
+    fn hop_passwords_stay_aligned_with_a_string_proxy_gap() {
+        // jump_hosts = [string-proxy, ref-hop-A, ref-hop-B]; the string proxy
+        // has no id, so its slot must stay None and the two reference hops keep
+        // their own index (SHALL CONTINUE TO: host↔password alignment).
+        use secrecy::ExposeSecret;
+        let a = Uuid::new_v4();
+        let b = Uuid::new_v4();
+        let hop_ids = vec![None, Some(a), Some(b)];
+
+        let out = assemble_hop_passwords(3, &hop_ids, None, |hid| {
+            Some(SecretString::from(format!("pw-{hid}")))
+        });
+
+        assert_eq!(out.len(), 3);
+        assert!(out[0].is_none(), "string proxy slot has no password");
+        assert_eq!(out[1].as_ref().unwrap().expose_secret(), format!("pw-{a}"));
+        assert_eq!(out[2].as_ref().unwrap().expose_secret(), format!("pw-{b}"));
+    }
+
+    #[test]
+    fn first_hop_password_lands_at_the_first_reference_hop() {
+        // first_hop_password covers the first Some entry; the resolver must not
+        // be called for it, only for the deeper hop.
+        use secrecy::ExposeSecret;
+        let first = Uuid::new_v4();
+        let deeper = Uuid::new_v4();
+        let hop_ids = vec![Some(first), Some(deeper)];
+        let mut resolved_ids = Vec::new();
+
+        let out =
+            assemble_hop_passwords(2, &hop_ids, Some(SecretString::from("first-pw")), |hid| {
+                resolved_ids.push(hid);
+                Some(SecretString::from("deeper-pw"))
+            });
+
+        assert_eq!(out[0].as_ref().unwrap().expose_secret(), "first-pw");
+        assert_eq!(out[1].as_ref().unwrap().expose_secret(), "deeper-pw");
         assert_eq!(
-            std::fs::read(&path).expect("secret file must be readable"),
-            b"file-only-secret"
+            resolved_ids,
+            vec![deeper],
+            "the resolver runs only for the deeper hop, never the already-resolved first"
         );
-        std::fs::remove_file(path).expect("test secret file must be removed");
     }
 
     #[test]
-    fn askpass_helper_releases_password_only_for_account_prompt() {
-        // Every account-password prompt the helper must answer: OpenSSH's own
-        // `password` auth, PAM/keyboard-interactive forms (ESXi, generic PAM,
-        // Dropbear), and the localized variants mirrored from the Rust matcher.
-        // Issue #364: ESXi authenticates via keyboard-interactive, so its prompt
-        // is `(root@host) Password:` — the old `'s password:`-only glob missed it.
-        for accepted_prompt in [
-            "alice@example.com's password: ",
-            "Password: ",
-            "Password:",
-            "(root@esxi.example.com) Password: ", // ESXi via jump host (#364)
-            "root@192.0.2.10's password:",
-            "Пароль: ",
-            "Passwort:",
-            "密码：",
-        ] {
-            let (accepted, accepted_secret_path) = run_askpass_script(accepted_prompt);
-            assert!(
-                accepted.status.success(),
-                "should accept account prompt: {accepted_prompt:?}"
-            );
-            assert_eq!(
-                accepted.stdout, b"test-account-password",
-                "wrong output for: {accepted_prompt:?}"
-            );
-            // The helper must READ, never delete: OpenSSH re-invokes it per
-            // auth method (keyboard-interactive + password), so the file has to
-            // survive the first read (issue #382). Cleanup is owned by
-            // `watch_child_exit`, not by the script.
-            assert!(
-                accepted_secret_path.exists(),
-                "secret file must survive a read for: {accepted_prompt:?}"
-            );
-            assert_eq!(
-                std::fs::read(&accepted_secret_path).expect("secret file must still be readable"),
-                b"test-account-password",
-                "secret content must be intact after a read for: {accepted_prompt:?}"
-            );
-            std::fs::remove_file(&accepted_secret_path)
-                .expect("test secret file must be removed by the test");
-        }
+    fn an_unresolvable_hop_stays_none() {
+        // A hop whose resolver returns None (no vault entry) leaves a None slot
+        // rather than shifting the others (SHALL CONTINUE TO: alignment).
+        use secrecy::ExposeSecret;
+        let a = Uuid::new_v4();
+        let b = Uuid::new_v4();
+        let hop_ids = vec![Some(a), Some(b)];
 
-        // Prompts that must NEVER receive the account password: key passphrase,
-        // host-key confirmation, OTP/verification, password-change (any stage),
-        // and sudo (sudo asks for the *local* password, not the SSH account).
-        for rejected_prompt in [
-            "Enter passphrase for key '/home/alice/.ssh/id_ed25519': ",
-            "The authenticity of host cannot be established. Continue connecting (yes/no)? ",
-            "Verification code: ",
-            "Password expired. Enter new password: ",
-            "(current) UNIX password: ",
-            "Old Password: ",
-            "Retype new password: ",
-            "Confirm password: ",
-            "Старий пароль: ",
-            "[sudo] password for alice: ",
-            "",
-        ] {
-            let (rejected, rejected_secret_path) = run_askpass_script(rejected_prompt);
-            assert!(
-                !rejected.status.success(),
-                "must reject prompt: {rejected_prompt:?}"
-            );
-            assert!(
-                rejected.stdout.is_empty(),
-                "leaked password for: {rejected_prompt:?}"
-            );
-            std::fs::remove_file(rejected_secret_path)
-                .expect("rejected prompt must leave the test file for owner cleanup");
-        }
-    }
-
-    /// Regression for issue
-    /// [#382](https://github.com/totoshko88/RustConn/issues/382): OpenSSH counts
-    /// `NumberOfPasswordPrompts` per *method*, so a server offering both
-    /// `keyboard-interactive` and `password` runs the one askpass helper **twice**
-    /// against the same secret-file path. The helper must emit the password on
-    /// every invocation; the old in-script `rm -f` consumed the file on the first
-    /// read, so the second produced an empty password and `Permission denied`.
-    ///
-    /// Checked for the target env var and a jump-hop env var, since both share
-    /// `askpass_script_contents` — a fix to one must hold for the other.
-    #[test]
-    fn askpass_helper_survives_repeated_invocations() {
-        for env_var in [TARGET_PASSWORD_ENV, JUMP_HOST_PW_ENV, "_RC_JH_PW_FILE_1"] {
-            let secret_path =
-                std::env::temp_dir().join(format!("rustconn-askpass-reinvoke-{}", Uuid::new_v4()));
-            std::fs::write(&secret_path, b"persistent-secret")
-                .expect("test secret file must be writable");
-            let script = askpass_script_contents(env_var);
-
-            // Two invocations with the SAME env/path, as OpenSSH does for a
-            // keyboard-interactive + password server.
-            for round in 1..=2 {
-                let output = std::process::Command::new("sh")
-                    .args(["-c", &script, "rustconn-askpass-test", "Password: "])
-                    .env(env_var, &secret_path)
-                    .output()
-                    .expect("test askpass script must run");
-                assert!(
-                    output.status.success(),
-                    "invocation {round} failed for {env_var}"
-                );
-                assert_eq!(
-                    output.stdout, b"persistent-secret",
-                    "invocation {round} emitted the wrong password for {env_var}"
-                );
-                assert!(
-                    secret_path.exists(),
-                    "secret file deleted after invocation {round} for {env_var} (#382)"
-                );
+        let out = assemble_hop_passwords(2, &hop_ids, None, |hid| {
+            if hid == a {
+                None
+            } else {
+                Some(SecretString::from("b-pw"))
             }
+        });
 
-            std::fs::remove_file(&secret_path).expect("test secret file must be removed");
-        }
+        assert!(out[0].is_none());
+        assert_eq!(out[1].as_ref().unwrap().expose_secret(), "b-pw");
+    }
+
+    #[test]
+    fn no_hops_yields_an_empty_aligned_vec() {
+        let out = assemble_hop_passwords(0, &[], None, |_| {
+            panic!("resolver must not run when there are no hops")
+        });
+        assert!(out.is_empty());
     }
 }

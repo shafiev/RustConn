@@ -40,7 +40,10 @@ pub enum RdpFailureClass {
     GraphicsPipeline,
     /// The server offers only a security protocol IronRDP does not implement.
     SecurityUnsupported,
-    /// IronRDP and the server disagree on the wire protocol.
+    /// IronRDP and the server disagree on the wire protocol, including a
+    /// connect sequence that stalls after the TLS upgrade has already
+    /// succeeded (issue #392, e.g. a GNOME Remote Desktop Remote Login
+    /// server waiting for a Server Redirection IronRDP cannot follow).
     ProtocolIncompatible,
     /// Anything else: unreachable host, timeout, TLS failure, local error.
     Other,
@@ -104,6 +107,54 @@ const AUTH_MARKERS: &[&str] = &[
 /// FreeRDP client speaks the same protocol with a wider set of authentication
 /// methods (`ironrdp-mstsgu` only offers HTTP Basic), so it is worth a try.
 const GATEWAY_MARKERS: &[&str] = &["rd gateway connection failed"];
+
+/// Marker for a connect sequence that stalled *after* the TLS upgrade.
+///
+/// Built and matched by [`post_tls_stall_error`] / [`classify_rdp_failure`]
+/// from a single constant so the text and the classifier can never drift
+/// apart. Lower-case, because `classify_rdp_failure` compares against
+/// `msg.to_ascii_lowercase()`.
+///
+/// Issue [#392]: against GNOME Remote Desktop's Remote Login mode, IronRDP
+/// completes X.224 and TLS, then waits the full handshake budget inside
+/// `connect_finalize` (NLA → MCS → licensing → capabilities) with no error.
+/// The server most likely expects an RDP Server Redirection to one-time
+/// RDSTLS credentials that IronRDP never advertises support for, so the
+/// server has nothing to send back; `ironrdp-connector` 0.10 does not
+/// implement that negotiation (upstream TODO #139, `cluster: None`). A PDU
+/// the connector cannot decode would surface as a decode error, not a silent
+/// stall, so the redirection explanation is the likelier of the two, not a
+/// confirmed cause. Before this marker existed, that stall produced the
+/// generic `"Operation timed out"` message, which matches
+/// [`NON_FALLBACK_MARKERS`] and stranded the session with no fallback even
+/// though the server is reachable and speaks RDP — Remmina and GNOME
+/// Connections (both FreeRDP-based) connect to the same host.
+///
+/// [#392]: https://github.com/totoshko88/RustConn/issues/392
+const POST_TLS_STALL_MARKER: &str =
+    "connection sequence stalled after the secure channel was established";
+
+/// Builds the [`crate::embedded_client_error::RdpClientError`] the connect code
+/// returns when the handshake timeout expires *after* the TLS upgrade (and TOFU
+/// certificate check) succeeded.
+///
+/// `handshake_secs` is the budget that just expired, folded into the message so
+/// the log/GUI text says how long the client waited. The message deliberately
+/// contains none of `"tls"`, `"transport"`, `"timed out"`, `"certificate"`, or
+/// any auth/license marker — see [`NON_FALLBACK_MARKERS`], [`AUTH_MARKERS`] and
+/// [`LICENSE_MARKERS`] — so it is classified purely through
+/// [`POST_TLS_STALL_MARKER`] and cannot accidentally also match one of those.
+///
+/// See [`POST_TLS_STALL_MARKER`] for why this fires and issue [#392].
+///
+/// [#392]: https://github.com/totoshko88/RustConn/issues/392
+#[must_use]
+pub fn post_tls_stall_error(handshake_secs: u64) -> crate::embedded_client_error::RdpClientError {
+    crate::embedded_client_error::RdpClientError::ConnectionFailed(format!(
+        "IronRDP {POST_TLS_STALL_MARKER}: sign-in, licensing or capabilities \
+         did not finish within {handshake_secs}s"
+    ))
+}
 
 /// TLS, certificate, and transport failures that must not trigger fallback.
 const NON_FALLBACK_MARKERS: &[&str] = &[
@@ -218,9 +269,12 @@ pub fn is_license_exchange_failure(msg: &str) -> bool {
 
 /// Classifies an embedded RDP failure message into a [`RdpFailureClass`].
 ///
-/// Authentication is checked first, then RD Gateway tunnel failures. TLS,
-/// certificate, and transport roots take precedence over fallback-worthy
-/// protocol markers.
+/// Authentication is checked first, then RD Gateway tunnel failures, then a
+/// post-TLS connect stall ([`POST_TLS_STALL_MARKER`], issue #392) — both are
+/// checked ahead of the generic TLS/certificate/transport markers so that
+/// wording in the wrapped cause can never re-classify them as `Other`. TLS,
+/// certificate, and transport roots take precedence over the remaining
+/// fallback-worthy protocol markers.
 #[must_use]
 pub fn classify_rdp_failure(msg: &str) -> RdpFailureClass {
     let lower = msg.to_ascii_lowercase();
@@ -236,6 +290,14 @@ pub fn classify_rdp_failure(msg: &str) -> RdpFailureClass {
     // it over is worthwhile whatever the inner cause was.
     if GATEWAY_MARKERS.iter().any(|m| lower.contains(m)) {
         return RdpFailureClass::GatewayFailure;
+    }
+    // Checked before NON_FALLBACK_MARKERS for the same reason as the gateway
+    // check above: the message built by `post_tls_stall_error` is deliberately
+    // free of transport/TLS/timeout wording today, but a later edit to that
+    // text (e.g. adding "TLS") must not silently fall back into `Other` and
+    // re-strand the session (issue #392).
+    if lower.contains(POST_TLS_STALL_MARKER) {
+        return RdpFailureClass::ProtocolIncompatible;
     }
     if NON_FALLBACK_MARKERS.iter().any(|m| lower.contains(m)) {
         return RdpFailureClass::Other;
@@ -682,6 +744,51 @@ mod tests {
             "Connection refused (os error 111)",
         ] {
             let class = classify_rdp_failure(msg);
+            assert_eq!(class, RdpFailureClass::Other, "message: {msg}");
+            assert!(!class.warrants_freerdp_fallback(), "message: {msg}");
+        }
+    }
+
+    /// Issue #392: a connect sequence that stalls *after* TLS has to reach the
+    /// external-client fallback the same way the GRD #199 case does.
+    #[test]
+    fn post_tls_stall_falls_back_to_the_external_client() {
+        let msg = post_tls_stall_error(60).to_string();
+        let class = classify_rdp_failure(&msg);
+        assert_eq!(
+            class,
+            RdpFailureClass::ProtocolIncompatible,
+            "message: {msg}"
+        );
+        assert!(class.warrants_freerdp_fallback(), "message: {msg}");
+        assert!(!class.requires_explicit_consent(), "message: {msg}");
+        assert!(!is_authentication_failure(&msg), "message: {msg}");
+        assert_eq!(classify_auth_failure(&msg), None, "message: {msg}");
+        assert!(!warrants_tls_only_fallback(&msg), "message: {msg}");
+        // The "server incompatible" banner is right here, not the licensing one.
+        assert!(!is_license_exchange_failure(&msg), "message: {msg}");
+    }
+
+    /// Issue #392: a timeout that happens *before* TLS — an unreachable host, a
+    /// refused port, an unknown name, or a failed TLS upgrade — must keep
+    /// failing without a fallback. Only the post-TLS stall gets one.
+    #[test]
+    fn pre_tls_timeouts_and_unreachable_hosts_never_fall_back() {
+        for msg in [
+            crate::embedded_client_error::RdpClientError::Timeout.to_string(),
+            "Connection failed: Failed to connect to 192.0.2.1:3389: \
+             Connection refused (os error 111)"
+                .to_owned(),
+            "Connection failed: Failed to connect to nohost.invalid:3389: \
+             failed to lookup address information: Name or service not known"
+                .to_owned(),
+            "Connection failed: RDP handshake timed out after 15s — the remote \
+             host may be unreachable through the SSH tunnel or the RDP service \
+             is not running"
+                .to_owned(),
+            "Connection failed: TLS upgrade failed: invalid peer certificate".to_owned(),
+        ] {
+            let class = classify_rdp_failure(&msg);
             assert_eq!(class, RdpFailureClass::Other, "message: {msg}");
             assert!(!class.warrants_freerdp_fallback(), "message: {msg}");
         }

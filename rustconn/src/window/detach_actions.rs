@@ -459,12 +459,19 @@ fn install_detached_window_actions(detached: &DetachedSessionWindow, handles: &D
     window.add_action(&close_action);
 
     // Stateful, like the main window's, so the checkmark semantics stay
-    // identical if the action is ever surfaced in a menu.
-    let fullscreen_action =
-        gio::SimpleAction::new_stateful("toggle-fullscreen", None, &false.to_variant());
+    // identical if the action is ever surfaced in a menu. The state follows the
+    // window's `fullscreened` property rather than the action, mirroring
+    // `window/navigation_actions.rs`: F11 runs this action, but the window
+    // manager or `present_fullscreen_on` can also change full screen without
+    // it, and the checkmark would otherwise go stale (#388).
+    let fullscreen_action = gio::SimpleAction::new_stateful(
+        "toggle-fullscreen",
+        None,
+        &window.is_fullscreen().to_variant(),
+    );
     let window_fullscreen = window.downgrade();
     let presentation = detached.presentation_handle();
-    fullscreen_action.connect_activate(move |action, _| {
+    fullscreen_action.connect_activate(move |_, _| {
         if let Some(window) = window_fullscreen.upgrade() {
             let is_fullscreen = window.is_fullscreen();
             if is_fullscreen {
@@ -476,9 +483,14 @@ fn install_detached_window_actions(detached: &DetachedSessionWindow, handles: &D
                 fullscreen: !is_fullscreen,
                 monitor: None,
             };
-            action.set_state(&(!is_fullscreen).to_variant());
         }
     });
+    {
+        let action = fullscreen_action.clone();
+        window.connect_fullscreened_notify(move |win| {
+            action.set_state(&win.is_fullscreen().to_variant());
+        });
+    }
     window.add_action(&fullscreen_action);
 
     // Passthrough is application-wide (it drops accelerators from the whole

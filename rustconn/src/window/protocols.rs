@@ -1543,6 +1543,7 @@ fn start_spice_connection_internal(
                     })
                     .map(|c| c.password.clone()),
                 extra_args,
+                launcher: rustconn_core::ssh_tunnel::TunnelLauncher::OpenSsh,
             };
 
             drop(state_ref);

@@ -39,6 +39,7 @@ pub fn edit_selected_connection(
     window: &gtk4::Window,
     state: &SharedAppState,
     sidebar: &SharedSidebar,
+    key_setup: &Rc<super::key_setup::KeySetupContext>,
 ) {
     // Get selected item using sidebar's method (works in both single and multi-selection modes)
     let Some(conn_item) = sidebar.get_selected_item() else {
@@ -54,7 +55,7 @@ pub fn edit_selected_connection(
         // Edit group - show simple rename dialog
         show_edit_group_dialog(window, state.clone(), sidebar.clone(), id);
     } else {
-        edit_connection_by_id(window, state, sidebar, id);
+        edit_connection_by_id(window, state, sidebar, id, key_setup);
     }
 }
 
@@ -63,11 +64,16 @@ pub fn edit_selected_connection(
 /// Takes the id rather than reading the sidebar selection, so a session tab
 /// can open the editor for its own connection whatever is selected in the
 /// sidebar (issue #357). Does nothing when no connection has that id.
+///
+/// `key_setup` is the context "Set Up Key Authentication…" needs; it is only
+/// used when the connection being edited is SSH (K4), via
+/// [`super::key_setup::offers_editor_key_setup`].
 pub fn edit_connection_by_id(
     window: &gtk4::Window,
     state: &SharedAppState,
     sidebar: &SharedSidebar,
     id: Uuid,
+    key_setup: &Rc<super::key_setup::KeySetupContext>,
 ) {
     let state_ref = state.borrow();
     let Some(conn) = state_ref.get_connection(id).cloned() else {
@@ -111,6 +117,17 @@ pub fn edit_connection_by_id(
     }
 
     dialog.set_connection(&conn);
+
+    // "Set Up Key Authentication…" (K4): a second entry point to the same
+    // flow the sidebar menu opens, for an already-saved SSH connection. Not
+    // wired for any other protocol — the row stays disabled with its hint
+    // subtitle.
+    if super::key_setup::offers_editor_key_setup(&conn) {
+        let ctx = Rc::clone(key_setup);
+        dialog.connect_key_setup(move |apply| {
+            super::key_setup::open_key_setup_for_editor(Rc::clone(&ctx), id, apply);
+        });
+    }
 
     // Check if connection belongs to an Import group → configure read-only synced fields
     {

@@ -1218,9 +1218,11 @@ pub struct UiSettings {
     /// rather than an external one.
     ///
     /// Default `true`: use the in-app WebKit browser when this build has it, so
-    /// the tunnel's lifetime matches the tab. When `false` (or on a build
+    /// the tunnel's lifetime matches the tab — on every build type, the snap
+    /// included (0.24.0 parity with Flatpak). When `false` (or on a build
     /// without the embedded browser) the action launches an external
     /// Chromium-based browser in incognito mode through the tunnel instead.
+    /// A stored value is never rewritten.
     #[serde(default = "default_true")]
     pub open_tunnelled_browser_in_embedded: bool,
     /// Start page for the "Open Browser via Tunnel" SSH action.
@@ -1388,7 +1390,7 @@ impl Default for UiSettings {
             window_title_shows_connection: false,
             window_title_shows_path: false,
             double_click_opens_new_session: false,
-            open_tunnelled_browser_in_embedded: true,
+            open_tunnelled_browser_in_embedded: default_true(),
             tunnel_browser_start_url: default_tunnel_start_url(),
             tunnel_browser_command: String::new(),
             show_split_pane_labels: true,
@@ -2254,6 +2256,53 @@ fn hex_decode(data: &str) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::{RendererPreference, UiSettings, clamp_sidebar_width};
+
+    /// `open_tunnelled_browser_in_embedded` defaults to `true` on every build
+    /// type, the snap included (0.24.0 parity with Flatpak) — both for a fresh
+    /// `UiSettings` and for a `[ui]` table that omits the key entirely.
+    #[test]
+    fn tunnelled_browser_defaults_to_embedded() {
+        assert!(UiSettings::default().open_tunnelled_browser_in_embedded);
+
+        let without_key: UiSettings =
+            toml::from_str("color_scheme = \"system\"\n").expect("a [ui] table without the key");
+        assert!(without_key.open_tunnelled_browser_in_embedded);
+    }
+
+    /// A stored `true` is kept, and nothing is rewritten.
+    #[test]
+    fn stored_tunnelled_true_is_kept() {
+        let ui: UiSettings = toml::from_str("open_tunnelled_browser_in_embedded = true\n")
+            .expect("a stored value must parse");
+        assert!(ui.open_tunnelled_browser_in_embedded);
+        let rendered = toml::to_string(&ui).expect("serialize");
+        assert!(rendered.contains("open_tunnelled_browser_in_embedded = true"));
+    }
+
+    /// A stored `false` — the user's choice of an external browser — survives
+    /// the round trip; the default only ever applies where no value is stored.
+    #[test]
+    fn stored_tunnelled_false_is_kept() {
+        let ui: UiSettings = toml::from_str("open_tunnelled_browser_in_embedded = false\n")
+            .expect("a stored value must parse");
+        assert!(!ui.open_tunnelled_browser_in_embedded);
+        let rendered = toml::to_string(&ui).expect("serialize");
+        assert!(rendered.contains("open_tunnelled_browser_in_embedded = false"));
+    }
+
+    /// The retired `snap_embedded_browser_allowed`/`snap_browser_notice_shown`
+    /// keys are not rejected (no `deny_unknown_fields` on `UiSettings`) and are
+    /// simply dropped on the next save.
+    #[test]
+    fn stale_snap_browser_keys_are_ignored() {
+        let ui: UiSettings = toml::from_str(
+            "snap_embedded_browser_allowed = true\nsnap_browser_notice_shown = true\n",
+        )
+        .expect("a config with the retired keys must still parse");
+        let rendered = toml::to_string(&ui).expect("serialize");
+        assert!(!rendered.contains("snap_embedded_browser_allowed"));
+        assert!(!rendered.contains("snap_browser_notice_shown"));
+    }
 
     /// Right-click paste is opt-in: a fresh install must default to `false`, so
     /// the long-standing native context menu stays the default behaviour

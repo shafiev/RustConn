@@ -74,6 +74,44 @@ enum TunnelBrowserPath {
     Fail,
 }
 
+thread_local! {
+    /// Connections whose "Open Browser via Tunnel" tunnel is still starting.
+    ///
+    /// Only touched on the GTK thread. Every borrow lives inside one `with` call
+    /// in [`BrowserTunnelStart`], never across a callback.
+    static BROWSER_TUNNELS_STARTING: std::cell::RefCell<std::collections::BTreeSet<Uuid>> =
+        const { std::cell::RefCell::new(std::collections::BTreeSet::new()) };
+}
+
+/// Marks a connection's browser tunnel as starting; unmarks on drop.
+///
+/// The guard is moved into the callback that runs when the tunnel is ready (or
+/// has failed), so the mark is cleared on success, on failure, and when the
+/// worker dies and the callback is dropped unrun.
+struct BrowserTunnelStart(Uuid);
+
+impl BrowserTunnelStart {
+    /// Marks `id` as starting, or returns `None` when a tunnel for it is
+    /// already starting.
+    fn begin(id: Uuid) -> Option<Self> {
+        let inserted = BROWSER_TUNNELS_STARTING
+            .with(|set| set.try_borrow_mut().is_ok_and(|mut set| set.insert(id)));
+        inserted.then_some(Self(id))
+    }
+}
+
+impl Drop for BrowserTunnelStart {
+    fn drop(&mut self) {
+        // `try_borrow_mut`: a failure here means a nested borrow, which cannot
+        // happen (borrows never span a callback); skipping beats panicking in drop.
+        BROWSER_TUNNELS_STARTING.with(|set| {
+            if let Ok(mut set) = set.try_borrow_mut() {
+                set.remove(&self.0);
+            }
+        });
+    }
+}
+
 impl MainWindow {
     pub(crate) fn setup_edit_actions(
         &self,
@@ -102,9 +140,15 @@ impl MainWindow {
         let window_weak = window.downgrade();
         let state_clone = state.clone();
         let sidebar_clone = sidebar.clone();
+        let key_setup_ctx_for_edit = self.key_setup_context(window, state, sidebar);
         edit_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
-                Self::edit_selected_connection(win.upcast_ref(), &state_clone, &sidebar_clone);
+                Self::edit_selected_connection(
+                    win.upcast_ref(),
+                    &state_clone,
+                    &sidebar_clone,
+                    &key_setup_ctx_for_edit,
+                );
             }
         });
         window.add_action(&edit_action);
@@ -633,6 +677,14 @@ impl MainWindow {
             check_connection_online,
         );
 
+        // Set Up Key Authentication — generate, install and verify an SSH key,
+        // then switch the connection to it. The window is held weakly: it owns
+        // this action, which owns the context.
+        let key_setup_context = self.key_setup_context(window, state, sidebar);
+        register_selected_and_by_id(window, sidebar, "set-up-key-auth", move |id| {
+            super::key_setup::open_key_setup_dialog(Rc::clone(&key_setup_context), id);
+        });
+
         // Open SFTP action — opens file manager or mc in local shell
         let sftp_action = gio::SimpleAction::new("open-sftp", None);
         let state_clone = state.clone();
@@ -713,39 +765,13 @@ impl MainWindow {
                         ));
                     }
                     tracing::info!(?kp, "Adding SSH key to agent for mc");
-                    let mut ssh_add = std::process::Command::new("ssh-add");
-                    ssh_add
-                        .arg(kp)
-                        .stdin(std::process::Stdio::null())
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::piped())
-                        // Strip host SSH_ASKPASS — it may reference a
-                        // program (e.g. ksshaskpass) absent in Flatpak.
-                        .env_remove("SSH_ASKPASS");
-                    rustconn_core::sftp::apply_agent_env(&mut ssh_add);
-                    match ssh_add.output() {
-                        Ok(output) if output.status.success() => {
-                            tracing::info!("SSH key added to agent for mc");
-                        }
-                        Ok(output) => {
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            tracing::warn!(
-                                %stderr,
-                                "ssh-add failed — mc FISH may not authenticate"
-                            );
-                            toast_clone.show_error(&format!(
-                                "{}: {}",
-                                crate::i18n::i18n("SSH key not available"),
-                                stderr.trim()
-                            ));
-                            return;
-                        }
-                        Err(e) => {
-                            tracing::error!(?e, "Failed to run ssh-add");
-                            toast_clone
-                                .show_error(&crate::i18n::i18n("Failed to add SSH key to agent."));
-                            return;
-                        }
+                    if let Err(stderr) = rustconn_core::sftp::ensure_identity_loaded(kp) {
+                        toast_clone.show_error(&format!(
+                            "{}: {}",
+                            crate::i18n::i18n("SSH key not available"),
+                            stderr
+                        ));
+                        return;
                     }
                 }
 
@@ -934,31 +960,11 @@ impl MainWindow {
                                 );
                             }
                             tracing::info!(?kp, "Adding SSH key to agent for SFTP");
-                            let mut ssh_add = std::process::Command::new("ssh-add");
-                            ssh_add
-                                .arg(kp)
-                                .stdin(std::process::Stdio::null())
-                                .stdout(std::process::Stdio::null())
-                                .stderr(std::process::Stdio::piped())
-                                // Strip host SSH_ASKPASS — it may reference a
-                                // program (e.g. ksshaskpass) absent in Flatpak.
-                                .env_remove("SSH_ASKPASS");
-                            rustconn_core::sftp::apply_agent_env(&mut ssh_add);
-                            match ssh_add.output() {
-                                Ok(output) if output.status.success() => {
-                                    tracing::info!("SSH key added to agent");
-                                }
-                                Ok(output) => {
-                                    let stderr = String::from_utf8_lossy(&output.stderr);
-                                    tracing::warn!(
-                                        %stderr,
-                                        "ssh-add failed — file manager \
-                                         may not authenticate"
-                                    );
-                                }
-                                Err(e) => {
-                                    tracing::error!(?e, "Failed to run ssh-add");
-                                }
+                            if let Err(stderr) = rustconn_core::sftp::ensure_identity_loaded(kp) {
+                                tracing::warn!(
+                                    %stderr,
+                                    "ssh-add failed — file manager may not authenticate"
+                                );
                             }
                         }
                         // Resolve the home-directory URI after the key is in
@@ -1012,24 +1018,71 @@ impl MainWindow {
         window.add_action(&obt_action);
     }
 
-    /// Raises a dynamic SOCKS proxy (`ssh -N -D`) to the given SSH connection and
-    /// waits for it to accept connections.
+    /// Builds the context `window::key_setup` needs to open "Set Up Key
+    /// Authentication…", shared by the sidebar menu's action and the
+    /// connection editor's own row (K4) — one function, so the two entry
+    /// points cannot end up wired to a different window, state or notebook.
+    pub(super) fn key_setup_context(
+        &self,
+        window: &adw::ApplicationWindow,
+        state: &SharedAppState,
+        sidebar: &SharedSidebar,
+    ) -> Rc<super::key_setup::KeySetupContext> {
+        Rc::new(super::key_setup::KeySetupContext {
+            window: window.downgrade(),
+            state: state.clone(),
+            sidebar: sidebar.clone(),
+            notebook: self.terminal_notebook.clone(),
+            split_view: self.split_view.clone(),
+            monitoring: self.monitoring.clone(),
+            toast_overlay: self.toast_overlay.clone(),
+        })
+    }
+
+    /// Raises a dynamic SOCKS proxy (`ssh -N -D`) to the given SSH or Tailscale SSH connection
+    /// **off the GTK thread** and waits for it to accept connections, delivering the result to
+    /// `on_ready` back on the GTK thread.
     ///
     /// The tunnel reuses that connection's key (resolved through the group
     /// chain), its own jump-host chain and any session-cached password. It is
     /// the shared primitive behind both a Web connection's `tunnel_via` and the
-    /// SSH sidebar's "Open Browser via Tunnel" action.
+    /// SSH sidebar's "Open Browser via Tunnel" action. The params are read from
+    /// `AppState` here (cheap, on the GTK thread, borrow released before the
+    /// worker starts); only the blocking spawn+wait moves to a worker.
     ///
-    /// # Errors
-    ///
-    /// Returns a human-readable message when the connection is gone, the state
+    /// `on_ready` receives `Err(message)` when the connection is gone, the state
     /// is momentarily busy, or `ssh` fails to establish the proxy.
-    fn raise_socks_tunnel_for(
-        state: &SharedAppState,
-        jump_id: Uuid,
-    ) -> Result<rustconn_core::ssh_tunnel::SshTunnel, String> {
-        let params = Self::socks_tunnel_params_for(state, jump_id)?;
-        Self::spawn_socks_tunnel(&params)
+    ///
+    /// Known limitation (shared with the Web `tunnel_via` path):
+    /// - Quitting while the worker waits for the port leaves its `ssh -N` running,
+    ///   because the tunnel is not registered anywhere until `on_ready` runs and
+    ///   `spawn_tunnel` sets neither a process group nor a parent-death signal.
+    ///
+    /// The sidebar action guards against repeat clicks itself, see
+    /// [`BrowserTunnelStart`]; this primitive does not.
+    // ponytail: orphan-on-quit needs PDEATHSIG in rustconn-pty-sys (deferred to 0.24.x).
+    fn raise_socks_tunnel_async<C>(state: &SharedAppState, jump_id: Uuid, on_ready: C)
+    where
+        C: FnOnce(Result<rustconn_core::ssh_tunnel::SshTunnel, String>) + 'static,
+    {
+        let params = match Self::socks_tunnel_params_for(state, jump_id) {
+            Ok(params) => params,
+            Err(msg) => {
+                on_ready(Err(msg));
+                return;
+            }
+        };
+        crate::utils::spawn_blocking_with_callback(
+            move || Self::spawn_socks_tunnel(&params),
+            on_ready,
+        );
+    }
+
+    /// The translated reason shown when a connection cannot host a SOCKS tunnel
+    /// (mirrors `SshTunnelError::UnsupportedConnection`, whose text is English
+    /// because `rustconn-core` has no locale).
+    fn unsupported_tunnel_reason() -> String {
+        crate::i18n::i18n("This connection type cannot host a SOCKS tunnel")
     }
 
     /// Builds the [`rustconn_core::ssh_tunnel::SshTunnelParams`] for a SOCKS tunnel to `jump_id`, reading
@@ -1038,7 +1091,7 @@ impl MainWindow {
     /// Split from [`Self::spawn_socks_tunnel`] so the spawn — which blocks while
     /// `ssh` connects and the port comes up — can run off the GTK thread while
     /// this cheap, borrow-only half stays on it. See
-    /// [`Self::raise_web_socks_tunnel_async`].
+    /// [`Self::raise_socks_tunnel_async`].
     ///
     /// # Errors
     ///
@@ -1054,6 +1107,27 @@ impl MainWindow {
         let jump_conn = state_ref
             .get_connection(jump_id)
             .ok_or_else(|| crate::i18n::i18n("the SSH connection it tunnels through is gone"))?;
+
+        // The same gate the sidebar uses: a connection that cannot host a tunnel
+        // is refused here rather than run through `ssh` as if it were plain SSH.
+        let Some(route) = rustconn_core::ssh_tunnel::socks_tunnel_route(jump_conn) else {
+            return Err(Self::unsupported_tunnel_reason());
+        };
+
+        if let rustconn_core::ssh_tunnel::SocksTunnelRoute::TailscaleSsh { destination } = route {
+            // Same `tailscale ssh <dest>` the session runs: tailnet identity, no key,
+            // no cached password, no port (issue #397).
+            return Ok(rustconn_core::ssh_tunnel::SshTunnelParams {
+                jump_host: destination,
+                jump_port: 22,
+                remote_host: String::new(),
+                remote_port: 0,
+                identity_file: None,
+                password: None,
+                extra_args: Vec::new(),
+                launcher: rustconn_core::ssh_tunnel::TunnelLauncher::TailscaleSsh,
+            });
+        }
 
         let mut jump_dest = jump_conn.host.clone();
         if let Some(user) = &jump_conn.username {
@@ -1082,6 +1156,7 @@ impl MainWindow {
             identity_file,
             password,
             extra_args,
+            launcher: rustconn_core::ssh_tunnel::TunnelLauncher::OpenSsh,
         })
     }
 
@@ -1091,9 +1166,7 @@ impl MainWindow {
     /// This blocks (the wait polls the port with `std::thread::sleep`), so it is
     /// **not** to be called on the GTK thread — a dead jump host would otherwise
     /// freeze the window until `ConnectTimeout` lapses. Callers on the UI thread
-    /// go through [`Self::raise_web_socks_tunnel_async`]; this synchronous form
-    /// is kept for the (already off-thread or short-lived) callers that build
-    /// params and spawn in one place.
+    /// go through [`Self::raise_socks_tunnel_async`], which runs this on a worker.
     ///
     /// # Errors
     ///
@@ -1133,17 +1206,7 @@ impl MainWindow {
             on_ready(Ok(None));
             return;
         };
-        let params = match Self::socks_tunnel_params_for(state, jump_id) {
-            Ok(params) => params,
-            Err(msg) => {
-                on_ready(Err(msg));
-                return;
-            }
-        };
-        crate::utils::spawn_blocking_with_callback(
-            move || Self::spawn_socks_tunnel(&params).map(Some),
-            on_ready,
-        );
+        Self::raise_socks_tunnel_async(state, jump_id, move |result| on_ready(result.map(Some)));
     }
 
     /// Normalises the configured tunnel-browser start URL into something both
@@ -1376,37 +1439,60 @@ impl MainWindow {
     /// not Chromium-family or not found, or no Chromium binary at all — RustConn
     /// explains why in a toast and falls back to the embedded browser if this
     /// build has it (it can always tunnel), otherwise stops with an error toast
-    /// asking for a Chromium-based browser. A tunnel failure is reported and
-    /// nothing is opened. It never browses un-tunnelled.
+    /// asking for a Chromium-based browser. The system browser is not an option:
+    /// it cannot take a proxy. A tunnel failure is reported and nothing is
+    /// opened. It never browses un-tunnelled.
     fn open_browser_via_tunnel(
         state: &SharedAppState,
         notebook: &SharedNotebook,
         sidebar: &SharedSidebar,
         connection_id: Uuid,
     ) {
-        // Only SSH-family connections can host a SOCKS tunnel.
-        let (is_ssh, prefer_embedded, start_url, browser_command) = {
+        // Only connections `supports_browser_tunnel` accepts (SSH/SFTP, Tailscale
+        // SSH with a matching provider and config) can host a SOCKS tunnel.
+        let (can_tunnel, prefer_embedded, start_url, browser_command) = {
             let Ok(state_ref) = state.try_borrow() else {
                 return;
             };
-            let is_ssh = state_ref.get_connection(connection_id).is_some_and(|c| {
-                matches!(
-                    c.protocol_config,
-                    rustconn_core::models::ProtocolConfig::Ssh(_)
-                        | rustconn_core::models::ProtocolConfig::Sftp(_)
-                )
-            });
+            // `None` = the connection is gone; that case falls through so
+            // `socks_tunnel_params_for` reports it as such.
+            let can_tunnel = state_ref
+                .get_connection(connection_id)
+                .map(rustconn_core::ssh_tunnel::supports_browser_tunnel);
             let ui = &state_ref.settings().ui;
             (
-                is_ssh,
+                can_tunnel,
                 ui.open_tunnelled_browser_in_embedded,
                 Self::normalize_start_url(&ui.tunnel_browser_start_url),
                 ui.tunnel_browser_command.trim().to_string(),
             )
         };
-        if !is_ssh {
+        if can_tunnel == Some(false) {
+            // The menu only offers the item for connections the same predicate
+            // accepts, so this is a stale row or a direct action call.
+            tracing::debug!(
+                %connection_id,
+                "open-browser-via-tunnel on a connection that cannot host a tunnel"
+            );
+            crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
+                "Could not open the SSH tunnel: {}",
+                &[&Self::unsupported_tunnel_reason()],
+            ));
             return;
         }
+
+        // A repeat click while the tunnel is starting is ignored: the first click
+        // already raises one tunnel and one browser. Checked before anything else
+        // runs (browser detection spawns a process on this thread). The guard
+        // moves into the tunnel callback, so the mark is cleared on success and
+        // on failure alike, and by `Drop` on every early return below.
+        let Some(start_guard) = BrowserTunnelStart::begin(connection_id) else {
+            crate::toast::show_info_toast_on_active_window(&crate::i18n::i18n(
+                "Starting the tunnel…",
+            ));
+            return;
+        };
+
         // Only consulted by the embedded path; a build without it browses external.
         // Decide the external browser up front (does not need the tunnel yet).
         // A configured command wins; empty auto-detects, preferring the system
@@ -1430,7 +1516,8 @@ impl MainWindow {
         //
         // `embedded_available` is a runtime flag rather than raw `cfg!` so the
         // match arms below read the same on both builds; the compiler prunes the
-        // dead branch.
+        // dead branch. It is simply whether this build has the feature — no
+        // snap-specific gating, for parity with Flatpak.
         #[cfg(feature = "web-embedded")]
         let embedded_available = true;
         #[cfg(not(feature = "web-embedded"))]
@@ -1439,7 +1526,8 @@ impl MainWindow {
         // Emits the reason a chosen/auto external browser is unusable. When the
         // embedded browser will pick up the slack the message is informational
         // ("… opening the embedded browser instead"); when nothing can proceed
-        // it is an error. Returns the `Path` to take.
+        // (no embedded browser in this build either) it is an error. Returns the
+        // `Path` to take.
         let external_unusable =
             |reason_with_embedded: String, reason_no_embedded: &str| -> TunnelBrowserPath {
                 if embedded_available {
@@ -1495,16 +1583,56 @@ impl MainWindow {
             return;
         }
 
-        let tunnel = match Self::raise_socks_tunnel_for(state, connection_id) {
-            Ok(tunnel) => tunnel,
-            Err(msg) => {
-                crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
-                    "Could not open the SSH tunnel: {}",
-                    &[&msg],
-                ));
-                return;
+        // The tunnel comes up on a worker (a dead host would otherwise freeze the
+        // window until `ConnectTimeout`); the browser opens from the callback back
+        // on the GTK thread. No `Ref` is held across the worker: the params are
+        // read and released before it starts. The one-shot closure owns plain `Rc`
+        // clones and is stored nowhere, so it forms no cycle.
+        crate::toast::show_info_toast_on_active_window(&crate::i18n::i18n("Starting the tunnel…"));
+        let state_cb = std::rc::Rc::clone(state);
+        let notebook_cb = notebook.clone();
+        let sidebar_cb = sidebar.clone();
+        Self::raise_socks_tunnel_async(state, connection_id, move |result| {
+            // Cleared as soon as the outcome is known, whichever it is.
+            drop(start_guard);
+            match result {
+                Ok(tunnel) => {
+                    Self::launch_tunnel_browser(
+                        &state_cb,
+                        &notebook_cb,
+                        &sidebar_cb,
+                        connection_id,
+                        path,
+                        &start_url,
+                        tunnel,
+                    );
+                }
+                Err(msg) => {
+                    crate::toast::show_error_toast_on_active_window(&crate::i18n::i18n_f(
+                        "Could not open the SSH tunnel: {}",
+                        &[&msg],
+                    ));
+                }
             }
-        };
+        });
+    }
+
+    /// Opens the browser chosen by [`Self::open_browser_via_tunnel`] through a
+    /// SOCKS tunnel that is already up, and settles who owns the tunnel.
+    ///
+    /// The embedded browser consumes the tunnel (its lifetime is the tab's). An
+    /// external browser leaves it with the notebook and the external-session
+    /// registry; if the browser fails to start the tunnel is dropped here, which
+    /// kills `ssh`.
+    fn launch_tunnel_browser(
+        state: &SharedAppState,
+        notebook: &SharedNotebook,
+        sidebar: &SharedSidebar,
+        connection_id: Uuid,
+        path: TunnelBrowserPath,
+        start_url: &str,
+        tunnel: rustconn_core::ssh_tunnel::SshTunnel,
+    ) {
         let port = tunnel.local_port();
 
         let (browser, extra_args) = match path {
@@ -1517,13 +1645,15 @@ impl MainWindow {
                     state,
                     notebook,
                     connection_id,
-                    &start_url,
+                    start_url,
                     tunnel,
                 );
                 return;
             }
             #[cfg(not(feature = "web-embedded"))]
             TunnelBrowserPath::Embedded => {
+                // `state` is only read by the embedded path.
+                let _ = state;
                 unreachable!("embedded path is unreachable without the feature")
             }
             TunnelBrowserPath::Fail => return,
@@ -1542,7 +1672,7 @@ impl MainWindow {
         cmd.arg("--no-first-run");
         cmd.arg("--no-default-browser-check");
         cmd.arg(format!("--proxy-server=socks5://127.0.0.1:{port}"));
-        cmd.arg(&start_url);
+        cmd.arg(start_url);
 
         match cmd.spawn() {
             Ok(child) => {
@@ -2139,37 +2269,14 @@ impl MainWindow {
 
             tracing::info!(?mc_args, "SFTP connect: opening mc");
 
-            if let Some(ref kp) = key_path {
-                let mut ssh_add = std::process::Command::new("ssh-add");
-                ssh_add
-                    .arg(kp)
-                    .stdin(std::process::Stdio::null())
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::piped())
-                    // Strip host SSH_ASKPASS — it may reference a
-                    // program (e.g. ksshaskpass) absent in Flatpak.
-                    .env_remove("SSH_ASKPASS");
-                rustconn_core::sftp::apply_agent_env(&mut ssh_add);
-                match ssh_add.output() {
-                    Ok(output) if output.status.success() => {
-                        tracing::info!(?kp, "SSH key added to agent");
-                    }
-                    Ok(output) => {
-                        let stderr = String::from_utf8_lossy(&output.stderr);
-                        tracing::warn!(?kp, %stderr, "ssh-add failed");
-                        if let Some(sb) = sidebar {
-                            sb.update_connection_status(&connection_id.to_string(), "failed");
-                        }
-                        return;
-                    }
-                    Err(e) => {
-                        tracing::error!(?e, "Failed to run ssh-add");
-                        if let Some(sb) = sidebar {
-                            sb.update_connection_status(&connection_id.to_string(), "failed");
-                        }
-                        return;
-                    }
+            if let Some(ref kp) = key_path
+                && let Err(stderr) = rustconn_core::sftp::ensure_identity_loaded(kp)
+            {
+                tracing::warn!(?kp, %stderr, "ssh-add failed");
+                if let Some(sb) = sidebar {
+                    sb.update_connection_status(&connection_id.to_string(), "failed");
                 }
+                return;
             }
 
             // Update sidebar status for SFTP connection
@@ -2355,31 +2462,10 @@ impl MainWindow {
             let key_for_add = key_path.clone();
             crate::utils::spawn_blocking_with_callback(
                 move || {
-                    if let Some(ref kp) = key_for_add {
-                        let mut ssh_add = std::process::Command::new("ssh-add");
-                        ssh_add
-                            .arg(kp)
-                            .stdin(std::process::Stdio::null())
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::piped())
-                            // Strip host SSH_ASKPASS — it may reference a
-                            // program (e.g. ksshaskpass) absent in Flatpak.
-                            .env_remove("SSH_ASKPASS");
-                        rustconn_core::sftp::apply_agent_env(&mut ssh_add);
-                        match ssh_add.output() {
-                            Ok(output) if output.status.success() => {
-                                tracing::info!(?kp, "SSH key added to agent");
-                            }
-                            Ok(output) => {
-                                let stderr = String::from_utf8_lossy(&output.stderr);
-                                tracing::warn!(
-                                    ?kp, %stderr, "ssh-add failed"
-                                );
-                            }
-                            Err(e) => {
-                                tracing::error!(?e, "Failed to run ssh-add");
-                            }
-                        }
+                    if let Some(ref kp) = key_for_add
+                        && let Err(stderr) = rustconn_core::sftp::ensure_identity_loaded(kp)
+                    {
+                        tracing::warn!(?kp, %stderr, "ssh-add failed");
                     }
                     // Resolve the home-directory URI after the key is in the
                     // agent, off the GTK main thread; fall back to server root.
@@ -2399,5 +2485,46 @@ impl MainWindow {
                 },
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod browser_tunnel_tests {
+    use super::*;
+
+    #[test]
+    fn second_begin_for_same_connection_is_refused() {
+        let id = Uuid::new_v4();
+        let first = BrowserTunnelStart::begin(id);
+        assert!(first.is_some());
+        assert!(BrowserTunnelStart::begin(id).is_none());
+    }
+
+    #[test]
+    fn other_connection_is_not_blocked() {
+        let a = BrowserTunnelStart::begin(Uuid::new_v4());
+        let b = BrowserTunnelStart::begin(Uuid::new_v4());
+        assert!(a.is_some() && b.is_some());
+    }
+
+    #[test]
+    fn drop_clears_the_mark() {
+        let id = Uuid::new_v4();
+        drop(BrowserTunnelStart::begin(id));
+        assert!(BrowserTunnelStart::begin(id).is_some());
+    }
+
+    /// The success and failure paths consume the callback; a dead worker drops it
+    /// unrun. Either way the guard it owns must release the mark.
+    #[test]
+    fn guard_moved_into_a_dropped_closure_clears_the_mark() {
+        let id = Uuid::new_v4();
+        let guard = BrowserTunnelStart::begin(id);
+        let callback = move |_: Result<(), String>| {
+            let _guard = &guard;
+        };
+        assert!(BrowserTunnelStart::begin(id).is_none());
+        drop(callback);
+        assert!(BrowserTunnelStart::begin(id).is_some());
     }
 }

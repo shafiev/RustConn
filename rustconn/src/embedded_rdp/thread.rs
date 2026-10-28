@@ -155,9 +155,9 @@ pub struct ClipboardFileTransfer {
     /// A refused file is settled but not completed, and [`Self::all_complete`]
     /// asks whether every file is *settled*. Without this counter a single
     /// refusal left `completed_count` permanently short of `total_files`, so the
-    /// batch never reported a summary and `on_file_complete` never fired — even
-    /// when every other file had saved. That is the common case rather than a
-    /// rare one, since a server refuses any directory in the list.
+    /// batch never reported its summary and the button never reset — even when
+    /// every other file had saved. That is the common case rather than a rare
+    /// one, since a server refuses any directory in the list.
     pub refused_count: usize,
     /// Positions in `available_files` that the batch has yet to start, in order.
     ///

@@ -70,6 +70,10 @@ pub(super) struct GeneralFields {
     pub mosh_settings_group: adw::PreferencesGroup,
     /// Keyboard group on the SSH page, hidden for SFTP (issue #271)
     pub ssh_keyboard_group: adw::PreferencesGroup,
+    /// "Set Up Key Authentication…" row (K4), shown only for SSH — SFTP and
+    /// MOSH share this page but key setup builds on the arguments of a live
+    /// SSH session (mirrors `sidebar_ui::offers_key_setup`).
+    pub ssh_key_setup_row: adw::ActionRow,
 }
 
 impl ConnectionDialog {
@@ -359,6 +363,10 @@ impl ConnectionDialog {
         // file-manager tab that never applies it, so offering it there would be
         // a dead control (issue #271).
         fields.ssh_keyboard_group.set_visible(protocol_id != "sftp");
+        // SFTP and MOSH share the SSH page but not a live SSH session's
+        // arguments, which key setup builds on (same test as
+        // `sidebar_ui::offers_key_setup`).
+        fields.ssh_key_setup_row.set_visible(protocol_id == "ssh");
     }
 
     /// Returns the default port for a protocol

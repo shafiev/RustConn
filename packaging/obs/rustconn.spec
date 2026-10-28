@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.23.21
+Version:        0.24.0
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -392,6 +392,33 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Wed Oct 28 2026 Anton Isaiev <totoshko88@gmail.com> - 0.24.0-0
+- Version bump to 0.24.0 (performance release)
+- Added: "Set Up Key Authentication…" - generate or use an existing SSH
+  key, install and verify it on the server, and switch a connection to
+  key auth, from the sidebar menu and the connection editor
+- Added: embedded WebKitGTK browser in the snap, the default like the
+  Flatpak (issue #244); unsandboxed under strict confinement, see SNAP.md
+- Added: "Open Browser via Tunnel" for Tailscale SSH connections (issue #397)
+- Fixed: the current prompt line is no longer held back on prompts using
+  glyphs such as the arrow prompt and box-drawing/Nerd Font characters
+- Fixed: the CPU/RAM monitoring bar no longer stays washed out after
+  Reconnect (issue #398)
+- Fixed: embedded RDP hands a session that stalls after TLS to the external
+  client, so GNOME Remote Desktop connects (issue #392)
+- Fixed: F11 in a popped-out session window gives a true, chrome-free full
+  screen (issue #388)
+- Fixed: a mouse selection is no longer dropped while being dragged when the
+  remote redraws on a timer (contributed by Christian Petri, @Cyb0rk)
+- Fixed: browser SOCKS and jump-host tunnels bind to loopback only, whatever
+  GatewayPorts says (security)
+- Changed: performance work (W0/W1) - vault and SSH-connect no longer block
+  the GTK main thread; ssh-agent listing, ssh -G and secret global variables
+  no longer spawn or block on the main thread
+- Dependencies: Snap base core24 -> core26, GNOME platform gnome-46-2404 ->
+  gnome-core26 (issue #174); crypto-bigint 0.7.6 (yanked) -> 0.7.10 and a
+  batch of semver-compatible cargo updates
+
 * Fri Oct 23 2026 Anton Isaiev <totoshko88@gmail.com> - 0.23.21-0
 - Version bump to 0.23.21
 - Fixed: embedded RDP "Save N Files" no longer times out without saving

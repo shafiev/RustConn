@@ -6,6 +6,8 @@
 //! itself is initialised by the application entry point via `tracing_subscriber`
 //! (see `rustconn/src/main.rs`).
 
+pub mod perf;
+
 /// Standard span names for `RustConn` operations
 pub mod span_names {
     /// Connection establishment span

@@ -36,11 +36,11 @@ That covers, and you should not re-derive any of it by hand:
      `sha256`**, because a version bump without it fails the build.
    - Confirm `packaging/flathub/*.yml` is in sync with the local manifest. They
      drift independently.
-2. **Snap** — read `snap/snapcraft.yaml`: `base` (core24) and the `gnome` extension
-   (gnome-46-2404). The extension exists only for core22/core24, which is why the
-   snap trails the Flatpak's GNOME 50; a core26 gnome extension shipping is the
-   trigger to revisit (issue #174). Also check pinned `stage-packages` /
-   `build-packages`.
+2. **Snap** — read `snap/snapcraft.yaml`: `base` (core26) and the `gnome` extension
+   (gnome-core26 platform, mesa-2604 GPU). The snap moved to core26 once Snapcraft
+   9.2 added core26 support to the extension (issue #174); it still trails the
+   Flatpak's GNOME runtime by a release or two. Also check pinned
+   `stage-packages` / `build-packages`.
 3. **Judgement on the cargo findings.** A MAJOR bump needs its upstream changelog
    read before it is recommended. A patch-level hold needs the pin found and
    explained. Neither is something the classification alone answers.

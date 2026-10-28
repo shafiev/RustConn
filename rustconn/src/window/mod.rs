@@ -18,6 +18,7 @@ mod fullscreen_header;
 mod group_broadcast;
 mod groups;
 mod history_actions;
+mod key_setup;
 mod macro_dispatch;
 mod navigation_actions;
 mod network_monitor;
@@ -2417,6 +2418,7 @@ impl MainWindow {
                     &conn.host,
                 );
                 item.set_description(conn.description.as_deref().unwrap_or(""));
+                item.set_browser_tunnel(rustconn_core::ssh_tunnel::supports_browser_tunnel(conn));
                 store.append(&item);
             }
         } else {
@@ -2466,6 +2468,9 @@ impl MainWindow {
                         &conn.host,
                     );
                     item.set_description(conn.description.as_deref().unwrap_or(""));
+                    item.set_browser_tunnel(rustconn_core::ssh_tunnel::supports_browser_tunnel(
+                        conn,
+                    ));
                     store.append(&item);
                 }
             }
@@ -4278,8 +4283,9 @@ impl MainWindow {
         window: &adw::ApplicationWindow,
         state: &SharedAppState,
         sidebar: &SharedSidebar,
+        key_setup: &Rc<key_setup::KeySetupContext>,
     ) {
-        edit_dialogs::edit_selected_connection(window.upcast_ref(), state, sidebar);
+        edit_dialogs::edit_selected_connection(window.upcast_ref(), state, sidebar, key_setup);
     }
 
     /// Renames the selected connection or group

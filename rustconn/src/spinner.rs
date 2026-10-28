@@ -1,10 +1,9 @@
 //! The one place that knows whether this build has `AdwSpinner`.
 //!
 //! `AdwSpinner` arrived in libadwaita 1.6 and is the widget GNOME expects a
-//! modern application to use. Two supported build targets are still below that
-//! version — Ubuntu 24.04 ships libadwaita 1.5.0, and the snap's `core24`
-//! `gnome-46-2404` platform ships 1.5 — so the default build has to keep
-//! working against `GtkSpinner`. Rather than repeat a `#[cfg]` pair at each of
+//! modern application to use. Supported build targets are still below that
+//! version — Ubuntu 24.04 ships libadwaita 1.5.0 (deb and AppImage) — so the
+//! default build has to keep working against `GtkSpinner`. Rather than repeat a `#[cfg]` pair at each of
 //! the six construction sites, the choice is made once here and every caller
 //! spells the type [`Spinner`].
 //!

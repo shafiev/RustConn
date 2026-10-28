@@ -22,6 +22,7 @@
 
 use std::io;
 use std::process::{Child, Output};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 /// How often `try_wait` is asked while waiting out a budget.
@@ -78,11 +79,37 @@ impl Waited {
 /// failure to kill an over-budget child is *not* an error: the child may have
 /// exited between the poll and the signal, which is the common race and not a
 /// problem.
-pub fn wait_bounded(mut child: Child, budget: Duration, what: &'static str) -> io::Result<Waited> {
+pub fn wait_bounded(child: Child, budget: Duration, what: &'static str) -> io::Result<Waited> {
+    let never = AtomicBool::new(false);
+    Ok(wait_bounded_cancellable(child, budget, &never, what)?.unwrap_or(Waited::TimedOut))
+}
+
+/// Like [`wait_bounded`], but a caller on another thread can also stop the wait.
+///
+/// Returns `Ok(None)` when `cancel` became `true` before the child exited. The
+/// child has then been killed and reaped, exactly as on a timeout, so a
+/// cancelled run leaves no zombie behind. A child that exits in the same tick
+/// the flag is raised is reported as [`Waited::Exited`]: its output is real.
+///
+/// # Errors
+/// Same as [`wait_bounded`].
+pub fn wait_bounded_cancellable(
+    mut child: Child,
+    budget: Duration,
+    cancel: &AtomicBool,
+    what: &'static str,
+) -> io::Result<Option<Waited>> {
     let deadline = Instant::now() + budget;
     loop {
         if child.try_wait()?.is_some() {
-            return child.wait_with_output().map(Waited::Exited);
+            return child.wait_with_output().map(|o| Some(Waited::Exited(o)));
+        }
+        if cancel.load(Ordering::Relaxed) {
+            tracing::debug!(child = what, "child process cancelled; killing it");
+            // Same reasoning as the timeout branch below.
+            let _ = child.kill();
+            let _ = child.wait();
+            return Ok(None);
         }
         if Instant::now() >= deadline {
             tracing::warn!(
@@ -96,7 +123,7 @@ pub fn wait_bounded(mut child: Child, budget: Duration, what: &'static str) -> i
             // do if even that fails.
             let _ = child.kill();
             let _ = child.wait();
-            return Ok(Waited::TimedOut);
+            return Ok(Some(Waited::TimedOut));
         }
         std::thread::sleep(POLL_INTERVAL);
     }
@@ -165,6 +192,32 @@ mod tests {
             .output()
             .expect("a child that exited non-zero still has output");
         assert_eq!(output.status.code(), Some(3));
+    }
+
+    #[test]
+    fn a_cancelled_wait_kills_the_child_and_reports_none() {
+        let cancel = std::sync::Arc::new(AtomicBool::new(false));
+        let flag = std::sync::Arc::clone(&cancel);
+        let raiser = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            flag.store(true, Ordering::Relaxed);
+        });
+        let started = Instant::now();
+        let waited = wait_bounded_cancellable(
+            spawn(&["sleep", "30"]),
+            Duration::from_secs(30),
+            &cancel,
+            "test-cancel",
+        )
+        .expect("waiting must not error");
+        raiser.join().expect("raiser thread");
+
+        assert!(waited.is_none(), "a cancelled wait reports None");
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "returned after {:?}, so cancel was not honoured",
+            started.elapsed()
+        );
     }
 
     /// A killed child must not be left as a zombie. Asserted through the same

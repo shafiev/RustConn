@@ -393,6 +393,16 @@ impl MonitoringBar {
         self.refresh_info_tooltip();
     }
 
+    /// Returns whether this bar's collector has stopped (stale metrics).
+    ///
+    /// Used by [`MonitoringCoordinator::start_monitoring`] to tell a bar left
+    /// over from a dropped connection apart from one whose collector is still
+    /// running (issue #398).
+    #[must_use]
+    pub fn is_stopped(&self) -> bool {
+        self.collector_stopped.get()
+    }
+
     /// Applies visibility settings from global monitoring config
     pub fn apply_settings(&self, settings: &MonitoringSettings) {
         self.cpu_section.set_visible(settings.show_cpu);
@@ -468,6 +478,35 @@ fn format_uptime(secs: u64) -> String {
     }
 }
 
+/// What [`MonitoringCoordinator::start_monitoring`] should do about an
+/// existing bar for the session, given whether its collector has stopped.
+///
+/// Pulled out as a pure function so the guard's three outcomes — all of which
+/// matter for issue #398 — are testable without a display: a live bar must be
+/// left alone (`Skip`), a bar whose collector already stopped must be
+/// replaced rather than kept dimmed forever (`Replace`), and no existing bar
+/// means a fresh start (`Create`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StartAction {
+    /// No bar exists for this session yet — build one.
+    Create,
+    /// A bar with a live collector already exists — do nothing.
+    Skip,
+    /// A bar exists but its collector has stopped (stale metrics, e.g. after
+    /// a dropped connection) — detach it and build a fresh one.
+    Replace,
+}
+
+/// Decides the [`StartAction`] from whether an existing bar's collector has
+/// stopped. `None` means no bar exists for the session.
+fn start_action(existing_stopped: Option<bool>) -> StartAction {
+    match existing_stopped {
+        None => StartAction::Create,
+        Some(false) => StartAction::Skip,
+        Some(true) => StartAction::Replace,
+    }
+}
+
 /// Manages monitoring bars and collectors for all active sessions.
 ///
 /// Owns the mapping from session IDs to monitoring bars and collector handles.
@@ -514,7 +553,11 @@ impl MonitoringCoordinator {
     /// Starts monitoring for an SSH session.
     ///
     /// Creates a [`MonitoringBar`], appends it to the terminal `container`,
-    /// starts a background collector, and wires up GTK updates.
+    /// starts a background collector, and wires up GTK updates. If a bar
+    /// already exists for `session_id` with a collector that has stopped
+    /// (stale metrics from a previous, now-dead connection), it is detached
+    /// and replaced rather than left in place — see [`start_action`]
+    /// (issue #398). A bar whose collector is still running is left alone.
     ///
     /// # Arguments
     /// * `session_id` - Unique session identifier
@@ -547,9 +590,18 @@ impl MonitoringCoordinator {
             return;
         }
 
-        // Don't double-start
-        if self.bars.borrow().contains_key(&session_id) {
-            return;
+        // A bar with a live collector is left alone; a bar whose collector
+        // already stopped (stale, e.g. after a dropped connection — #398) is
+        // replaced rather than kept forever. The borrow ends before
+        // `detach_bar` runs below so it does not nest into `bars.borrow_mut()`.
+        let action = start_action(self.bars.borrow().get(&session_id).map(|b| b.is_stopped()));
+        match action {
+            StartAction::Skip => return,
+            StartAction::Replace => {
+                tracing::debug!(%session_id, "Replacing stale monitoring bar");
+                self.detach_bar(session_id);
+            }
+            StartAction::Create => {}
         }
 
         let bar = Rc::new(MonitoringBar::new());
@@ -635,11 +687,19 @@ impl MonitoringCoordinator {
         );
     }
 
-    /// Stops monitoring for a session and removes the bar widget.
-    pub fn stop_monitoring(&self, session_id: Uuid) {
-        // Clean up stored params (no longer needed)
-        self.suspended.borrow_mut().remove(&session_id);
-
+    /// Stops the collector (fire-and-forget) and removes the bar widget from
+    /// its parent for a session, without touching `suspended`.
+    ///
+    /// Shared by [`Self::stop_monitoring`], [`Self::suspend_monitoring`] and
+    /// the `Replace` branch of [`Self::start_monitoring`], so a stale bar is
+    /// always torn down the same way instead of being patched with CSS at
+    /// one call site (issue #398).
+    ///
+    /// Returns `true` if a bar actually existed for `session_id` and was
+    /// removed. Callers that need to know whether the session had a bar
+    /// before the call — [`Self::reset_for_reconnect`] — use this to decide
+    /// whether to restart monitoring afterwards.
+    fn detach_bar(&self, session_id: Uuid) -> bool {
         if let Some(handle) = self.handles.borrow_mut().remove(&session_id) {
             // Fire-and-forget stop signal
             crate::async_utils::spawn_async(async move {
@@ -654,7 +714,40 @@ impl MonitoringCoordinator {
             {
                 parent_box.remove(bar.widget());
             }
+            true
+        } else {
+            false
         }
+    }
+
+    /// Stops monitoring for a session and removes the bar widget.
+    pub fn stop_monitoring(&self, session_id: Uuid) {
+        // Clean up stored params (no longer needed)
+        self.suspended.borrow_mut().remove(&session_id);
+        self.detach_bar(session_id);
+    }
+
+    /// Discards the previous connection's monitoring bar and collector ahead
+    /// of a reconnect (issue #398).
+    ///
+    /// A reconnect starts a new SSH connection lifecycle, so any bar left
+    /// over from the previous one — whether already dimmed as stale or still
+    /// running with a collector that has not noticed the drop yet — must not
+    /// survive it. `suspended` (the split-view resume params) is left alone:
+    /// `start_monitoring`'s own `store_params` call overwrites it once the
+    /// reconnect's collector starts, and clearing it here would only risk
+    /// losing those params if the reconnect attempt fails before that point.
+    ///
+    /// Returns `true` if a bar actually existed and was torn down — the
+    /// caller uses this to decide how to resolve the container to restart
+    /// monitoring into once the reconnect establishes. A session whose
+    /// monitoring was suspended for split view (no bar in `bars`, only in
+    /// `suspended`) returns `false`: it must not have monitoring restarted
+    /// into its split pane, since monitoring there is suspended by design
+    /// until the session leaves the split (see `resume_monitoring`).
+    #[must_use]
+    pub fn reset_for_reconnect(&self, session_id: Uuid) -> bool {
+        self.detach_bar(session_id)
     }
 
     /// Stops all active monitoring sessions (e.g. on app shutdown)
@@ -674,20 +767,7 @@ impl MonitoringCoordinator {
             return;
         }
 
-        // Stop the collector
-        if let Some(handle) = self.handles.borrow_mut().remove(&session_id) {
-            crate::async_utils::spawn_async(async move {
-                handle.stop().await;
-            });
-        }
-
-        // Remove the bar widget
-        if let Some(bar) = self.bars.borrow_mut().remove(&session_id)
-            && let Some(parent) = bar.widget().parent()
-            && let Some(parent_box) = parent.downcast_ref::<gtk4::Box>()
-        {
-            parent_box.remove(bar.widget());
-        }
+        self.detach_bar(session_id);
 
         tracing::info!(
             session_id = %session_id,
@@ -782,5 +862,142 @@ impl MonitoringCoordinator {
 impl Default for MonitoringCoordinator {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{StartAction, start_action};
+
+    /// No bar exists yet — a fresh collector and bar should be created.
+    #[test]
+    fn start_action_creates_when_no_bar() {
+        assert_eq!(start_action(None), StartAction::Create);
+    }
+
+    /// A bar with a live collector must be left alone: starting monitoring
+    /// again (e.g. a repeated `connect_contents_changed` or a resume while
+    /// already active) must not create a second bar.
+    #[test]
+    fn start_action_skips_live_bar() {
+        assert_eq!(start_action(Some(false)), StartAction::Skip);
+    }
+
+    /// Regression for issue #398: a bar whose collector already stopped
+    /// (stale metrics, dimmed with `monitoring-stale`) must be replaced, not
+    /// kept — otherwise reconnect leaves the washed-out bar in place forever.
+    #[test]
+    fn start_action_replaces_stopped_bar() {
+        assert_eq!(start_action(Some(true)), StartAction::Replace);
+    }
+
+    // `detach_bar`/`reset_for_reconnect` act on `bars: HashMap<_, Rc<MonitoringBar>>`,
+    // and `MonitoringBar::new()` builds real `gtk4::Box`/`LevelBar`/`Image`
+    // widgets — there is no way to populate that map, even just to check
+    // removal and the returned `bool`, without `gtk4::init()` succeeding
+    // first. The two tests below need a display and their own process (GTK
+    // is not safe to initialise more than once per process, and `cargo test`
+    // runs targets in parallel threads of one process), so they follow the
+    // same `#[ignore]` + graceful-skip convention as the other GTK-backed
+    // tests in this crate (e.g. `terminal::detach::tests`) rather than
+    // running in the headless default suite. On-device coverage for the
+    // widget *placement* (tab/detached/split) stays in
+    // `.agents/tasks/fix-398-392/plan-398.md`.
+
+    use uuid::Uuid;
+
+    use super::MonitoringCoordinator;
+    use rustconn_core::monitoring::MonitoringSettings;
+
+    /// `detach_bar` removes the session from both `bars` and `handles`, and
+    /// reports via its return value whether a bar actually existed —
+    /// idempotently on a second call.
+    #[test]
+    #[ignore = "initialises GTK: needs a display and its own process; run alone with `cargo test -p rustconn --bin rustconn -- --ignored --exact monitoring::tests::detach_bar_removes_from_both_maps_and_is_idempotent`"]
+    fn detach_bar_removes_from_both_maps_and_is_idempotent() {
+        if gtk4::init().is_err() {
+            // No display in this environment — on-device only (see module doc above).
+            return;
+        }
+
+        let coordinator = MonitoringCoordinator::new();
+        let session_id = Uuid::new_v4();
+        let container = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let settings = MonitoringSettings::default();
+
+        // `start_collector` calls `tokio::spawn`, which needs an ambient
+        // runtime context; `detach_bar`'s fire-and-forget stop goes through
+        // `spawn_async` (the GLib main context), which needs no running loop
+        // just to queue the future.
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            coordinator.start_monitoring(
+                session_id,
+                &container,
+                &settings,
+                "example.invalid",
+                22,
+                None,
+                None,
+                None,
+                None,
+            );
+        });
+
+        assert!(coordinator.bars.borrow().contains_key(&session_id));
+        assert!(coordinator.handles.borrow().contains_key(&session_id));
+
+        assert!(
+            coordinator.detach_bar(session_id),
+            "a bar existed, so detach_bar must report it was removed"
+        );
+        assert!(!coordinator.bars.borrow().contains_key(&session_id));
+        assert!(!coordinator.handles.borrow().contains_key(&session_id));
+
+        assert!(
+            !coordinator.detach_bar(session_id),
+            "second call on an already-detached session must be a no-op reported as such"
+        );
+    }
+
+    /// `reset_for_reconnect` is a thin wrapper over `detach_bar`: it must
+    /// return `false` with no bar present, and `true` after tearing one
+    /// down — the signal `reconnect_ssh_in_place` uses to resolve where the
+    /// restarted bar is allowed to go (issue #398, pass 3).
+    #[test]
+    #[ignore = "initialises GTK: needs a display and its own process; run alone with `cargo test -p rustconn --bin rustconn -- --ignored --exact monitoring::tests::reset_for_reconnect_reports_whether_a_bar_existed`"]
+    fn reset_for_reconnect_reports_whether_a_bar_existed() {
+        if gtk4::init().is_err() {
+            return;
+        }
+
+        let coordinator = MonitoringCoordinator::new();
+        let session_id = Uuid::new_v4();
+
+        // No bar was ever started for this session (e.g. monitoring
+        // suspended for split view, or disabled) — nothing to reset.
+        assert!(!coordinator.reset_for_reconnect(session_id));
+
+        let container = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let settings = MonitoringSettings::default();
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            coordinator.start_monitoring(
+                session_id,
+                &container,
+                &settings,
+                "example.invalid",
+                22,
+                None,
+                None,
+                None,
+                None,
+            );
+        });
+        assert!(coordinator.bars.borrow().contains_key(&session_id));
+
+        assert!(coordinator.reset_for_reconnect(session_id));
+        assert!(!coordinator.bars.borrow().contains_key(&session_id));
+        assert!(!coordinator.handles.borrow().contains_key(&session_id));
     }
 }

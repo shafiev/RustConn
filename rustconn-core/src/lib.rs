@@ -84,6 +84,8 @@ pub mod snap;
 pub mod snippet;
 pub mod split;
 pub mod ssh_agent;
+pub mod ssh_askpass;
+pub mod ssh_key_setup;
 pub mod ssh_tunnel;
 pub mod sync;
 pub mod template;
@@ -196,7 +198,7 @@ pub use monitoring::{
     MetricsComputer, MetricsEvent, MetricsParser, MonitoringConfig, MonitoringError,
     MonitoringOverride, MonitoringResult, MonitoringSettings, NetworkMetrics, NetworkSnapshot,
     RemoteMetrics, RemoteOsType, SYSTEM_INFO_COMMAND, SystemInfo, close_all_control_sockets,
-    close_control_socket, close_dead_control_sockets, effective_monitoring,
+    close_control_socket, close_dead_control_sockets, control_socket_present, effective_monitoring,
     effective_monitoring_interval, ssh_control_path, ssh_exec_factory, start_collector,
 };
 pub use password_generator::{
@@ -283,8 +285,8 @@ pub use session::{
 pub use session_placement::{DetachContext, DetachVerdict, detach_verdict, may_place_in_split};
 pub use sftp::{
     build_mc_sftp_command, build_sftp_browser_uri, build_sftp_command, build_sftp_uri,
-    build_sftp_uri_from_connection, ensure_key_in_agent, get_downloads_dir, get_ssh_key_path,
-    resolve_remote_home,
+    build_sftp_uri_from_connection, ensure_identity_loaded, ensure_key_in_agent, get_downloads_dir,
+    get_ssh_key_path, resolve_remote_home,
 };
 // `ensure_flatpak_mc_ssh_wrapper` was replaced by `mc_ssh::prepare_mc_ssh_env`,
 // which generates a full ssh_config instead of only a known_hosts override.

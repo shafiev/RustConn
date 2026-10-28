@@ -71,6 +71,17 @@ fn display_name<'a>(connection: &'a str, protocol: &'a str) -> &'a str {
     }
 }
 
+/// Decides whether the header bar should be shown for a given full-screen state.
+///
+/// Pure so it can be unit-tested headlessly; the actual visibility change needs
+/// a display. Full screen hides the header bar entirely rather than going
+/// through `ToolbarView::set_reveal_top_bars(false)`, because that call would
+/// also hide the disconnect banner, which must stay visible even in full
+/// screen (issue #236).
+const fn header_visible(fullscreen: bool) -> bool {
+    !fullscreen
+}
+
 /// A top-level window hosting exactly one detached session.
 pub struct DetachedSessionWindow {
     window: adw::ApplicationWindow,
@@ -144,6 +155,30 @@ impl DetachedSessionWindow {
         toolbar_view.add_top_bar(&header);
         toolbar_view.add_top_bar(&disconnect_banner);
         toolbar_view.set_content(Some(content));
+
+        // Mirrors the main window's fullscreen chrome (`window/fullscreen_header.rs`):
+        // react to the `fullscreened` property, not to the toggle action, so F11,
+        // a window-manager fullscreen and `present_fullscreen_on` all hide and
+        // restore the header bar identically. Applied once up front in case the
+        // window is presented already fullscreen.
+        //
+        // ponytail: this is the minimal faithful piece (hide/restore only, no
+        // top-edge hover reveal) rather than a shared helper — the main window's
+        // `State` is hard-wired to its notebook, tab bar and split view. Upgrade
+        // path: generalise `fullscreen_header::State` over an optional
+        // notebook/split view if a detached window ever needs hover reveal too.
+        header.set_visible(header_visible(window.is_fullscreen()));
+        {
+            let header = header.downgrade();
+            let session_id = params.session_id;
+            window.connect_fullscreened_notify(move |win| {
+                if let Some(header) = header.upgrade() {
+                    let fullscreen = win.is_fullscreen();
+                    tracing::debug!(session = %session_id, fullscreen, "detached window fullscreen changed");
+                    header.set_visible(header_visible(fullscreen));
+                }
+            });
+        }
 
         let toast_overlay = adw::ToastOverlay::new();
         toast_overlay.set_child(Some(&toolbar_view));
@@ -545,7 +580,7 @@ impl DetachedWindowRegistry {
 
 #[cfg(test)]
 mod tests {
-    use super::detached_window_title;
+    use super::{detached_window_title, header_visible};
 
     #[test]
     fn window_title_names_the_connection_and_the_application() {
@@ -559,5 +594,15 @@ mod tests {
     fn window_title_falls_back_to_the_protocol_without_a_connection_name() {
         assert_eq!(detached_window_title("", "SSH"), "SSH — RustConn");
         assert_eq!(detached_window_title("   ", "VNC"), "VNC — RustConn");
+    }
+
+    #[test]
+    fn header_is_visible_when_not_fullscreen() {
+        assert!(header_visible(false));
+    }
+
+    #[test]
+    fn header_is_hidden_when_fullscreen() {
+        assert!(!header_visible(true));
     }
 }
