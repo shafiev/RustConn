@@ -1,30 +1,33 @@
-rustconn (0.23.21-1) unstable; urgency=medium
+rustconn (0.24.0-1) unstable; urgency=medium
 
-  * Version bump to 0.23.21
-  * Fixed: embedded RDP "Save N Files" no longer times out without saving
-    when the folder dialog is a portal window (Flatpak, Snap) (issue #390)
-  * Fixed: Bitwarden item contents are passed to bw via stdin instead of
-    command-line arguments, closing a local /proc/<pid>/cmdline leak
-  * Fixed: no more UI freeze after the startup Bitwarden unlock and after
-    every Settings save (issue #353)
-  * Fixed: Bitwarden "Search from vault root" makes one bw call fewer per
-    lookup, and Settings no longer unlocks an already-unlocked vault again
-    (issue #353)
-  * Fixed: repeated credential fetches (Copy Username/Password, Load
-    password from vault) are now served from a session cache (issue #353)
-  * Fixed: Serial Auto-Detect finds macOS ports and ranks USB adapters
-    first
-  * Fixed: Remmina import keeps leading and trailing spaces in passwords
-  * Fixed: Group Sync no longer exports a local SSH key file path
-  * Fixed: the SSH key passphrase is no longer passed to ssh-add in the
-    environment, and a wrong passphrase no longer freezes RustConn
-  * Changed: bw sync runs at most every 10 minutes while a Bitwarden
-    session is held (issue #353)
-  * Dependencies: ctutils 0.4.3 -> 0.4.5 (RUSTSEC-2026-0385); cc,
-    crypto-bigint, smallvec, uuid (semver-compatible); Flatpak OpenH264
-    2.6.0 -> 2.7.0
+  * Version bump to 0.24.0 (performance release)
+  * Added: "Set Up Key Authentication…" — generate or use an existing SSH
+    key, install and verify it on the server, and switch a connection to
+    key auth, from the sidebar menu and the connection editor
+  * Added: embedded WebKitGTK browser in the snap, the default like the
+    Flatpak (issue #244); unsandboxed under strict confinement, see SNAP.md
+  * Added: "Open Browser via Tunnel" for Tailscale SSH connections
+    (issue #397)
+  * Fixed: the current prompt line is no longer held back on prompts using
+    glyphs such as the arrow prompt and box-drawing/Nerd Font characters
+  * Fixed: the CPU/RAM monitoring bar no longer stays washed out after
+    Reconnect (issue #398)
+  * Fixed: embedded RDP hands a session that stalls after TLS to the
+    external client, so GNOME Remote Desktop connects (issue #392)
+  * Fixed: F11 in a popped-out session window gives a true, chrome-free
+    full screen (issue #388)
+  * Fixed: a mouse selection is no longer dropped while being dragged when
+    the remote redraws on a timer (contributed by Christian Petri, @Cyb0rk)
+  * Fixed: browser SOCKS and jump-host tunnels bind to loopback only,
+    whatever GatewayPorts says (security)
+  * Changed: performance work (W0/W1) — vault and SSH-connect no longer
+    block the GTK main thread; ssh-agent listing, ssh -G and secret global
+    variables no longer spawn or block on the main thread
+  * Dependencies: Snap base core24 -> core26, GNOME platform
+    gnome-46-2404 -> gnome-core26 (issue #174); crypto-bigint 0.7.6 (yanked)
+    -> 0.7.10 and a batch of semver-compatible cargo updates
 
- -- Anton Isaiev <totoshko88@gmail.com>  Fri, 23 Oct 2026 00:00:00 +0000
+ -- Anton Isaiev <totoshko88@gmail.com>  Wed, 28 Oct 2026 00:00:00 +0000
 
 rustconn (0.23.20-1) unstable; urgency=medium
 
