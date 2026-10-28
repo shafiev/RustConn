@@ -5,6 +5,11 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **QUIC (quicssh) preset on the SSH ProxyCommand row — SSH over QUIC via [moul/quicssh](https://github.com/moul/quicssh)** — the editor's ProxyCommand row gets a QUIC button that fills in `quicssh client --addr %h:%p`: an ordinary SSH connection whose transport is the `quicssh client` QUIC tunnel, which keeps connection migration (roaming between networks) and UDP NAT traversal for ISP-NATed hosts. Because it is a preset and not a new protocol type, everything SSH already does applies unchanged — jump hosts, exports, vault keys, connection testing, reconnect. The tooltip reports whether the `quicssh` binary was found (with an install hint and the note that the Flatpak/Snap builds only see binaries reachable inside the sandbox), and the password auto-fill allow-list recognizes the relay, so stored passwords still auto-fill past it. (`rustconn/src/dialogs/connection/ssh.rs`, `rustconn-core/src/ssh_tunnel.rs`, `rustconn-core/src/protocol/detection.rs`)
+
 ## [0.24.0] - 2026-10-28
 
 ### Fixed
